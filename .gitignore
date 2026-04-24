@@ -47,7 +47,10 @@ artifacts/
 *.ndf
 
 # .NET secrets
-appsettings.Development.json
+# Note: appsettings.json and appsettings.Development.json are tracked
+# by .NET convention — keep them free of secrets. Personal/local
+# overrides go in *.Local.json or in dotnet user-secrets (see
+# QuantamAnalytics.Api.csproj <UserSecretsId>).
 appsettings.Local.json
 appsettings.*.local.json
 

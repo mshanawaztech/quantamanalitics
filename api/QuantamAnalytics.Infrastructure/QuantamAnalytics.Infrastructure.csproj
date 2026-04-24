@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Infrastructure layer: EF Core context, migrations, repositories, and
+    external service clients (R2, Auth0, Resend, Checkr, etc.). Depends on
+    Domain. Real EF Core packages land in PR-03.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>QuantamAnalytics.Infrastructure</RootNamespace>
+    <AssemblyName>QuantamAnalytics.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QuantamAnalytics.Domain\QuantamAnalytics.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
