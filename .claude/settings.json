@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-settings.json",
+  "_comment": "Project-level settings for Claude Code / Cowork. User-level settings live in ~/.claude/settings.json and override these for the user; team settings live here and are committed to the repo so any maintainer (human or AI) inherits them.",
+
+  "permissions": {
+    "_comment": "Permission rules apply ON TOP OF the user's settings. We deny destructive git operations on main and any direct git push that bypasses a PR. The branch/PR rule is also encoded as a project skill so Claude reads it before doing git work.",
+    "deny": [
+      "Bash(git push origin main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard origin/main:*)",
+      "Bash(git checkout main -- :*)"
+    ]
+  },
+
+  "env": {
+    "_comment": "Hint to Claude that this project uses .NET 10 LTS + Angular + PostgreSQL. Picked up by codebase-aware agents.",
+    "PROJECT_STACK": "aspnet-core-10,angular,postgresql,bicep,azure-container-apps"
+  }
+}

@@ -1,0 +1,64 @@
+# Top-most EditorConfig file
+root = true
+
+# All files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# Markdown — preserve trailing whitespace (used for line breaks)
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# YAML
+[*.{yml,yaml}]
+indent_size = 2
+
+# JSON
+[*.{json,jsonc}]
+indent_size = 2
+
+# TypeScript / JavaScript / Angular
+[*.{ts,tsx,js,jsx,html,scss,css}]
+indent_size = 2
+
+# .NET / C# / project files
+[*.{cs,vb,csproj,vbproj,sln,props,targets,json,xml,config}]
+indent_size = 4
+
+# C# specific style rules (consumed by dotnet format)
+[*.cs]
+# Sort and remove unused usings
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Var preferences
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:silent
+
+# Expression-bodied members
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+
+# Namespace style
+csharp_style_namespace_declarations = file_scoped:warning
+
+# Pattern matching
+csharp_style_prefer_pattern_matching = true:suggestion
+csharp_style_prefer_switch_expression = true:suggestion
+
+# Nullable and async
+dotnet_diagnostic.CS8600.severity = warning
+dotnet_diagnostic.CS8602.severity = warning
+dotnet_diagnostic.CS8603.severity = warning
+
+# Bicep
+[*.bicep]
+indent_size = 2

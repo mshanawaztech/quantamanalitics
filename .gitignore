@@ -1,0 +1,126 @@
+# ─── .NET ────────────────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild[Ll]og.*
+publish/
+PublishProfiles/
+*.[Pp]ublish.xml
+*.azurePubxml
+*.pubxml
+*.publishproj
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+
+# .NET tooling
+.vs/
+*.opendb
+*.VC.db
+*.VC.opendb
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# EF Core
+*.mdf
+*.ldf
+*.ndf
+
+# .NET secrets
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+
+# ─── Node / Angular ──────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+dist/
+dist-ssr/
+.angular/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# ─── Environment & secrets ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.env
+local.settings.json
+secrets.json
+*.pem
+*.key
+*.crt
+
+# Azure Functions artifacts
+local.settings.json
+bin
+obj
+.vscode/launch.json
+
+# ─── Editors / IDEs ──────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# ─── OS ──────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ─── Bicep / Terraform ───────────────────────────────────────────────────
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+*.bicepparam.local.json
+
+# ─── Testing & coverage ──────────────────────────────────────────────────
+TestResults/
+[Cc]overage/
+*.coverage
+*.coveragexml
+coverage.opencover.xml
+.nyc_output/
+playwright-report/
+test-results/
+
+# ─── Misc ────────────────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+.history/
