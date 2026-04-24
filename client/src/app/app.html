@@ -1,0 +1,25 @@
+<main class="shell">
+  <header>
+    <h1>Quantam Analytics</h1>
+    <p class="tagline">Multi-tenant staffing platform — Phase 1 scaffold</p>
+  </header>
+
+  <section class="health" aria-live="polite">
+    <h2>API health</h2>
+    @if (health.loading()) {
+      <p>Probing <code>/api/health</code>…</p>
+    } @else if (health.error()) {
+      <p class="error">
+        Could not reach the API: <code>{{ health.error() }}</code><br>
+        Start it locally with <code>dotnet run --project api/QuantamAnalytics.Api</code>.
+      </p>
+    } @else if (health.data(); as data) {
+      <p class="ok">
+        <strong>{{ data.status }}</strong> · service <code>{{ data.service }}</code>
+        · version <code>{{ data.version }}</code> · {{ data.timestamp }}
+      </p>
+    }
+  </section>
+
+  <router-outlet />
+</main>

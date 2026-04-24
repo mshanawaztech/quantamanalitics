@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Domain layer: pure C# entities, value objects, and domain interfaces.
+    NO references to ASP.NET, EF Core, or external SDKs. This is the part
+    of the system that should outlive any infrastructure choice.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>QuantamAnalytics.Domain</RootNamespace>
+    <AssemblyName>QuantamAnalytics.Domain</AssemblyName>
+  </PropertyGroup>
+
+</Project>

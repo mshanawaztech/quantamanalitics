@@ -87,8 +87,20 @@ quantamanalitics/
 ## Current state
 
 - **Active phase:** Phase 1 — MVP
-- **Active deliverable:** PR-01 · Bootstrap (in progress on `qa001-bootstrap`)
-- **Next deliverable:** PR-02 · Solution scaffold (.NET 10 + Angular)
+- **Active deliverable:** PR-02 · Solution scaffold on `qa001-solution-scaffold` (open PR)
+- **Last merged:** PR-01 · Bootstrap (`qa001-bootstrap`)
+- **Next deliverable:** PR-03 · PostgreSQL + EF Core foundation
+
+### What PR-02 added (read these before extending)
+
+- `api/QuantamAnalytics.sln` with four projects: `Api`, `Domain`, `Infrastructure`, `Tests`.
+- `api/Directory.Build.props` — `net10.0`, nullable on, warnings-as-errors, deterministic builds. Applies to every .NET project; do not duplicate these per-csproj.
+- `api/QuantamAnalytics.Api/Program.cs` — minimal hosting, `ProblemDetails` for RFC 7807 errors, dev-only CORS for `http://localhost:4200`. `public partial class Program;` is exposed for `WebApplicationFactory<Program>`.
+- `api/QuantamAnalytics.Api/Endpoints/HealthEndpoint.cs` — `GET /health` returns `{ status, service, version, timestamp }`. Wire shape is consumed by the Angular `HealthService`; renaming fields breaks the client and the test.
+- `api/QuantamAnalytics.Tests/HealthEndpointTests.cs` — integration test via `WebApplicationFactory<Program>`. Pattern to copy for future endpoint tests.
+- `client/` — Angular 21 workspace (`ng new`, standalone components, no SSR, SCSS, routing). `provideHttpClient(withFetch())` is wired in `app.config.ts`.
+- `client/src/environments/environment.ts` — `apiBase: 'http://localhost:5080'`. Dev API port is **5080**; if you change it, update `Properties/launchSettings.json` too.
+- `client/src/app/core/health/health.service.ts` — probes `/health` on construction; landing page (`app.html`) renders loading / ok / error states from its signals.
 
 ## Cost discipline
 

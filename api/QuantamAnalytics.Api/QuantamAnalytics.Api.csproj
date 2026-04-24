@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    API host. Minimal-API style routing (no MVC controllers needed for now).
+    Real endpoints come in later PRs:
+      PR-03  EF Core wiring + first migration
+      PR-06  Auth0 JWT validation
+      PR-09  Public job board endpoints
+      PR-11  Recruiter endpoints
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>QuantamAnalytics.Api</RootNamespace>
+    <AssemblyName>QuantamAnalytics.Api</AssemblyName>
+    <UserSecretsId>quantamanalitics-api-dev</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\QuantamAnalytics.Domain\QuantamAnalytics.Domain.csproj" />
+    <ProjectReference Include="..\QuantamAnalytics.Infrastructure\QuantamAnalytics.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
