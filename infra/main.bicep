@@ -17,7 +17,7 @@ targetScope = 'resourceGroup'
 // ── Parameters ──────────────────────────────────────────────────────────────
 
 @description('Short stack name. Used as a prefix for every resource.')
-@minLength(3)
+@minLength(2)
 @maxLength(12)
 param stack string = 'qa'
 
@@ -124,6 +124,9 @@ module staticWebApp 'modules/static-web-app.bicep' = {
 
 // ── Outputs ─────────────────────────────────────────────────────────────────
 // Surfaced so GitHub Actions in PR-05 can read them without re-deriving names.
+// Secrets are NOT outputted — deployment outputs end up in plaintext history.
+// The Container App already has the AI connection string injected as a secret
+// inside its own template (see modules/container-app.bicep).
 
 output resourceGroupName string = resourceGroup().name
 output keyVaultName string = keyVault.outputs.name
@@ -133,4 +136,3 @@ output containerAppName string = containerApp.outputs.name
 output containerAppUrl string = containerApp.outputs.fqdn
 output staticWebAppName string = staticWebApp.outputs.name
 output staticWebAppDefaultHostname string = staticWebApp.outputs.defaultHostname
-output appInsightsConnectionString string = appInsights.outputs.connectionString
