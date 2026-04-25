@@ -87,9 +87,34 @@ quantamanalitics/
 ## Current state
 
 - **Active phase:** Phase 1 — MVP
-- **Active deliverable:** PR-03 · PostgreSQL + EF Core foundation on `qa001-postgres-efcore` (open PR)
-- **Last merged:** PR-02 · Solution scaffold (`qa001-solution-scaffold`)
-- **Next deliverable:** PR-04 · Infra-as-code (Bicep) for dev
+- **Active deliverable:** PR-04 · Infra-as-code (Bicep) for dev on `qa001-infra-bicep-dev` (open PR)
+- **Last merged:** PR-03 · PostgreSQL + EF Core foundation (`qa001-postgres-efcore`)
+- **Next deliverable:** PR-05 · CI/CD pipelines
+
+### What PR-04 added (read these before extending)
+
+- `infra/main.bicep` — RG-scoped orchestrator. Subscription / RG creation is done by `az group create` first; this template only fills the RG. Outputs surface every resource name + URL the GHA workflow in PR-05 needs.
+- `infra/main.bicepparam` — dev defaults: stack=qa, environment=dev, location=eastus2, placeholder API image. Override `keyVaultAdminPrincipalIds` on the CLI with your own object ID for first deploy.
+- `infra/modules/` — one file per resource. Pattern: pinned api-versions, `@description` on every param, `@secure()` on anything secret-like, `output id name fqdn` so other modules (or GHA) can chain off it.
+- **Cost discipline baked in:** Container App scales 0→1 (consumption profile), SWA Free SKU, Key Vault Standard, App Insights piggybacks on a single Log Analytics workspace, **Postgres lives in Neon — not in Azure**. Estimated dev run cost: $0–3/month.
+- **Resource naming:** CAF abbreviations + `<stack>-<env>` suffix. Globally-unique names (KV, SWA) get a `take(uniqueString(...), 6)` suffix. Don't change the naming scheme — it's referenced from PR-05's GHA workflow.
+- **Probes:** Container App liveness hits `/health` (no DB), readiness hits `/ready` (DB hit). A Postgres outage takes the app out of rotation immediately — by design.
+- **Image:** until PR-05 lands, the Container App runs `mcr.microsoft.com/azuredocs/containerapps-helloworld`. PR-05 swaps in a real GHCR image via `--parameters apiImage=...` from the workflow.
+
+### Deploying the dev environment
+
+Full instructions live in `infra/README.md`. TL;DR after `az login`:
+
+```
+az group create --name rg-qa-dev --location eastus2
+MY_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
+az deployment group create \
+  --resource-group rg-qa-dev \
+  --name qa-dev-bootstrap \
+  --template-file infra/main.bicep \
+  --parameters infra/main.bicepparam \
+  --parameters keyVaultAdminPrincipalIds="['$MY_OBJECT_ID']"
+```
 
 ### What PR-03 added (read these before extending)
 
