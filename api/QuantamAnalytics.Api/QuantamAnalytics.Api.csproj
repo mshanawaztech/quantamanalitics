@@ -3,7 +3,6 @@
   <!--
     API host. Minimal-API style routing (no MVC controllers needed for now).
     Real endpoints come in later PRs:
-      PR-03  EF Core wiring + first migration
       PR-06  Auth0 JWT validation
       PR-09  Public job board endpoints
       PR-11  Recruiter endpoints
@@ -18,6 +17,18 @@
   <ItemGroup>
     <ProjectReference Include="..\QuantamAnalytics.Domain\QuantamAnalytics.Domain.csproj" />
     <ProjectReference Include="..\QuantamAnalytics.Infrastructure\QuantamAnalytics.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      EF Core design-time tooling. Required so `dotnet ef` can target this
+      project as the startup. PrivateAssets="all" keeps the dependency from
+      flowing through to anything that references the API.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

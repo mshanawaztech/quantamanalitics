@@ -5,8 +5,8 @@ Each row below is one branch + one PR + one squash-merge. Small, reviewable, che
 | #   | Branch                          | Scope                                                                          | Status |
 | --- | ------------------------------- | ------------------------------------------------------------------------------ | ------ |
 | 01  | `qa001-bootstrap`               | README, CLAUDE.md, plan, conventions, gitignore, PR template, .claude/ folder  | merged |
-| 02  | `qa001-solution-scaffold`       | ASP.NET Core 10 solution + Angular workspace + `/health` endpoint              | in review |
-| 03  | `qa001-postgres-efcore`         | EF Core 10 + Npgsql, initial migration with `Tenants`, Neon dev connection     | pending |
+| 02  | `qa001-solution-scaffold`       | ASP.NET Core 10 solution + Angular workspace + `/health` endpoint              | merged |
+| 03  | `qa001-postgres-efcore`         | EF Core 10 + Npgsql, initial migration with `Tenants`, Neon dev connection     | in review |
 | 04  | `qa001-infra-bicep-dev`         | Bicep for `rg-quantamanalitics-dev`: Container Apps, SWA, Key Vault, App Insights | pending |
 | 05  | `qa001-cicd`                    | `.github/workflows/ci.yml` + `deploy-dev.yml`                                  | pending |
 | 06  | `qa001-auth`                    | Auth0 integration, JWT validation, Angular guards, role enum                   | pending |

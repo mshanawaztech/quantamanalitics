@@ -21,16 +21,58 @@ plan/        Multi-phase roadmap and per-phase deliverable lists
 
 ## Local development
 
-Each component will document its own `Local development` section as it lands. As of the bootstrap PR, the repo contains only planning and governance — no runnable code yet. The next deliverable (PR-02) scaffolds the .NET solution and Angular workspace.
+### Prerequisites
 
-Once PR-02 lands, local dev will be:
+- .NET 10 SDK (`dotnet --version` should report `10.0.x`)
+- Node.js LTS (for the Angular client)
+- A free [Neon](https://neon.tech) Postgres project (used as the dev database)
+- EF Core CLI tools — install once: `dotnet tool install --global dotnet-ef`
+
+### One-time database setup
+
+1. Create a free Neon project at [console.neon.tech](https://console.neon.tech). Pick the region nearest you.
+2. From the Neon dashboard, copy the **connection string** (the pooled one, with `-pooler` in the host). It looks like:
+   ```
+   Host=ep-xxx-pooler.us-east-2.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=...;SslMode=Require
+   ```
+3. Store it locally with `dotnet user-secrets` (never commit it):
+   ```bash
+   cd api/QuantamAnalytics.Api
+   dotnet user-secrets set "ConnectionStrings:Postgres" "Host=...;Database=...;Username=...;Password=...;SslMode=Require"
+   ```
+4. Apply the schema migration to your Neon DB:
+   ```bash
+   cd api
+   dotnet ef database update \
+     --project QuantamAnalytics.Infrastructure \
+     --startup-project QuantamAnalytics.Api
+   ```
+
+### Run the stack
 
 ```bash
-# API
+# API on http://localhost:5080
 cd api && dotnet run --project QuantamAnalytics.Api
 
-# Client
+# Client on http://localhost:4200
 cd client && npm install && npm start
+```
+
+The Angular landing card probes `GET /health` (liveness, no DB) and the API also exposes `GET /ready` (readiness, pings Postgres). Use `/ready` to confirm your connection string is good before assuming anything else is broken.
+
+### Running tests
+
+```bash
+cd api && dotnet test
+```
+
+### Adding a new EF Core migration
+
+```bash
+cd api
+dotnet ef migrations add <DescriptiveName> \
+  --project QuantamAnalytics.Infrastructure \
+  --startup-project QuantamAnalytics.Api
 ```
 
 ## Contributing
