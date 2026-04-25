@@ -11,12 +11,13 @@ ASP.NET Core 10 · EF Core 10 · PostgreSQL · Angular (LTS) · Azure Container 
 ## Repository layout
 
 ```
-api/         ASP.NET Core 10 solution (Domain, Infrastructure, Api, Tests)
+api/         ASP.NET Core 10 solution (Domain, Infrastructure, Api, Tests) + Dockerfile
 client/      Angular workspace
 infra/       Bicep templates for Azure resources
 plan/        Multi-phase roadmap and per-phase deliverable lists
+docs/        Setup guides and ADRs
 .claude/     Project-level Claude skills and settings
-.github/     PR template and CI/CD workflows
+.github/     PR template and CI/CD workflows (ci.yml, deploy-dev.yml)
 ```
 
 ## Local development
@@ -74,6 +75,14 @@ dotnet ef migrations add <DescriptiveName> \
   --project QuantamAnalytics.Infrastructure \
   --startup-project QuantamAnalytics.Api
 ```
+
+## CI/CD
+
+Every PR runs `.github/workflows/ci.yml` (build + test + lint for the API, the client, the Bicep, and the Docker image). Branch protection on `main` requires it to pass.
+
+Every squash-merge into `main` runs `.github/workflows/deploy-dev.yml` (build → push to GHCR → re-deploy Bicep with the new image → smoke-test `/health` → build Angular bundle → ship to SWA). Authenticates to Azure via OIDC federation — no client secret stored anywhere.
+
+One-time setup (Azure SP, federated credentials, GitHub secrets, branch protection) is documented in [`docs/cicd.md`](./docs/cicd.md).
 
 ## Contributing
 

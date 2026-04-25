@@ -87,9 +87,34 @@ quantamanalitics/
 ## Current state
 
 - **Active phase:** Phase 1 — MVP
-- **Active deliverable:** PR-04 · Infra-as-code (Bicep) for dev on `qa001-infra-bicep-dev` (open PR)
-- **Last merged:** PR-03 · PostgreSQL + EF Core foundation (`qa001-postgres-efcore`)
-- **Next deliverable:** PR-05 · CI/CD pipelines
+- **Active deliverable:** PR-05 · CI/CD pipelines on `qa001-cicd` (open PR)
+- **Last merged:** PR-04 · Infra-as-code Bicep (`qa001-infra-bicep-dev`)
+- **Next deliverable:** PR-06 · Auth foundation
+
+### What PR-05 added (read these before extending)
+
+- **`api/Dockerfile`** — multi-stage build (sdk:10.0 → aspnet:10.0). Listens on `:8080` (matches `infra/modules/container-app.bicep` targetPort). Runs as the built-in non-root `app` user. Layer caching is optimized: csproj copy + restore happens before source copy, so source-only changes don't bust the restore layer.
+- **`api/.dockerignore`** — excludes `bin/`, `obj/`, the Tests project, IDE state, and any local secrets file. Keep it tight to avoid baking junk into images.
+- **`.github/workflows/ci.yml`** — runs on every PR + push to main. Four jobs in parallel: API build/test/format, client lint/build, Bicep syntax check on every `.bicep`, and a no-push Docker build (catches Dockerfile breakage before merge). All four are required status checks on main (set in branch protection — see `docs/cicd.md`).
+- **`.github/workflows/deploy-dev.yml`** — runs on push to main + manual dispatch. Three sequential jobs:
+  1. `api-image` — builds + pushes `ghcr.io/<owner>/quantamanalitics-api:<sha>` and `:latest` to GHCR.
+  2. `deploy-infra` — re-runs the Bicep with `apiImage=ghcr.io/...:<sha>`, then smoke-tests `https://<fqdn>/health` with retries.
+  3. `deploy-client` — rewrites `environment.prod.ts` with the live API URL, builds the Angular bundle, ships to SWA.
+- **OIDC federation** — `azure/login@v2` uses `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID`. No client secret anywhere. Trust is configured per-repo via `az ad app federated-credential create`. Setup steps in `docs/cicd.md`.
+- **GHCR for images** — image is public after first-deploy one-click visibility flip in GitHub Packages UI. Container App pulls anonymously. Production hardening (private GHCR + managed identity pull) is a Phase 5 task.
+- **Migrations are NOT auto-applied** by deploy-dev. Run them manually with `dotnet ef database update` for now. PR-12 hardening adds a `migrate-dev.yml` workflow.
+- **Concurrency rules:** PR runs of CI cancel themselves on new pushes; main runs of CI never cancel. Two deploy-dev runs never overlap (`concurrency: deploy-dev`, no cancel).
+
+### Required GitHub repository secrets
+
+These must exist or both workflows fail. See `docs/cicd.md` for how to obtain each:
+
+| Secret | Source |
+| --- | --- |
+| `AZURE_CLIENT_ID` | The `appId` of the qa-github-dev AAD app |
+| `AZURE_TENANT_ID` | `az account show --query tenantId` |
+| `AZURE_SUBSCRIPTION_ID` | `az account show --query id` |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN` | `az staticwebapp secrets list ... --query properties.apiKey` |
 
 ### What PR-04 added (read these before extending)
 
