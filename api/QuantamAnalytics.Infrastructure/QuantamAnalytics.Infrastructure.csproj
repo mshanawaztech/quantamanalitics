@@ -3,7 +3,8 @@
   <!--
     Infrastructure layer: EF Core context, migrations, repositories, and
     external service clients (R2, Auth0, Resend, Checkr, etc.). Depends on
-    Domain. Real EF Core packages land in PR-03.
+    Domain. EF Core 10 + Npgsql land here in PR-03; auth/storage clients
+    follow in later PRs.
   -->
 
   <PropertyGroup>
@@ -13,6 +14,23 @@
 
   <ItemGroup>
     <ProjectReference Include="..\QuantamAnalytics.Domain\QuantamAnalytics.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- EF Core 10 + Postgres provider -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+
+    <!-- Snake_case naming so generated SQL matches Postgres conventions -->
+    <PackageReference Include="EFCore.NamingConventions" Version="10.0.0" />
+
+    <!-- DI extension types used by AddInfrastructure() -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+
+    <!-- DB connectivity health check used by /ready -->
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

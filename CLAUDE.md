@@ -87,20 +87,47 @@ quantamanalitics/
 ## Current state
 
 - **Active phase:** Phase 1 — MVP
-- **Active deliverable:** PR-02 · Solution scaffold on `qa001-solution-scaffold` (open PR)
-- **Last merged:** PR-01 · Bootstrap (`qa001-bootstrap`)
-- **Next deliverable:** PR-03 · PostgreSQL + EF Core foundation
+- **Active deliverable:** PR-03 · PostgreSQL + EF Core foundation on `qa001-postgres-efcore` (open PR)
+- **Last merged:** PR-02 · Solution scaffold (`qa001-solution-scaffold`)
+- **Next deliverable:** PR-04 · Infra-as-code (Bicep) for dev
 
-### What PR-02 added (read these before extending)
+### What PR-03 added (read these before extending)
 
-- `api/QuantamAnalytics.sln` with four projects: `Api`, `Domain`, `Infrastructure`, `Tests`.
-- `api/Directory.Build.props` — `net10.0`, nullable on, warnings-as-errors, deterministic builds. Applies to every .NET project; do not duplicate these per-csproj.
-- `api/QuantamAnalytics.Api/Program.cs` — minimal hosting, `ProblemDetails` for RFC 7807 errors, dev-only CORS for `http://localhost:4200`. `public partial class Program;` is exposed for `WebApplicationFactory<Program>`.
-- `api/QuantamAnalytics.Api/Endpoints/HealthEndpoint.cs` — `GET /health` returns `{ status, service, version, timestamp }`. Wire shape is consumed by the Angular `HealthService`; renaming fields breaks the client and the test.
-- `api/QuantamAnalytics.Tests/HealthEndpointTests.cs` — integration test via `WebApplicationFactory<Program>`. Pattern to copy for future endpoint tests.
-- `client/` — Angular 21 workspace (`ng new`, standalone components, no SSR, SCSS, routing). `provideHttpClient(withFetch())` is wired in `app.config.ts`.
-- `client/src/environments/environment.ts` — `apiBase: 'http://localhost:5080'`. Dev API port is **5080**; if you change it, update `Properties/launchSettings.json` too.
-- `client/src/app/core/health/health.service.ts` — probes `/health` on construction; landing page (`app.html`) renders loading / ok / error states from its signals.
+- **Domain:**
+  - `Domain/Common/IEntity.cs` — base marker. `ITenantScoped : IEntity` is the contract PR-07's global query filter latches onto; every tenant-owned entity must implement it.
+  - `Domain/Entities/Tenant.cs` — first real aggregate. `Slug` is the URL-safe natural key (used in subdomains and sign-in), unique and immutable. Constructor self-assigns a UUID v7 via `Guid.CreateVersion7()`.
+- **Infrastructure:**
+  - `Infrastructure/Data/AppDbContext.cs` — single `DbContext`. Picks up entity configurations by reflection from this assembly.
+  - `Infrastructure/Data/Configurations/TenantConfiguration.cs` — pattern to copy for every new entity. `ValueGeneratedNever()` on the PK is mandatory so EF doesn't clobber the v7 Guid set in the ctor.
+  - `Infrastructure/DependencyInjection.cs` — single `AddInfrastructure(configuration)` extension. Reads `ConnectionStrings:Postgres`, fails fast in dev with a useful error if missing. Uses `AddDbContextPool` for perf and `UseSnakeCaseNamingConvention()` so generated SQL is idiomatic Postgres.
+- **Api:**
+  - `Program.cs` — `AddInfrastructure()` wired in. New `GET /ready` endpoint returns 200 only when EF can reach Postgres. `/health` stays pure liveness (no DB).
+  - `appsettings.json` has an empty `ConnectionStrings:Postgres` placeholder. Real value lives in `dotnet user-secrets` for dev, env vars in prod. **Never commit a real connection string.**
+  - `QuantamAnalytics.Api.csproj` references `Microsoft.EntityFrameworkCore.Design` (PrivateAssets=all) so `dotnet ef` can target it as the startup project.
+- **PK strategy:** UUID v7 (`Guid.CreateVersion7()`), generated in entity constructors. Time-ordered → no index hot-spotting. No DB roundtrip to allocate. Safe across multi-tenant + distributed writes. Don't switch to `Identity` columns or v4 Guids without an ADR.
+- **Naming:** snake_case at the DB layer (via EFCore.NamingConventions), PascalCase in C#. Don't override per-entity unless there's a reason.
+- **Tests:** `AppDbContextModelTests.cs` is the pattern for fast model-validation tests — no real DB, just inspects the EF model. Real DB tests come later via Testcontainers when behavior justifies the spin-up cost.
+
+### Migrations workflow
+
+Migrations live in `api/QuantamAnalytics.Infrastructure/Migrations/` and are checked into source control. Add a new one with:
+
+```
+cd api
+dotnet ef migrations add <DescriptiveName> \
+  --project QuantamAnalytics.Infrastructure \
+  --startup-project QuantamAnalytics.Api
+```
+
+Apply pending migrations to the connected DB (uses the user-secrets connection string in dev):
+
+```
+dotnet ef database update \
+  --project QuantamAnalytics.Infrastructure \
+  --startup-project QuantamAnalytics.Api
+```
+
+Never edit a migration after it's been pushed to a shared branch — add a new one instead.
 
 ## Cost discipline
 
