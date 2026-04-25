@@ -3,7 +3,6 @@
   <!--
     API host. Minimal-API style routing (no MVC controllers needed for now).
     Real endpoints come in later PRs:
-      PR-06  Auth0 JWT validation
       PR-09  Public job board endpoints
       PR-11  Recruiter endpoints
   -->
@@ -29,6 +28,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+
+    <!-- Auth0 JWT validation (PR-06). The provider is generic JWT bearer; the
+         Auth0-specific bits (issuer, audience, custom roles claim) are wired
+         in Auth/AuthExtensions.cs. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

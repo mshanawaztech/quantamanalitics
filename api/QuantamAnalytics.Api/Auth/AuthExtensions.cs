@@ -1,0 +1,80 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using QuantamAnalytics.Domain.Common;
+
+namespace QuantamAnalytics.Api.Auth;
+
+/// <summary>
+/// Single entry point for everything auth-related: JWT bearer validation
+/// against Auth0, role-based authorization policies, and the claim mapping
+/// that turns Auth0's namespaced custom claims into things ASP.NET understands.
+/// </summary>
+public static class AuthExtensions
+{
+    public const string Auth0DomainKey = "Auth0:Domain";
+    public const string Auth0AudienceKey = "Auth0:Audience";
+
+    public static IServiceCollection AddPlatformAuth(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var domain = configuration[Auth0DomainKey];
+        var audience = configuration[Auth0AudienceKey];
+
+        if (string.IsNullOrWhiteSpace(domain) || string.IsNullOrWhiteSpace(audience))
+        {
+            throw new InvalidOperationException(
+                $"Auth0 is not configured. Set both {Auth0DomainKey} (e.g. dev-xxx.us.auth0.com) " +
+                $"and {Auth0AudienceKey} (e.g. https://api.quantamanalitics.com) via " +
+                "appsettings, dotnet user-secrets, or env vars.");
+        }
+
+        services
+            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                // Authority is the OIDC discovery root. Auth0 serves
+                // jwks/openid-configuration off /.well-known/.
+                options.Authority = $"https://{domain}/";
+                options.Audience = audience;
+
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = $"https://{domain}/",
+                    ValidateAudience = true,
+                    ValidAudience = audience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromMinutes(2),
+
+                    // Auth0 emits roles in a custom-namespace claim (set by an
+                    // Action — see docs/auth.md). Tell ASP.NET to use that key
+                    // for [Authorize(Roles = "...")] and User.IsInRole(...).
+                    NameClaimType = ClaimTypes.NameIdentifier,
+                    RoleClaimType = Roles.RolesClaim,
+                };
+            });
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(AuthorizationPolicies.RequirePlatformAdmin,
+                p => p.RequireAuthenticatedUser().RequireRole(Roles.PlatformAdmin));
+
+            options.AddPolicy(AuthorizationPolicies.RequireRecruiter,
+                p => p.RequireAuthenticatedUser().RequireRole(Roles.Recruiter));
+
+            options.AddPolicy(AuthorizationPolicies.RequireCandidate,
+                p => p.RequireAuthenticatedUser().RequireRole(Roles.Candidate));
+
+            // Default fallback — every endpoint without an explicit policy
+            // requires an authenticated user. Public endpoints opt out with
+            // .AllowAnonymous(). This is the safer default for a B2B SaaS.
+            options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
+
+        return services;
+    }
+}
