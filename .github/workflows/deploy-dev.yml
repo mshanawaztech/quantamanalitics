@@ -1,0 +1,185 @@
+name: Deploy · dev
+
+# Triggered automatically by squash-merges into main, plus manually for
+# rollbacks / forced redeploys.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      api_image_tag:
+        description: 'Override API image tag (defaults to latest commit SHA)'
+        required: false
+        type: string
+
+# Never run two deploys at once. Newer one waits, doesn't cancel.
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # OIDC federation for az login (no client secret)
+  packages: write   # Push to GHCR
+
+env:
+  AZURE_RESOURCE_GROUP: rg-qa-dev
+  AZURE_LOCATION: eastus2
+  GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/quantamanalitics-api
+
+jobs:
+  # ── Build + publish API image to GHCR ──────────────────────────────────────
+  api-image:
+    name: API · build & push image
+    runs-on: ubuntu-24.04
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_ref: ${{ steps.meta.outputs.image_ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          TAG="${{ inputs.api_image_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_SHA::7}"
+          fi
+          echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${GHCR_IMAGE}:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Building image: ${GHCR_IMAGE}:${TAG}"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: api
+          file: api/Dockerfile
+          push: true
+          # Push both a SHA-pinned tag and `latest` so:
+          #   - rollback by SHA is possible
+          #   - the bicep default `apiImage` param still points at something real
+          tags: |
+            ${{ steps.meta.outputs.image_ref }}
+            ${{ env.GHCR_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+
+  # ── Apply Bicep + point Container App at the new image ────────────────────
+  deploy-infra:
+    name: Infra · deploy bicep with new image
+    runs-on: ubuntu-24.04
+    needs: api-image
+    outputs:
+      api_url: ${{ steps.outputs.outputs.api_url }}
+      swa_name: ${{ steps.outputs.outputs.swa_name }}
+      swa_hostname: ${{ steps.outputs.outputs.swa_hostname }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy bicep with the freshly-built image
+        uses: azure/arm-deploy@v2
+        with:
+          scope: resourcegroup
+          resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
+          template: infra/main.bicep
+          parameters: >-
+            infra/main.bicepparam
+            apiImage=${{ needs.api-image.outputs.image_ref }}
+          deploymentName: deploy-${{ github.run_number }}
+          failOnStdErr: false
+
+      - name: Read deployment outputs
+        id: outputs
+        run: |
+          OUTS=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "deploy-${{ github.run_number }}" \
+            --query properties.outputs)
+          echo "$OUTS"
+          echo "api_url=$(echo "$OUTS" | jq -r '.containerAppUrl.value')" >> "$GITHUB_OUTPUT"
+          echo "swa_name=$(echo "$OUTS" | jq -r '.staticWebAppName.value')" >> "$GITHUB_OUTPUT"
+          echo "swa_hostname=$(echo "$OUTS" | jq -r '.staticWebAppDefaultHostname.value')" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test API /health
+        run: |
+          set -euo pipefail
+          URL="https://${{ steps.outputs.outputs.api_url }}/health"
+          echo "Probing $URL"
+          for i in $(seq 1 12); do
+            if curl --fail --silent --show-error "$URL" > /tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health probe never returned 200 — failing the deploy."
+          exit 1
+
+  # ── Build + ship Angular bundle to Static Web Apps ────────────────────────
+  deploy-client:
+    name: Client · build & deploy to SWA
+    runs-on: ubuntu-24.04
+    needs: deploy-infra
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for dev (point at the freshly-deployed API)
+        env:
+          # Angular builds inline `environment.ts` at build time; no runtime
+          # config injection. We rewrite the file in place so the prod build
+          # picks up the dev API URL.
+          API_BASE_URL: https://${{ needs.deploy-infra.outputs.api_url }}
+        run: |
+          cat > src/environments/environment.prod.ts <<EOF
+          // Auto-generated by .github/workflows/deploy-dev.yml — do not edit.
+          export const environment = {
+            production: true,
+            apiBase: '$API_BASE_URL',
+          };
+          EOF
+          npm run build -- --configuration=production
+
+      - name: Deploy to Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: client
+          # Angular 21 outputs to client/dist/<project-name>/browser
+          output_location: dist/client/browser
+          skip_app_build: true

@@ -7,8 +7,8 @@ Each row below is one branch + one PR + one squash-merge. Small, reviewable, che
 | 01  | `qa001-bootstrap`               | README, CLAUDE.md, plan, conventions, gitignore, PR template, .claude/ folder  | merged |
 | 02  | `qa001-solution-scaffold`       | ASP.NET Core 10 solution + Angular workspace + `/health` endpoint              | merged |
 | 03  | `qa001-postgres-efcore`         | EF Core 10 + Npgsql, initial migration with `Tenants`, Neon dev connection     | merged |
-| 04  | `qa001-infra-bicep-dev`         | Bicep for `rg-qa-dev`: Container Apps, SWA, Key Vault, App Insights, Log Analytics | in review |
-| 05  | `qa001-cicd`                    | `.github/workflows/ci.yml` + `deploy-dev.yml`                                  | pending |
+| 04  | `qa001-infra-bicep-dev`         | Bicep for `rg-qa-dev`: Container Apps, SWA, Key Vault, App Insights, Log Analytics | merged |
+| 05  | `qa001-cicd`                    | `.github/workflows/ci.yml` + `deploy-dev.yml` + Dockerfile + OIDC setup doc    | in review |
 | 06  | `qa001-auth`                    | Auth0 integration, JWT validation, Angular guards, role enum                   | pending |
 | 07  | `qa001-multi-tenant`            | `TenantId` everywhere, EF global query filter, tenant resolver middleware      | pending |
 | 08  | `qa001-marketing-site`          | Angular public routes: Home, About, Services, Contact + responsive layout      | pending |

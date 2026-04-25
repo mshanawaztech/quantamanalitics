@@ -1,0 +1,27 @@
+# Build output and tooling state
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# IDE / editor noise
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/*.suo
+
+# Tests project — not needed in the runtime image
+QuantamAnalytics.Tests/
+
+# Local secrets — never bake into an image
+**/*.local.json
+**/secrets.json
+**/appsettings.*.local.json
+.env
+.env.*
+
+# Git noise
+.git/
+.gitignore
+.gitattributes
