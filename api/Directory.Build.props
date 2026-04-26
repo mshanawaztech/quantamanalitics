@@ -20,4 +20,15 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <!--
+    Test-project-only relaxations. CA1707 (no underscores in member names)
+    is a public-API rule that conflicts with the de-facto xUnit convention
+    of `Method_describes_what_it_tests`, which is intentionally readable
+    when a test fails. Test methods are never callers' API, so there's no
+    real consumer to confuse.
+  -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
 </Project>
