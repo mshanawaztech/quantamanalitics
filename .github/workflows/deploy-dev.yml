@@ -103,9 +103,12 @@ jobs:
           scope: resourcegroup
           resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
           template: infra/main.bicep
+          # Postgres connection is a @secure() bicep param; passed inline
+          # from a GitHub secret (never persisted to deployment history).
           parameters: >-
             infra/main.bicepparam
             apiImage=${{ needs.api-image.outputs.image_ref }}
+            postgresConnectionString=${{ secrets.POSTGRES_CONNECTION_STRING }}
           deploymentName: deploy-${{ github.run_number }}
           failOnStdErr: false
 

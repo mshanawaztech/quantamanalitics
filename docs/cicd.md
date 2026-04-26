@@ -107,6 +107,18 @@ az staticwebapp secrets list \
 
 Copy that value into a fourth GitHub repository secret named **`AZURE_STATIC_WEB_APPS_API_TOKEN`**.
 
+### 3a. Add the Postgres connection string
+
+The deploy workflow injects this into the Container App as `ConnectionStrings__Postgres`. Without it the API container crash-loops on startup (PR-03's `AddInfrastructure` fail-fast guard).
+
+Get the string from your Neon project dashboard, convert from libpq URI to Npgsql keyword form:
+
+```
+Host=ep-xxx-pooler.us-east-2.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=npg_XXXX;SslMode=Require;Channel Binding=Disable
+```
+
+Add a fifth GitHub secret named **`POSTGRES_CONNECTION_STRING`** with that value.
+
 ### 4. Make the GHCR package public (one click, after first push)
 
 The first deploy will push `ghcr.io/mshanawaz114/quantamanalitics-api`. By default GHCR packages are private, which means the Container App needs registry credentials to pull. For dev simplicity, make it public:

@@ -34,6 +34,10 @@ param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:la
 @description('Object IDs (AAD) of users/principals that should have Key Vault Secrets Officer access in dev. Empty = nobody (you add yourself manually after first deploy).')
 param keyVaultAdminPrincipalIds array = []
 
+@description('Postgres connection string in Npgsql keyword form (Host=...;Database=...;Username=...;Password=...;SslMode=Require). Empty default lets the bare-bicep deploy still succeed when Postgres is not yet wired up; the GHA workflow always passes the real value from secrets.POSTGRES_CONNECTION_STRING.')
+@secure()
+param postgresConnectionString string = ''
+
 // ── Naming ─────────────────────────────────────────────────────────────────
 // CAF-style abbreviations. Suffix unique per env so prd resources don't
 // collide with dev. Globally-unique names (KV, SWA) get a uniqueString suffix.
@@ -108,6 +112,7 @@ module containerApp 'modules/container-app.bicep' = {
     environmentId: containerAppsEnv.outputs.id
     image: apiImage
     appInsightsConnectionString: appInsights.outputs.connectionString
+    postgresConnectionString: postgresConnectionString
   }
 }
 
