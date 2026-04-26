@@ -28,4 +28,14 @@
     <ProjectReference Include="..\QuantamAnalytics.Api\QuantamAnalytics.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      Global usings for the test assembly. Saves a `using Xunit;` (and a
+      `using FluentAssertions;`) at the top of every test file. Keeps test
+      bodies tight and matches what `dotnet new xunit` ships in its Usings.cs.
+    -->
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
 </Project>
