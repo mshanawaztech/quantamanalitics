@@ -23,6 +23,10 @@ param image string
 @secure()
 param appInsightsConnectionString string
 
+@description('Postgres connection string in Npgsql keyword form. When non-empty, surfaced to the app as ConnectionStrings__Postgres via a Container App secret.')
+@secure()
+param postgresConnectionString string = ''
+
 @description('Port the container listens on. Must match ASPNETCORE_HTTP_PORTS.')
 param targetPort int = 8080
 
@@ -35,6 +39,50 @@ param minReplicas int = 0
 @minValue(1)
 @maxValue(25)
 param maxReplicas int = 1
+
+// Conditionally include the postgres secret + env var only when a value
+// was passed — keeps the bare-bicep deploy from blowing up if Postgres
+// isn't wired yet.
+var hasPostgres = !empty(postgresConnectionString)
+
+var baseSecrets = [
+  {
+    name: 'appinsights-connection-string'
+    value: appInsightsConnectionString
+  }
+]
+var postgresSecret = [
+  {
+    name: 'postgres-connection-string'
+    value: postgresConnectionString
+  }
+]
+var allSecrets = hasPostgres ? concat(baseSecrets, postgresSecret) : baseSecrets
+
+var baseEnv = [
+  {
+    name: 'ASPNETCORE_ENVIRONMENT'
+    value: 'Development'
+  }
+  {
+    name: 'ASPNETCORE_HTTP_PORTS'
+    value: string(targetPort)
+  }
+  {
+    name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+    secretRef: 'appinsights-connection-string'
+  }
+]
+var postgresEnv = [
+  {
+    // Double-underscore = ASP.NET Core configuration's nested-key separator,
+    // so this maps to ConnectionStrings:Postgres in IConfiguration, which is
+    // exactly what AddInfrastructure() reads via GetConnectionString("Postgres").
+    name: 'ConnectionStrings__Postgres'
+    secretRef: 'postgres-connection-string'
+  }
+]
+var allEnv = hasPostgres ? concat(baseEnv, postgresEnv) : baseEnv
 
 resource ca 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
@@ -60,12 +108,7 @@ resource ca 'Microsoft.App/containerApps@2024-03-01' = {
           }
         ]
       }
-      secrets: [
-        {
-          name: 'appinsights-connection-string'
-          value: appInsightsConnectionString
-        }
-      ]
+      secrets: allSecrets
     }
     template: {
       containers: [
@@ -77,20 +120,7 @@ resource ca 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
-          env: [
-            {
-              name: 'ASPNETCORE_ENVIRONMENT'
-              value: 'Development'
-            }
-            {
-              name: 'ASPNETCORE_HTTP_PORTS'
-              value: string(targetPort)
-            }
-            {
-              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-              secretRef: 'appinsights-connection-string'
-            }
-          ]
+          env: allEnv
           probes: [
             {
               type: 'Liveness'
