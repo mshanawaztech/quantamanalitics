@@ -11,6 +11,12 @@
     <AssemblyName>QuantamAnalytics.Tests</AssemblyName>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!--
+      CA1707 forbids underscores in member names — a public-API rule that
+      breaks the xUnit convention `Method_describes_what_it_tests`. Test
+      methods aren't a public surface, so the rule has no consumer.
+    -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

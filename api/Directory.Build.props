@@ -21,14 +21,11 @@
   </PropertyGroup>
 
   <!--
-    Test-project-only relaxations. CA1707 (no underscores in member names)
-    is a public-API rule that conflicts with the de-facto xUnit convention
-    of `Method_describes_what_it_tests`, which is intentionally readable
-    when a test fails. Test methods are never callers' API, so there's no
-    real consumer to confuse.
+    Per-project NoWarn relaxations live in the individual csproj. We tried
+    a Directory.Build.props conditional on $(IsTestProject), but props is
+    evaluated BEFORE the csproj so the property isn't set yet. Could be
+    moved to Directory.Build.targets if we ever have multiple test projects;
+    one project = one direct NoWarn line is fine.
   -->
-  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
-    <NoWarn>$(NoWarn);CA1707</NoWarn>
-  </PropertyGroup>
 
 </Project>
