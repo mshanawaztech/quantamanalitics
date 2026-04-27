@@ -1,0 +1,16 @@
+# Scoped overrides for EF Core auto-generated migration files.
+#
+# Every `dotnet ef migrations add` regenerates these — fighting the
+# generator's style choices means our code-style rules would be undone
+# on every schema change. Disable the rules that the generator violates
+# so the build doesn't break.
+
+[*.cs]
+
+# IDE0161 wants file-scoped namespaces (`namespace Foo;`); EF emits
+# block-scoped (`namespace Foo { ... }`).
+dotnet_diagnostic.IDE0161.severity = none
+
+# CA1062 (validate args before use) — internal-only generated code,
+# no public callers to defend against.
+dotnet_diagnostic.CA1062.severity = none

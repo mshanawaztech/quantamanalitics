@@ -20,4 +20,12 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <!--
+    Per-project NoWarn relaxations live in the individual csproj. We tried
+    a Directory.Build.props conditional on $(IsTestProject), but props is
+    evaluated BEFORE the csproj so the property isn't set yet. Could be
+    moved to Directory.Build.targets if we ever have multiple test projects;
+    one project = one direct NoWarn line is fine.
+  -->
+
 </Project>

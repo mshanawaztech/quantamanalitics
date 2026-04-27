@@ -24,7 +24,7 @@
       project as the startup. PrivateAssets="all" keeps the dependency from
       flowing through to anything that references the API.
     -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
@@ -32,7 +32,7 @@
     <!-- Auth0 JWT validation (PR-06). The provider is generic JWT bearer; the
          Auth0-specific bits (issuer, audience, custom roles claim) are wired
          in Auth/AuthExtensions.cs. -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.1" />
   </ItemGroup>
 
 </Project>
