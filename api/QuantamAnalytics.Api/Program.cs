@@ -3,13 +3,18 @@ using QuantamAnalytics.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS for the Angular dev server (http://localhost:4200). The production
-// origin is added via configuration once the SWA URL is known (PR-04).
-const string DevCorsPolicy = "DevClient";
+// Allowed CORS origins — comma-separated list read from configuration.
+//   Local dev: appsettings.Development.json (or fall back to localhost:4200)
+//   Cloud dev: bicep injects the SWA URL via env var Cors__AllowedOrigins
+//   Prod:      env var with the prod hostname(s)
+const string DefaultCorsPolicy = "DefaultCors";
+var corsOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "http://localhost:4200")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(DevCorsPolicy, policy => policy
-        .WithOrigins("http://localhost:4200")
+    options.AddPolicy(DefaultCorsPolicy, policy => policy
+        .WithOrigins(corsOrigins)
         .AllowAnyHeader()
         .AllowAnyMethod());
 });
@@ -26,10 +31,9 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors(DevCorsPolicy);
-}
+// CORS unconditionally — the allow-list is the gate, not the environment.
+// A wide-open list in dev is intentional; prod gets a narrow list via env.
+app.UseCors(DefaultCorsPolicy);
 
 // Liveness — process is up. No DB, no auth, never blocks.
 app.MapHealthEndpoint();

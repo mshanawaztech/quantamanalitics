@@ -103,6 +103,20 @@ module containerAppsEnv 'modules/container-apps-env.bicep' = {
   }
 }
 
+module staticWebApp 'modules/static-web-app.bicep' = {
+  name: 'staticWebApp'
+  params: {
+    name: names.staticWebApp
+    // SWA Free SKU is only available in a few regions. East US 2 -> use eastus2.
+    // If you change `location`, this may need a separate SWA region param.
+    location: location
+    tags: tags
+  }
+}
+
+// Container App goes last so it can reference the SWA hostname for CORS.
+// Bicep figures out the dependency order from the param refs — no need for
+// explicit `dependsOn`.
 module containerApp 'modules/container-app.bicep' = {
   name: 'containerApp'
   params: {
@@ -113,17 +127,10 @@ module containerApp 'modules/container-app.bicep' = {
     image: apiImage
     appInsightsConnectionString: appInsights.outputs.connectionString
     postgresConnectionString: postgresConnectionString
-  }
-}
-
-module staticWebApp 'modules/static-web-app.bicep' = {
-  name: 'staticWebApp'
-  params: {
-    name: names.staticWebApp
-    // SWA Free SKU is only available in a few regions. East US 2 -> use eastus2.
-    // If you change `location`, this may need a separate SWA region param.
-    location: location
-    tags: tags
+    // Comma-separated CORS allow-list. Includes the SWA hostname so the
+    // Angular app deployed there can call the API. Add custom domains here
+    // (or via a new param) once they're issued.
+    corsAllowedOrigins: 'https://${staticWebApp.outputs.defaultHostname}'
   }
 }
 

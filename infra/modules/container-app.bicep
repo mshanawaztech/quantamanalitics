@@ -27,6 +27,9 @@ param appInsightsConnectionString string
 @secure()
 param postgresConnectionString string = ''
 
+@description('Comma-separated list of CORS allow-list origins. Surfaced to the app as Cors__AllowedOrigins (= IConfiguration["Cors:AllowedOrigins"]). Empty = app falls back to its appsettings default of localhost:4200.')
+param corsAllowedOrigins string = ''
+
 @description('Port the container listens on. Must match ASPNETCORE_HTTP_PORTS.')
 param targetPort int = 8080
 
@@ -82,7 +85,23 @@ var postgresEnv = [
     secretRef: 'postgres-connection-string'
   }
 ]
-var allEnv = hasPostgres ? concat(baseEnv, postgresEnv) : baseEnv
+
+// CORS allow-list — same double-underscore trick maps to Cors:AllowedOrigins.
+// Only emitted when the param is non-empty so local-style deploys (with the
+// app's appsettings default) keep working unchanged.
+var hasCors = !empty(corsAllowedOrigins)
+var corsEnv = [
+  {
+    name: 'Cors__AllowedOrigins'
+    value: corsAllowedOrigins
+  }
+]
+
+var allEnv = concat(
+  baseEnv,
+  hasPostgres ? postgresEnv : [],
+  hasCors ? corsEnv : []
+)
 
 resource ca 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
