@@ -97,20 +97,30 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # Why az CLI directly instead of azure/arm-deploy@v2:
+      # arm-deploy folds the multi-line `parameters` input into a single
+      # space-separated string before invoking az. That breaks two things:
+      #   1. CLI overrides (apiImage=...) don't override bicepparam values
+      #      reliably — first observed run deployed the placeholder image
+      #      even though the workflow passed the GHCR ref.
+      #   2. Postgres connection string contains "Channel Binding=Disable"
+      #      with a space, so the folded string splits mid-value.
+      # Using `az deployment group create` with separate --parameters flags
+      # is unambiguous and matches the documented bicepparam override pattern.
       - name: Deploy bicep with the freshly-built image
-        uses: azure/arm-deploy@v2
+        uses: azure/cli@v2
+        env:
+          IMAGE_REF: ${{ needs.api-image.outputs.image_ref }}
+          PG_CONN: ${{ secrets.POSTGRES_CONNECTION_STRING }}
         with:
-          scope: resourcegroup
-          resourceGroupName: ${{ env.AZURE_RESOURCE_GROUP }}
-          template: infra/main.bicep
-          # Postgres connection is a @secure() bicep param; passed inline
-          # from a GitHub secret (never persisted to deployment history).
-          parameters: >-
-            infra/main.bicepparam
-            apiImage=${{ needs.api-image.outputs.image_ref }}
-            postgresConnectionString=${{ secrets.POSTGRES_CONNECTION_STRING }}
-          deploymentName: deploy-${{ github.run_number }}
-          failOnStdErr: false
+          inlineScript: |
+            az deployment group create \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --name "deploy-${{ github.run_number }}" \
+              --template-file infra/main.bicep \
+              --parameters infra/main.bicepparam \
+              --parameters apiImage="$IMAGE_REF" \
+              --parameters postgresConnectionString="$PG_CONN"
 
       - name: Read deployment outputs
         id: outputs
