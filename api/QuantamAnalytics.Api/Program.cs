@@ -1,3 +1,4 @@
+using QuantamAnalytics.Api;
 using QuantamAnalytics.Api.Auth;
 using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Infrastructure;
