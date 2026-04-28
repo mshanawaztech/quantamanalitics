@@ -35,10 +35,7 @@ var app = builder.Build();
 
 if (!authEnabled)
 {
-    app.Logger.LogWarning(
-        "Auth0 is not configured ({DomainKey} / {AudienceKey} missing). " +
-        "Running with authentication DISABLED — every endpoint is public. " +
-        "Set both keys before exposing this deployment to real users.",
+    app.Logger.Auth0NotConfigured(
         AuthExtensions.Auth0DomainKey,
         AuthExtensions.Auth0AudienceKey);
 }
