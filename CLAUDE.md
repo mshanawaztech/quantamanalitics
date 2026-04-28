@@ -87,9 +87,29 @@ quantamanalitics/
 ## Current state
 
 - **Active phase:** Phase 1 — MVP
-- **Active deliverable:** PR-06 · Auth foundation (server-side) on `qa001-auth-api-wireup` (open PR)
-- **Last merged:** PR-05 · CI/CD pipelines + hotfixes (postgres-secret, deploy-cli, CORS, probe-tolerance)
-- **Next deliverable:** PR-06.5 / PR-08 · Angular Auth0 SDK integration
+- **Active deliverable:** PR-06.5 · Angular Auth0 SDK on `qa001-auth-spa` (open PR)
+- **Last merged:** PR-06 · Auth foundation server-side (JWT bearer + /me)
+- **Next deliverable:** PR-07 · Multi-tenant plumbing
+
+### What PR-06.5 added (read these before extending)
+
+- **`@auth0/auth0-angular` ^2.2.3** in `client/package.json`. Wraps the Auth0 SPA SDK with Angular DI + observables + an HTTP interceptor.
+- **`client/src/app/app.config.ts`** — `provideAuth0(...)` registers the SDK with config from `environment.auth0`. `httpInterceptor.allowedList` scopes the Bearer token to API calls only (never SWA static assets, never third-party). `cacheLocation: 'localstorage'` + `useRefreshTokens: true` survives page refresh.
+- **`client/src/environments/environment.ts` + `environment.prod.ts`** — new `auth0: { domain, clientId, audience }` block. Empty defaults make the SDK install but `loginWithRedirect()` becomes a no-op (UI shows a "not configured" message). The deploy workflow rewrites `environment.prod.ts` with the live values from GitHub vars `AUTH0_DOMAIN` / `AUTH0_CLIENT_ID` / `AUTH0_AUDIENCE`.
+- **`client/src/app/core/auth/auth.service.ts`** — facade over the Auth0 SDK. Exposes `isConfigured`, `isAuthenticated`, `isLoading`, `user`, `email` as Angular signals. `loginWithRedirect()` and `logout()` are no-ops when not configured. **Always import this**, never the Auth0 SDK directly.
+- **`client/src/app/core/auth/me.service.ts`** — fetches `GET /me` automatically when `isAuthenticated` flips true; clears state on logout. Demonstrates the SDK's HTTP interceptor working — no manual token handling at the call site.
+- **`client/src/app/app.html` + `app.scss`** — landing page now has an "Account" card alongside "API health". Login button → Auth0 hosted page → redirect back. While authenticated, shows `sub`, `name`, `email`, `roles[]`, `tenantId` from `/me`. Pattern to copy for protected views in PR-10/11.
+- **`.github/workflows/deploy-dev.yml`** — Build for dev step now writes the Auth0 block into `environment.prod.ts` from `vars.AUTH0_*`.
+
+### Required GitHub repository variables (NOT secrets)
+
+Same three from PR-06; PR-06.5 needs `AUTH0_CLIENT_ID` too.
+
+| Name | Used by |
+| --- | --- |
+| `AUTH0_DOMAIN` | API (server-side validation) + SPA (login redirect) |
+| `AUTH0_AUDIENCE` | API (audience claim check) + SPA (access token request) |
+| `AUTH0_CLIENT_ID` | SPA only (identifies the SPA application to Auth0) |
 
 ### What PR-06 added (read these before extending)
 
