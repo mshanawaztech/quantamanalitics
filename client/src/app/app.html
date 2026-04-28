@@ -21,5 +21,58 @@
     }
   </section>
 
+  <section class="auth" aria-live="polite">
+    <h2>Account</h2>
+
+    @if (!auth.isConfigured()) {
+      <p class="warn">
+        Auth0 is not configured. Set <code>auth0.domain</code>, <code>auth0.clientId</code>,
+        and <code>auth0.audience</code> in <code>environment.ts</code> (local) or via
+        the <code>AUTH0_*</code> GitHub repo variables (cloud) — see
+        <code>docs/auth.md</code>.
+      </p>
+    } @else if (auth.isLoading()) {
+      <p>Checking session…</p>
+    } @else if (auth.isAuthenticated()) {
+      <p class="ok">
+        Signed in as <strong>{{ auth.email() ?? 'unknown' }}</strong>
+        <button type="button" class="secondary" (click)="logout()">Sign out</button>
+      </p>
+
+      @if (me.loading()) {
+        <p>Loading <code>/me</code>…</p>
+      } @else if (me.error()) {
+        <p class="error">
+          <code>/me</code> failed: <code>{{ me.error() }}</code>
+        </p>
+      } @else if (me.data(); as profile) {
+        <dl class="profile">
+          <dt>Subject</dt><dd><code>{{ profile.sub }}</code></dd>
+          <dt>Name</dt><dd>{{ profile.name || '—' }}</dd>
+          <dt>Email</dt><dd>{{ profile.email || '—' }}</dd>
+          <dt>Roles</dt><dd>
+            @if (profile.roles.length === 0) {
+              <em>none</em>
+            } @else {
+              {{ profile.roles.join(', ') }}
+            }
+          </dd>
+          <dt>Tenant</dt><dd>
+            @if (profile.tenantId) {
+              <code>{{ profile.tenantId }}</code>
+            } @else {
+              <em>not assigned</em>
+            }
+          </dd>
+        </dl>
+      }
+    } @else {
+      <p>
+        You're not signed in.
+        <button type="button" (click)="login()">Sign in with Auth0</button>
+      </p>
+    }
+  </section>
+
   <router-outlet />
 </main>

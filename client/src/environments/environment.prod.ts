@@ -1,8 +1,14 @@
-// Production build. With the API hosted on the same custom domain
-// (api.quantamanalitics.com vs www.quantamanalitics.com), apiBase is empty
-// and requests use a cross-origin absolute path baked in via the deploy step.
-// We'll wire this properly in PR-04 (infra) and PR-05 (CI/CD).
+// Production build. The deploy workflow rewrites this file at build time
+// (see .github/workflows/deploy-dev.yml — "Build for dev" step) with:
+//   - apiBase set to the live Container App FQDN
+//   - auth0.{domain,clientId,audience} set from the AUTH0_* GitHub variables
+// Anything you put here will be overwritten on the next deploy.
 export const environment = {
   production: true,
   apiBase: '',
+  auth0: {
+    domain: '',
+    clientId: '',
+    audience: '',
+  },
 };
