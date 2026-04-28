@@ -1,3 +1,5 @@
+using QuantamAnalytics.Api;
+using QuantamAnalytics.Api.Auth;
 using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Infrastructure;
 
@@ -25,7 +27,19 @@ builder.Services.AddProblemDetails();
 // configuration (appsettings, user-secrets in dev, env vars in prod).
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// JWT bearer + role policies. Returns false if Auth0:Domain / Auth0:Audience
+// aren't configured, in which case auth middleware is also skipped below.
+// Lets the API run unauthenticated in pre-Auth0 environments without crashing.
+var authEnabled = builder.Services.AddPlatformAuth(builder.Configuration);
+
 var app = builder.Build();
+
+if (!authEnabled)
+{
+    app.Logger.Auth0NotConfigured(
+        AuthExtensions.Auth0DomainKey,
+        AuthExtensions.Auth0AudienceKey);
+}
 
 // Standardized RFC 7807 error responses for any unhandled exception.
 app.UseExceptionHandler();
@@ -35,12 +49,26 @@ app.UseStatusCodePages();
 // A wide-open list in dev is intentional; prod gets a narrow list via env.
 app.UseCors(DefaultCorsPolicy);
 
+if (authEnabled)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
 // Liveness — process is up. No DB, no auth, never blocks.
+// .AllowAnonymous() is set inside MapHealthEndpoint().
 app.MapHealthEndpoint();
 
-// Readiness — process is up AND can reach Postgres. Deployment / load-balancer
-// gate. Wired up by AddInfrastructure() via AddDbContextCheck<AppDbContext>.
-app.MapHealthChecks("/ready");
+// Readiness — process is up AND can reach Postgres. Anonymous on purpose:
+// load balancer probes can't carry a JWT.
+app.MapHealthChecks("/ready").AllowAnonymous();
+
+// Authenticated user info. Only routed when auth is wired — otherwise
+// RequireAuthorization() with no auth scheme would fail at request time.
+if (authEnabled)
+{
+    app.MapMeEndpoint();
+}
 
 app.Run();
 

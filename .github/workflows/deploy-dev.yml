@@ -112,6 +112,11 @@ jobs:
         env:
           IMAGE_REF: ${{ needs.api-image.outputs.image_ref }}
           PG_CONN: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          # Auth0 values are PUBLIC (OIDC discovery / token claims), so they
+          # come from GitHub *variables*, not secrets. If unset, deploy still
+          # succeeds and the API runs unauthenticated (with a startup warning).
+          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
+          AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
         with:
           inlineScript: |
             az deployment group create \
@@ -120,7 +125,9 @@ jobs:
               --template-file infra/main.bicep \
               --parameters infra/main.bicepparam \
               --parameters apiImage="$IMAGE_REF" \
-              --parameters postgresConnectionString="$PG_CONN"
+              --parameters postgresConnectionString="$PG_CONN" \
+              --parameters auth0Domain="$AUTH0_DOMAIN" \
+              --parameters auth0Audience="$AUTH0_AUDIENCE"
 
       - name: Read deployment outputs
         id: outputs

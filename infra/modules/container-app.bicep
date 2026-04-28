@@ -30,6 +30,12 @@ param postgresConnectionString string = ''
 @description('Comma-separated list of CORS allow-list origins. Surfaced to the app as Cors__AllowedOrigins (= IConfiguration["Cors:AllowedOrigins"]). Empty = app falls back to its appsettings default of localhost:4200.')
 param corsAllowedOrigins string = ''
 
+@description('Auth0 tenant domain (e.g. quantamanalitics-dev.us.auth0.com). NOT a secret — public OIDC discovery hostname. Empty = app runs unauthenticated.')
+param auth0Domain string = ''
+
+@description('Auth0 API audience identifier (e.g. https://api.quantamanalitics.com). NOT a secret — public token claim. Empty = app runs unauthenticated.')
+param auth0Audience string = ''
+
 @description('Port the container listens on. Must match ASPNETCORE_HTTP_PORTS.')
 param targetPort int = 8080
 
@@ -97,10 +103,26 @@ var corsEnv = [
   }
 ]
 
+// Auth0 OIDC config. Only emit when both halves are present — half-set
+// would crash AddPlatformAuth's validation. Empty default keeps pre-Auth0
+// deployments running unauthenticated (a warning logs at startup).
+var hasAuth0 = !empty(auth0Domain) && !empty(auth0Audience)
+var auth0Env = [
+  {
+    name: 'Auth0__Domain'
+    value: auth0Domain
+  }
+  {
+    name: 'Auth0__Audience'
+    value: auth0Audience
+  }
+]
+
 var allEnv = concat(
   baseEnv,
   hasPostgres ? postgresEnv : [],
-  hasCors ? corsEnv : []
+  hasCors ? corsEnv : [],
+  hasAuth0 ? auth0Env : []
 )
 
 resource ca 'Microsoft.App/containerApps@2024-03-01' = {

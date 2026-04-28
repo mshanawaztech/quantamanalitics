@@ -87,9 +87,30 @@ quantamanalitics/
 ## Current state
 
 - **Active phase:** Phase 1 — MVP
-- **Active deliverable:** PR-05 · CI/CD pipelines on `qa001-cicd` (open PR)
-- **Last merged:** PR-04 · Infra-as-code Bicep (`qa001-infra-bicep-dev`)
-- **Next deliverable:** PR-06 · Auth foundation
+- **Active deliverable:** PR-06 · Auth foundation (server-side) on `qa001-auth-api-wireup` (open PR)
+- **Last merged:** PR-05 · CI/CD pipelines + hotfixes (postgres-secret, deploy-cli, CORS, probe-tolerance)
+- **Next deliverable:** PR-06.5 / PR-08 · Angular Auth0 SDK integration
+
+### What PR-06 added (read these before extending)
+
+- **`api/QuantamAnalytics.Api/Auth/AuthExtensions.cs`** — JWT bearer + role policies. Returns `bool` indicating whether auth was wired (true if `Auth0:Domain` + `Auth0:Audience` are both set). **Safely no-op when missing** — supports pre-Auth0 deployments.
+- **`api/QuantamAnalytics.Api/Auth/AuthorizationPolicies.cs`** — string constants for `RequirePlatformAdmin`, `RequireRecruiter`, `RequireCandidate`. Use these in `.RequireAuthorization(...)` calls instead of stringly-typed role names.
+- **`api/QuantamAnalytics.Api/Endpoints/MeEndpoint.cs`** — `GET /me` returns the current JWT's `sub`, `email`, `name`, `roles[]`, `tenantId`. Only routed when auth is wired (otherwise calling `RequireAuthorization()` with no scheme fails at request time).
+- **`api/QuantamAnalytics.Domain/Common/Roles.cs`** — three roles: `PlatformAdmin`, `Recruiter`, `Candidate`. Plus the custom-claim namespace `https://quantamanalitics.com/` for `roles` and `tenant_id` claims emitted by Auth0's Post-Login Action.
+- **`api/QuantamAnalytics.Api/Program.cs`** — conditionally calls `AddPlatformAuth`, `UseAuthentication`/`UseAuthorization`, `MapMeEndpoint` based on the bool. Logs a startup warning when auth is disabled. `/health` and `/ready` opt out of the global RequireAuthenticatedUser fallback policy via `.AllowAnonymous()`.
+- **`infra/main.bicep` + `modules/container-app.bicep`** — new `auth0Domain` and `auth0Audience` params. NOT secret (public OIDC discovery values). Injected as Container App env vars `Auth0__Domain` / `Auth0__Audience` only when both are present.
+- **`.github/workflows/deploy-dev.yml`** — reads `vars.AUTH0_DOMAIN` / `vars.AUTH0_AUDIENCE` (GitHub repo *variables*, not secrets) and passes them through. Empty values → API runs unauthenticated with a warning, no breakage.
+- **`docs/auth.md`** — full Auth0 tenant setup walkthrough: tenant/API/SPA creation, role definition, Post-Login Action with custom claims, GitHub variables, local user-secrets, first-user creation.
+
+### Required GitHub repository variables (NOT secrets)
+
+These are public OIDC config; using **variables** instead of secrets makes them visible in logs and easier to debug. Set at `Settings → Secrets and variables → Actions → Variables tab`.
+
+| Name | Source |
+| --- | --- |
+| `AUTH0_DOMAIN` | Auth0 tenant domain (e.g. `quantamanalitics-dev.us.auth0.com`) |
+| `AUTH0_AUDIENCE` | API resource Identifier (e.g. `https://api.quantamanalitics.com`) |
+| `AUTH0_CLIENT_ID` | SPA application Client ID — used by Angular in PR-06.5 / PR-08 |
 
 ### What PR-05 added (read these before extending)
 

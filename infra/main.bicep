@@ -38,6 +38,12 @@ param keyVaultAdminPrincipalIds array = []
 @secure()
 param postgresConnectionString string = ''
 
+@description('Auth0 tenant domain (e.g. quantamanalitics-dev.us.auth0.com). NOT a secret. Empty = API runs unauthenticated; the workflow passes the real value from vars.AUTH0_DOMAIN.')
+param auth0Domain string = ''
+
+@description('Auth0 API audience identifier (e.g. https://api.quantamanalitics.com). NOT a secret. Empty = API runs unauthenticated; the workflow passes the real value from vars.AUTH0_AUDIENCE.')
+param auth0Audience string = ''
+
 // ── Naming ─────────────────────────────────────────────────────────────────
 // CAF-style abbreviations. Suffix unique per env so prd resources don't
 // collide with dev. Globally-unique names (KV, SWA) get a uniqueString suffix.
@@ -131,6 +137,8 @@ module containerApp 'modules/container-app.bicep' = {
     // Angular app deployed there can call the API. Add custom domains here
     // (or via a new param) once they're issued.
     corsAllowedOrigins: 'https://${staticWebApp.outputs.defaultHostname}'
+    auth0Domain: auth0Domain
+    auth0Audience: auth0Audience
   }
 }
 
