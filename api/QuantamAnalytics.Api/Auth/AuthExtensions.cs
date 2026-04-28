@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using QuantamAnalytics.Domain.Common;
 
@@ -10,12 +11,25 @@ namespace QuantamAnalytics.Api.Auth;
 /// against Auth0, role-based authorization policies, and the claim mapping
 /// that turns Auth0's namespaced custom claims into things ASP.NET understands.
 /// </summary>
+/// <remarks>
+/// Designed to be safely optional. If <c>Auth0:Domain</c> and
+/// <c>Auth0:Audience</c> are not configured, this is a no-op and
+/// <see cref="AddPlatformAuth"/> returns false. Callers can then skip
+/// <c>UseAuthentication</c>/<c>UseAuthorization</c> middleware and any
+/// <c>RequireAuthorization()</c> endpoints — keeping local-dev runs and
+/// pre-Auth0 deployments functional.
+/// </remarks>
 public static class AuthExtensions
 {
     public const string Auth0DomainKey = "Auth0:Domain";
     public const string Auth0AudienceKey = "Auth0:Audience";
 
-    public static IServiceCollection AddPlatformAuth(
+    /// <summary>
+    /// Wires up JWT bearer authentication and role-based authorization
+    /// policies if Auth0 is configured. Returns true when auth was
+    /// registered, false when skipped (config missing).
+    /// </summary>
+    public static bool AddPlatformAuth(
         this IServiceCollection services,
         IConfiguration configuration)
     {
@@ -24,10 +38,8 @@ public static class AuthExtensions
 
         if (string.IsNullOrWhiteSpace(domain) || string.IsNullOrWhiteSpace(audience))
         {
-            throw new InvalidOperationException(
-                $"Auth0 is not configured. Set both {Auth0DomainKey} (e.g. dev-xxx.us.auth0.com) " +
-                $"and {Auth0AudienceKey} (e.g. https://api.quantamanalitics.com) via " +
-                "appsettings, dotnet user-secrets, or env vars.");
+            // Caller decides whether to log a warning. We just signal "skipped".
+            return false;
         }
 
         services
@@ -70,11 +82,11 @@ public static class AuthExtensions
             // Default fallback — every endpoint without an explicit policy
             // requires an authenticated user. Public endpoints opt out with
             // .AllowAnonymous(). This is the safer default for a B2B SaaS.
-            options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
                 .Build();
         });
 
-        return services;
+        return true;
     }
 }
