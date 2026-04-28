@@ -141,25 +141,34 @@ resource ca 'Microsoft.App/containerApps@2024-03-01' = {
           }
           env: allEnv
           probes: [
+            // Liveness: process is up. /health returns immediately with no
+            // dependencies, so the default 1s timeout is fine.
             {
               type: 'Liveness'
               httpGet: {
                 path: '/health'
                 port: targetPort
               }
-              initialDelaySeconds: 5
+              initialDelaySeconds: 10
               periodSeconds: 30
+              timeoutSeconds: 5
               failureThreshold: 3
             }
+            // Readiness: /ready opens a Postgres connection via EF Core. On a
+            // cold-start of Neon's pooler that round-trip can take 5–15s, so
+            // give the probe room to wait. failureThreshold: 6 + periodSeconds:
+            // 15 = ~90s before giving up — enough for Neon to wake from sleep
+            // without blowing past the GHA workflow's smoke-test budget.
             {
               type: 'Readiness'
               httpGet: {
                 path: '/ready'
                 port: targetPort
               }
-              initialDelaySeconds: 5
-              periodSeconds: 10
-              failureThreshold: 3
+              initialDelaySeconds: 15
+              periodSeconds: 15
+              timeoutSeconds: 10
+              failureThreshold: 6
             }
           ]
         }
