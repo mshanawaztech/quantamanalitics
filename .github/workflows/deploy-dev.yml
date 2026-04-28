@@ -139,7 +139,10 @@ jobs:
           set -euo pipefail
           URL="https://${{ steps.outputs.outputs.api_url }}/health"
           echo "Probing $URL"
-          for i in $(seq 1 12); do
+          # 18 attempts × 10s = 3 minutes. Matches the readiness probe's
+          # ~90s ceiling plus headroom for cold-start scale-from-zero
+          # (KEDA scaler needs to spin up the replica first).
+          for i in $(seq 1 18); do
             if curl --fail --silent --show-error "$URL" > /tmp/health.json; then
               cat /tmp/health.json
               exit 0
