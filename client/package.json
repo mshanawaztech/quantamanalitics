@@ -10,7 +10,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint --fix=false"
+    "lint": "ng lint"
   },
   "dependencies": {
     "@angular/common": "^21.2.0",
