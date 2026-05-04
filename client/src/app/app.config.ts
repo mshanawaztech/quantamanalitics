@@ -1,7 +1,7 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideHttpClient, withFetch, withInterceptorsFromDi } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideAuth0 } from '@auth0/auth0-angular';
+import { authHttpInterceptorFn, provideAuth0 } from '@auth0/auth0-angular';
 
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
@@ -12,9 +12,10 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     // withFetch enables server-rendered apps (when SSR is added later) to share
     // the fetch implementation between client and server. Cheap to opt-in now.
-    // withInterceptorsFromDi() picks up the Auth0 HTTP interceptor below so
-    // outbound API calls automatically get an `Authorization: Bearer …` header.
-    provideHttpClient(withFetch(), withInterceptorsFromDi()),
+    // Auth0's standalone quickstart wires the HTTP interceptor through
+    // withInterceptors([authHttpInterceptorFn]); this is the path the SDK
+    // explicitly documents for bootstrapApplication-style Angular apps.
+    provideHttpClient(withFetch(), withInterceptors([authHttpInterceptorFn])),
 
     // Auth0 SDK — wires up login/logout, the user/token observables, and the
     // HTTP interceptor that attaches a Bearer JWT to every request matching
@@ -37,8 +38,19 @@ export const appConfig: ApplicationConfig = {
       cacheLocation: 'localstorage',
       httpInterceptor: {
         // Attach Bearer token only to API calls — never to public assets,
-        // SWA static files, or third-party endpoints.
-        allowedList: [`${environment.apiBase}/*`],
+        // SWA static files, or third-party endpoints. Use the explicit object
+        // form so the interceptor requests a token with our API audience for
+        // every protected API call, including /me on the deployed origin.
+        allowedList: [
+          {
+            uri: `${environment.apiBase}/*`,
+            tokenOptions: {
+              authorizationParams: {
+                audience: environment.auth0.audience,
+              },
+            },
+          },
+        ],
       },
     }),
   ],
