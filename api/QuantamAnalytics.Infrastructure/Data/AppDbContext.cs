@@ -1,5 +1,8 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Domain.Entities;
+using QuantamAnalytics.Infrastructure.Tenancy;
 
 namespace QuantamAnalytics.Infrastructure.Data;
 
@@ -13,9 +16,18 @@ namespace QuantamAnalytics.Infrastructure.Data;
 /// PR-07 will layer a tenant resolver and a global query filter on top of
 /// this context to enforce multi-tenant isolation on every read.
 /// </remarks>
-public sealed class AppDbContext : DbContext
+public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    private readonly ICurrentTenant _currentTenant;
+
+    internal Guid? CurrentTenantId => _currentTenant.TenantId;
+
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options,
+        ICurrentTenant currentTenant) : base(options)
+    {
+        _currentTenant = currentTenant;
+    }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
@@ -24,7 +36,43 @@ public sealed class AppDbContext : DbContext
         // Pick up every IEntityTypeConfiguration<T> in this assembly. Lets us
         // keep one configuration class per entity instead of bloating this method.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        ConfigureAdditionalModel(modelBuilder);
+        ApplyTenantQueryFilters(modelBuilder);
 
         base.OnModelCreating(modelBuilder);
+    }
+
+    /// <summary>
+    /// Test hook for adding extra entity types to a derived DbContext while
+    /// still reusing the production tenant-filter plumbing.
+    /// </summary>
+    protected virtual void ConfigureAdditionalModel(ModelBuilder modelBuilder)
+    {
+    }
+
+    private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var clrType = entityType.ClrType;
+            if (!typeof(ITenantScoped).IsAssignableFrom(clrType))
+            {
+                continue;
+            }
+
+            var method = typeof(AppDbContext)
+                .GetMethod(nameof(SetTenantFilter), BindingFlags.Instance | BindingFlags.NonPublic)!
+                .MakeGenericMethod(clrType);
+
+            method.Invoke(this, [modelBuilder]);
+        }
+    }
+
+    private void SetTenantFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, ITenantScoped
+    {
+        modelBuilder.Entity<TEntity>()
+            .HasQueryFilter(entity =>
+                (Guid?)entity.TenantId == CurrentTenantId);
     }
 }

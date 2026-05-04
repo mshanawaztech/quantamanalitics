@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Infrastructure.Tenancy;
 
 namespace QuantamAnalytics.Infrastructure;
 
@@ -31,10 +32,15 @@ public static class DependencyInjection
                 "--project api/QuantamAnalytics.Api");
         }
 
-        // Pooled context — cheap reuse of DbContext instances per request.
-        // Snake_case naming converts PascalCase model names to postgres conventions
-        // (Tenant -> tenants, CreatedAtUtc -> created_at_utc).
-        services.AddDbContextPool<AppDbContext>(options => options
+        services.AddScoped<CurrentTenant>();
+        services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<CurrentTenant>());
+        services.AddScoped<ICurrentTenantSetter>(sp => sp.GetRequiredService<CurrentTenant>());
+
+        // Non-pooled context because tenant state is request-scoped. Reusing a
+        // pooled DbContext across requests risks stale TenantId leaking into the
+        // global query filter. Snake_case naming converts PascalCase model names
+        // to postgres conventions (Tenant -> tenants, CreatedAtUtc -> created_at_utc).
+        services.AddDbContext<AppDbContext>(options => options
             .UseNpgsql(connectionString, npgsql => npgsql
                 .MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
             .UseSnakeCaseNamingConvention());
