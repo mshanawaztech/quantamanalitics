@@ -47,7 +47,10 @@ In its Settings tab:
 - **Allowed Callback URLs:** `http://localhost:4200, https://<your-swa-hostname>.azurestaticapps.net`
 - **Allowed Logout URLs:** same
 - **Allowed Web Origins:** same
+- **Application Login URI:** `https://<your-swa-hostname>.azurestaticapps.net/login`
 - Save
+
+For local troubleshooting, the equivalent route is `http://localhost:4200/login`.
 
 The **Client ID** value is needed by the Angular app (PR-06.5 / PR-08).
 
