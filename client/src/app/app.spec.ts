@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withEnabledBlockingInitialNavigation } from '@angular/router';
 import { AuthService as Auth0Service } from '@auth0/auth0-angular';
 import { EMPTY, of } from 'rxjs';
 import { App } from './app';
+import { routes } from './app.routes';
+import { HomeComponent } from './home.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -24,7 +26,7 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter([]),
+        provideRouter(routes, withEnabledBlockingInitialNavigation()),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: Auth0Service, useValue: auth0Stub },
@@ -38,9 +40,9 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render the project title', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
+  it('should render the project title', () => {
+    const fixture = TestBed.createComponent(HomeComponent);
+    fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Quantam Analytics');
   });
