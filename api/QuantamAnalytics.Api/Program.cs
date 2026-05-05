@@ -60,6 +60,7 @@ if (authEnabled)
 // Liveness — process is up. No DB, no auth, never blocks.
 // .AllowAnonymous() is set inside MapHealthEndpoint().
 app.MapHealthEndpoint();
+app.MapPublicJobsEndpoints();
 
 // Readiness — process is up AND can reach Postgres. Anonymous on purpose:
 // load balancer probes can't carry a JWT.
