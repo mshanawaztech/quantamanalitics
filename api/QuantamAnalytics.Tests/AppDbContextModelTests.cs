@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Infrastructure.Tenancy;
 
 namespace QuantamAnalytics.Tests;
 
@@ -21,7 +22,7 @@ public sealed class AppDbContextModelTests
             .UseSnakeCaseNamingConvention()
             .Options;
 
-        return new AppDbContext(options);
+        return new AppDbContext(options, new StubCurrentTenant());
     }
 
     [Fact]
@@ -83,5 +84,10 @@ public sealed class AppDbContextModelTests
         t.Name.Should().Be("Acme Staffing");
         t.IsActive.Should().BeTrue();
         t.CreatedAtUtc.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
+    private sealed class StubCurrentTenant : ICurrentTenant
+    {
+        public Guid? TenantId => null;
     }
 }

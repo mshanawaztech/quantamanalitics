@@ -1,6 +1,7 @@
 using QuantamAnalytics.Api;
 using QuantamAnalytics.Api.Auth;
 using QuantamAnalytics.Api.Endpoints;
+using QuantamAnalytics.Api.Tenancy;
 using QuantamAnalytics.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,6 +53,7 @@ app.UseCors(DefaultCorsPolicy);
 if (authEnabled)
 {
     app.UseAuthentication();
+    app.UseTenantResolution();
     app.UseAuthorization();
 }
 
