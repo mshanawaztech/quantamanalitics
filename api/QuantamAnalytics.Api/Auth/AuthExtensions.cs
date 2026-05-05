@@ -76,6 +76,9 @@ public static class AuthExtensions
             options.AddPolicy(AuthorizationPolicies.RequireRecruiter,
                 p => p.RequireAuthenticatedUser().RequireRole(Roles.Recruiter));
 
+            options.AddPolicy(AuthorizationPolicies.RequireRecruitingAccess,
+                p => p.RequireAuthenticatedUser().RequireRole(Roles.Recruiter, Roles.PlatformAdmin));
+
             options.AddPolicy(AuthorizationPolicies.RequireCandidate,
                 p => p.RequireAuthenticatedUser().RequireRole(Roles.Candidate));
 

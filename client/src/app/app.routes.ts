@@ -5,6 +5,7 @@ import { CandidateDashboardComponent } from './candidate-dashboard.component';
 import { JobDetailComponent } from './job-detail.component';
 import { JobsListComponent } from './jobs-list.component';
 import { MarketingShellComponent } from './marketing-shell.component';
+import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
 import { HomeComponent } from './home.component';
 import { ServicesComponent } from './services.component';
 import { LoginComponent } from './core/auth/login.component';
@@ -41,6 +42,10 @@ export const routes: Routes = [
       {
         path: 'candidate',
         component: CandidateDashboardComponent,
+      },
+      {
+        path: 'recruiter',
+        component: RecruiterDashboardComponent,
       },
     ],
   },

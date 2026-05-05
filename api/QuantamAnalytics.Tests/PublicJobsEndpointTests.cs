@@ -60,6 +60,28 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
         response.StatusCode.Should().Be(HttpStatusCode.NotFound, body);
     }
 
+    [Fact]
+    public async Task Apply_creates_candidate_profile_and_application()
+    {
+        var client = CreateClientWithInitializedSchema();
+        var jobs = await client.GetFromJsonAsync<PublicJobListItemResponse[]>("/api/v1/jobs");
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/jobs/{jobs![0].Slug}/apply",
+            new PublicJobApplicationRequest(
+                "Jane Candidate",
+                "jane@example.com",
+                "Strong fit for this opening."));
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.CandidateProfiles.IgnoreQueryFilters().Should().ContainSingle(x => x.Email == "jane@example.com");
+        db.Applications.IgnoreQueryFilters().Should().ContainSingle(x => x.CandidateEmail == "jane@example.com");
+    }
+
     private HttpClient CreateClientWithInitializedSchema()
     {
         InitializeJobsSchema(_factory.Services);
@@ -73,6 +95,39 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         db.Database.ExecuteSqlRaw("""
+            create table if not exists candidate_profiles (
+              id uuid primary key,
+              tenant_id uuid not null references tenants(id) on delete cascade,
+              auth_subject character varying(200) not null,
+              email character varying(320) not null,
+              full_name character varying(160),
+              phone_number character varying(40),
+              headline character varying(160),
+              summary character varying(4000),
+              resume_object_key character varying(512),
+              resume_file_name character varying(255),
+              resume_uploaded_at_utc timestamp with time zone,
+              created_at_utc timestamp with time zone not null,
+              updated_at_utc timestamp with time zone not null
+            );
+            create unique index if not exists ix_candidate_profiles_tenant_id_auth_subject on candidate_profiles (tenant_id, auth_subject);
+            create index if not exists ix_candidate_profiles_tenant_id_email on candidate_profiles (tenant_id, email);
+
+            create table if not exists applications (
+              id uuid primary key,
+              tenant_id uuid not null references tenants(id) on delete cascade,
+              job_id uuid not null references jobs(id) on delete cascade,
+              candidate_profile_id uuid not null references candidate_profiles(id) on delete cascade,
+              candidate_email character varying(320) not null,
+              candidate_name character varying(160) not null,
+              note character varying(4000),
+              status character varying(32) not null,
+              applied_at_utc timestamp with time zone not null,
+              updated_at_utc timestamp with time zone not null
+            );
+            create unique index if not exists ix_applications_tenant_id_job_id_candidate_profile_id on applications (tenant_id, job_id, candidate_profile_id);
+            create index if not exists ix_applications_tenant_id_status on applications (tenant_id, status);
+
             create table if not exists jobs (
               id uuid primary key,
               tenant_id uuid not null references tenants(id) on delete cascade,
@@ -85,6 +140,8 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
               is_published boolean not null default true
             );
             create unique index if not exists ix_jobs_tenant_id_slug on jobs (tenant_id, slug);
+            delete from applications;
+            delete from candidate_profiles;
             delete from jobs;
             """);
     }

@@ -52,6 +52,69 @@ public static class PublicJobsEndpoint
             return job is null ? Results.NotFound() : Results.Ok(job);
         });
 
+        group.MapPost("/{slug}/apply", async (
+            string slug,
+            PublicJobApplicationRequest request,
+            AppDbContext db,
+            CancellationToken cancellationToken) =>
+        {
+            await EnsureSeedJobsAsync(db, cancellationToken);
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+            var job = await db.Jobs
+                .IgnoreQueryFilters()
+                .Where(x => x.IsPublished && x.Slug == slug)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (job is null)
+            {
+                return Results.NotFound();
+            }
+
+            var existing = await db.CandidateProfiles
+                .IgnoreQueryFilters()
+                .SingleOrDefaultAsync(
+                    x => x.TenantId == job.TenantId && x.Email == normalizedEmail,
+                    cancellationToken);
+
+            if (existing is null)
+            {
+                existing = new CandidateProfile(
+                    job.TenantId,
+                    $"guest|{Guid.CreateVersion7()}",
+                    request.Email,
+                    request.FullName);
+                db.CandidateProfiles.Add(existing);
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            var duplicate = await db.Applications
+                .IgnoreQueryFilters()
+                .AnyAsync(
+                    x => x.TenantId == job.TenantId &&
+                         x.JobId == job.Id &&
+                         x.CandidateProfileId == existing.Id,
+                    cancellationToken);
+
+            if (!duplicate)
+            {
+                db.Applications.Add(new Application(
+                    job.TenantId,
+                    job.Id,
+                    existing.Id,
+                    normalizedEmail,
+                    request.FullName,
+                    request.Note));
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            return Results.Ok(new PublicJobApplicationResponse(
+                job.Id,
+                job.Slug,
+                existing.Email,
+                duplicate ? "Application already received for this role." : "Application received."));
+        });
+
         return app;
     }
 
@@ -106,3 +169,14 @@ public sealed record PublicJobDetailResponse(
     string Summary,
     string Description,
     DateOnly PostedOnUtc);
+
+public sealed record PublicJobApplicationRequest(
+    string FullName,
+    string Email,
+    string? Note);
+
+public sealed record PublicJobApplicationResponse(
+    Guid JobId,
+    string JobSlug,
+    string Email,
+    string Message);

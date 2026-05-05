@@ -72,6 +72,7 @@ if (authEnabled)
 {
     app.MapMeEndpoint();
     app.MapCandidateProfileEndpoints();
+    app.MapRecruiterPortalEndpoints();
 }
 
 app.Run();

@@ -1,12 +1,14 @@
-import { Component, computed, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map, switchMap } from 'rxjs';
 import { PublicJobsService } from './core/jobs/public-jobs.service';
 
 @Component({
   selector: 'app-job-detail',
-  imports: [RouterLink],
+  imports: [FormsModule, RouterLink],
   template: `
     <main class="page">
       <a routerLink="/jobs" class="back-link">Back to jobs</a>
@@ -23,25 +25,33 @@ import { PublicJobsService } from './core/jobs/public-jobs.service';
 
           <aside class="apply-card">
             <p class="eyebrow">Guest apply</p>
-            <h2>Application intake is the next step.</h2>
+            <h2>Application intake is live.</h2>
             <p>
-              This scaffold keeps the public job detail live and ready while the
-              candidate application flow lands in the next feature slice.
+              Submit interest directly from the public job page. Recruiters can
+              now see the intake on their internal board.
             </p>
-            <form class="guest-form">
+            <form class="guest-form" (ngSubmit)="apply()">
               <label>
                 Full name
-                <input type="text" placeholder="Jane Candidate" />
+                <input type="text" name="fullName" [(ngModel)]="fullName" placeholder="Jane Candidate" required />
               </label>
               <label>
                 Email
-                <input type="email" placeholder="jane@example.com" />
+                <input type="email" name="email" [(ngModel)]="email" placeholder="jane@example.com" required />
               </label>
               <label>
                 Short note
-                <textarea rows="5" placeholder="Tell us why this role fits."></textarea>
+                <textarea rows="5" name="note" [(ngModel)]="note" placeholder="Tell us why this role fits."></textarea>
               </label>
-              <button type="button" disabled>Apply flow coming next</button>
+              @if (applyError()) {
+                <p class="error">{{ applyError() }}</p>
+              }
+              @if (applyMessage()) {
+                <p class="success">{{ applyMessage() }}</p>
+              }
+              <button type="submit" [disabled]="submitting()">
+                {{ submitting() ? 'Submitting…' : 'Submit application' }}
+              </button>
             </form>
           </aside>
         </section>
@@ -66,13 +76,22 @@ import { PublicJobsService } from './core/jobs/public-jobs.service';
     .guest-form { display: grid; gap: 0.9rem; }
     label { display: grid; gap: 0.35rem; color: #3f372c; font-weight: 600; }
     input, textarea { width: 100%; padding: 0.85rem 0.95rem; border-radius: 0.9rem; border: 1px solid #d8c8b0; background: #fffdf9; font: inherit; }
-    button { padding: 0.9rem 1rem; border: 0; border-radius: 999px; background: #d6d3d1; color: #57534e; font-weight: 700; }
+    button { padding: 0.9rem 1rem; border: 0; border-radius: 999px; background: #1f2937; color: #fff8ee; font-weight: 700; }
+    button[disabled] { opacity: 0.65; cursor: wait; }
+    .success { color: #166534; font-weight: 600; }
+    .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
   `,
 })
 export class JobDetailComponent {
   private route = inject(ActivatedRoute);
   private jobsService = inject(PublicJobsService);
+  protected submitting = signal(false);
+  protected applyMessage = signal<string | null>(null);
+  protected applyError = signal<string | null>(null);
+  protected fullName = '';
+  protected email = '';
+  protected note = '';
 
   protected slug = toSignal(
     this.route.paramMap.pipe(map((params) => params.get('slug') ?? '')),
@@ -86,4 +105,36 @@ export class JobDetailComponent {
     ),
     { initialValue: null },
   );
+
+  protected apply(): void {
+    const slug = this.slug();
+    if (!slug) {
+      return;
+    }
+
+    this.submitting.set(true);
+    this.applyError.set(null);
+    this.applyMessage.set(null);
+
+    this.jobsService.apply(slug, {
+      fullName: this.fullName,
+      email: this.email,
+      note: this.note,
+    }).subscribe({
+      next: (response) => {
+        this.submitting.set(false);
+        this.applyMessage.set(response.message);
+      },
+      error: (error: unknown) => {
+        this.submitting.set(false);
+        this.applyError.set(
+          error instanceof HttpErrorResponse
+            ? error.error?.detail ?? error.error?.title ?? error.message
+            : error instanceof Error
+              ? error.message
+              : 'Could not submit application.',
+        );
+      },
+    });
+  }
 }

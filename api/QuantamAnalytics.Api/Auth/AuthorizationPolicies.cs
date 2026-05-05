@@ -9,5 +9,6 @@ public static class AuthorizationPolicies
 {
     public const string RequirePlatformAdmin = nameof(RequirePlatformAdmin);
     public const string RequireRecruiter = nameof(RequireRecruiter);
+    public const string RequireRecruitingAccess = nameof(RequireRecruitingAccess);
     public const string RequireCandidate = nameof(RequireCandidate);
 }

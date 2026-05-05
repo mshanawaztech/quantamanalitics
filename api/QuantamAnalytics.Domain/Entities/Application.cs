@@ -14,15 +14,20 @@ public sealed class Application : ITenantScoped
         Guid tenantId,
         Guid jobId,
         Guid candidateProfileId,
-        string candidateEmail)
+        string candidateEmail,
+        string candidateName,
+        string? note)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(candidateEmail);
+        ArgumentException.ThrowIfNullOrWhiteSpace(candidateName);
 
         Id = Guid.CreateVersion7();
         TenantId = tenantId;
         JobId = jobId;
         CandidateProfileId = candidateProfileId;
         CandidateEmail = candidateEmail.Trim().ToLowerInvariant();
+        CandidateName = candidateName.Trim();
+        Note = Normalize(note);
         Status = ApplicationStatus.Applied;
         AppliedAtUtc = DateTimeOffset.UtcNow;
         UpdatedAtUtc = AppliedAtUtc;
@@ -33,6 +38,8 @@ public sealed class Application : ITenantScoped
     public Guid JobId { get; private set; }
     public Guid CandidateProfileId { get; private set; }
     public string CandidateEmail { get; private set; } = default!;
+    public string CandidateName { get; private set; } = default!;
+    public string? Note { get; private set; }
     public ApplicationStatus Status { get; private set; }
     public DateTimeOffset AppliedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
@@ -53,6 +60,9 @@ public sealed class Application : ITenantScoped
         Status = newStatus;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
+
+    private static string? Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static bool IsValidTransition(ApplicationStatus from, ApplicationStatus to)
     {
