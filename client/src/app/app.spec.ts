@@ -40,10 +40,10 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render the project title', () => {
+  it('should render the marketing headline', () => {
     const fixture = TestBed.createComponent(HomeComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Quantam Analytics');
+    expect(compiled.querySelector('h1')?.textContent).toContain('From public hiring pages');
   });
 });
