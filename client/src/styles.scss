@@ -1,1 +1,24 @@
-/* You can add global styles to this file, and also import other style files */
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  color: #1f1d1a;
+  background: #f8f4eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+a {
+  transition: transform 160ms ease, opacity 160ms ease, background-color 160ms ease;
+}
+
+button:hover,
+a:hover {
+  opacity: 0.96;
+}

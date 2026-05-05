@@ -1,78 +1,60 @@
-<main class="shell">
-  <header>
-    <h1>Quantam Analytics</h1>
-    <p class="tagline">Multi-tenant staffing platform — Phase 1 scaffold</p>
-  </header>
+<main class="page">
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Staffing operations, shaped as software</p>
+      <h1>From public hiring pages to recruiter workflow, on one tenant-safe platform.</h1>
+      <p class="lede">
+        Quantam Analytics is building the operating layer for staffing teams that
+        want clearer pipeline movement, safer SaaS foundations, and fewer
+        handoffs between tools.
+      </p>
 
-  <section class="health" aria-live="polite">
-    <h2>API health</h2>
-    @if (health.loading()) {
-      <p>Probing <code>/api/health</code>…</p>
-    } @else if (health.error()) {
-      <p class="error">
-        Could not reach the API: <code>{{ health.error() }}</code><br>
-        Start it locally with <code>dotnet run --project api/QuantamAnalytics.Api</code>.
-      </p>
-    } @else if (health.data(); as data) {
-      <p class="ok">
-        <strong>{{ data.status }}</strong> · service <code>{{ data.service }}</code>
-        · version <code>{{ data.version }}</code> · {{ data.timestamp }}
-      </p>
-    }
+      <div class="hero-actions">
+        <a routerLink="/contact" class="cta primary">Talk through your workflow</a>
+        <a routerLink="/services" class="cta secondary">Explore platform services</a>
+      </div>
+    </div>
+
+    <aside class="hero-panel">
+      <p class="eyebrow">What the platform is becoming</p>
+      <ul>
+        <li>Public job board and application intake</li>
+        <li>Recruiter portal with authenticated tenant isolation</li>
+        <li>Shared operating surface for submissions and delivery</li>
+        <li>Future-ready base for timesheets, invoicing, and client visibility</li>
+      </ul>
+    </aside>
   </section>
 
-  <section class="auth" aria-live="polite">
-    <h2>Account</h2>
+  <section class="signals">
+    <article>
+      <p class="signal-value">01</p>
+      <h2>One codebase, many staffing firms</h2>
+      <p>Tenant-aware claims and global query filtering keep future data surfaces isolated by default.</p>
+    </article>
+    <article>
+      <p class="signal-value">02</p>
+      <h2>Public site with product-grade plumbing</h2>
+      <p>The same application now handles live API health, authenticated identity, and public marketing routes.</p>
+    </article>
+    <article>
+      <p class="signal-value">03</p>
+      <h2>Recruiting-first roadmap</h2>
+      <p>Next milestones move from scaffold into public jobs, candidate intake, and recruiter workflow depth.</p>
+    </article>
+  </section>
 
-    @if (!auth.isConfigured()) {
-      <p class="warn">
-        Auth0 is not configured. Set <code>auth0.domain</code>, <code>auth0.clientId</code>,
-        and <code>auth0.audience</code> in <code>environment.ts</code> (local) or via
-        the <code>AUTH0_*</code> GitHub repo variables (cloud) — see
-        <code>docs/auth.md</code>.
-      </p>
-    } @else if (auth.isLoading()) {
-      <p>Checking session…</p>
-    } @else if (auth.isAuthenticated()) {
-      <p class="ok">
-        Signed in as <strong>{{ auth.email() ?? 'unknown' }}</strong>
-        <button type="button" class="secondary" (click)="logout()">Sign out</button>
-      </p>
-
-      @if (me.loading()) {
-        <p>Loading <code>/me</code>…</p>
-      } @else if (me.error()) {
-        <p class="error">
-          <code>/me</code> failed: <code>{{ me.error() }}</code>
-        </p>
-      } @else if (me.data(); as profile) {
-        <dl class="profile">
-          <dt>Subject</dt><dd><code>{{ profile.sub }}</code></dd>
-          <dt>Name</dt><dd>{{ profile.name || '—' }}</dd>
-          <dt>Email</dt><dd>{{ profile.email || '—' }}</dd>
-          <dt>Roles</dt><dd>
-            @if (profile.roles.length === 0) {
-              <em>none</em>
-            } @else {
-              {{ profile.roles.join(', ') }}
-            }
-          </dd>
-          <dt>Tenant</dt><dd>
-            @if (profile.tenantId) {
-              <code>{{ profile.tenantId }}</code>
-            } @else {
-              <em>not assigned</em>
-            }
-          </dd>
-        </dl>
-      }
-    } @else {
+  <section class="status-block">
+    <div class="status-copy">
+      <p class="eyebrow">Platform proof</p>
+      <h2>Live environment, live auth, live tenant context.</h2>
       <p>
-        You're not signed in.
-        <button type="button" (click)="login()">Sign in with Auth0</button>
+        This section keeps the engineering proof visible while the public-facing
+        experience matures. It confirms the Azure deployment, Auth0 flow, and
+        authenticated API round-trip are healthy.
       </p>
-    }
-  </section>
+    </div>
 
-  <router-outlet />
+    <app-status-panel />
+  </section>
 </main>

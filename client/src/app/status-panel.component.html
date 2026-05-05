@@ -1,0 +1,54 @@
+<section class="status-grid">
+  <article class="status-card" aria-live="polite">
+    <p class="eyebrow">Platform status</p>
+    <h3>Live API check</h3>
+
+    @if (health.loading()) {
+      <p>Probing <code>/health</code>…</p>
+    } @else if (health.error()) {
+      <p class="error">
+        Could not reach the API: <code>{{ health.error() }}</code>
+      </p>
+    } @else if (health.data(); as data) {
+      <p class="ok">
+        <strong>{{ data.status }}</strong> · service <code>{{ data.service }}</code>
+      </p>
+      <p class="meta">Version {{ data.version }} · {{ data.timestamp }}</p>
+    }
+  </article>
+
+  <article class="status-card" aria-live="polite">
+    <p class="eyebrow">Secure access</p>
+    <h3>Account signal</h3>
+
+    @if (!auth.isConfigured()) {
+      <p class="warn">
+        Auth0 is not configured for this environment yet.
+      </p>
+    } @else if (auth.isLoading()) {
+      <p>Checking session…</p>
+    } @else if (auth.isAuthenticated()) {
+      <p class="signed-in">
+        Signed in as <strong>{{ auth.email() ?? 'unknown user' }}</strong>
+        <button type="button" class="secondary" (click)="logout()">Sign out</button>
+      </p>
+
+      @if (me.loading()) {
+        <p>Loading <code>/me</code>…</p>
+      } @else if (me.error()) {
+        <p class="error"><code>/me</code> failed: <code>{{ me.error() }}</code></p>
+      } @else if (me.data(); as profile) {
+        <dl class="profile">
+          <dt>Role</dt><dd>{{ profile.roles.join(', ') || 'none' }}</dd>
+          <dt>Tenant</dt><dd>{{ profile.tenantId || 'not assigned' }}</dd>
+          <dt>Subject</dt><dd><code>{{ profile.sub }}</code></dd>
+        </dl>
+      }
+    } @else {
+      <p>
+        Sign in to confirm token exchange, tenant claims, and API authorization.
+      </p>
+      <button type="button" (click)="login()">Sign in with Auth0</button>
+    }
+  </article>
+</section>
