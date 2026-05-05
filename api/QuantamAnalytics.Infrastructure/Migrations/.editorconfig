@@ -14,3 +14,7 @@ dotnet_diagnostic.IDE0161.severity = none
 # CA1062 (validate args before use) — internal-only generated code,
 # no public callers to defend against.
 dotnet_diagnostic.CA1062.severity = none
+
+# CA1861 flags small inline arrays in generated migration code. EF regenerates
+# these files, so the right fix is to suppress the analyzer for this folder.
+dotnet_diagnostic.CA1861.severity = none
