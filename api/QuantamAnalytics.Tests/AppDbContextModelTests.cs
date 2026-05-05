@@ -111,6 +111,17 @@ public sealed class AppDbContextModelTests
         subjectIndex!.IsUnique.Should().BeTrue();
     }
 
+    [Fact]
+    public void Model_includes_Application_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(Application));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("applications");
+    }
+
     private sealed class StubCurrentTenant : ICurrentTenant
     {
         public Guid? TenantId => null;

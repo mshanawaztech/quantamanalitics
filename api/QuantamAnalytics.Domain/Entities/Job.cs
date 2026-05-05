@@ -46,6 +46,25 @@ public sealed class Job : ITenantScoped
     public DateOnly PostedOnUtc { get; private set; }
     public bool IsPublished { get; private set; }
 
+    public void UpdateDetails(
+        string title,
+        string location,
+        string summary,
+        string description,
+        DateOnly postedOnUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(location);
+        ArgumentException.ThrowIfNullOrWhiteSpace(summary);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+
+        Title = title.Trim();
+        Location = location.Trim();
+        Summary = summary.Trim();
+        Description = description.Trim();
+        PostedOnUtc = postedOnUtc;
+    }
+
     public void Publish() => IsPublished = true;
     public void Unpublish() => IsPublished = false;
 }

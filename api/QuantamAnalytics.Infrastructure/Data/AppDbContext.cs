@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<CandidateProfile> CandidateProfiles => Set<CandidateProfile>();
+    public DbSet<Application> Applications => Set<Application>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

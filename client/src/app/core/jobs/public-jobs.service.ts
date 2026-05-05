@@ -17,6 +17,13 @@ export interface PublicJobDetail extends PublicJobListItem {
   description: string;
 }
 
+export interface PublicJobApplicationResponse {
+  jobId: string;
+  jobSlug: string;
+  email: string;
+  message: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PublicJobsService {
   private http = inject(HttpClient);
@@ -31,5 +38,12 @@ export class PublicJobsService {
     return this.http
       .get<PublicJobDetail>(`${environment.apiBase}/api/v1/jobs/${slug}`)
       .pipe(catchError(() => of(null)));
+  }
+
+  apply(slug: string, request: { fullName: string; email: string; note: string }) {
+    return this.http.post<PublicJobApplicationResponse>(
+      `${environment.apiBase}/api/v1/jobs/${slug}/apply`,
+      request,
+    );
   }
 }
