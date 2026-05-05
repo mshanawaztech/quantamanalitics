@@ -3,6 +3,7 @@ import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
+import { MeService } from './core/auth/me.service';
 import {
   CandidateProfile,
   CandidateProfileService,
@@ -213,6 +214,7 @@ import {
 })
 export class CandidateDashboardComponent {
   protected auth = inject(AuthService);
+  protected me = inject(MeService);
   private candidateProfile = inject(CandidateProfileService);
 
   protected profile = signal<CandidateProfile | null>(null);
@@ -235,6 +237,25 @@ export class CandidateDashboardComponent {
       if (!this.auth.isAuthenticated()) {
         this.profile.set(null);
         this.selectedFile.set(null);
+        this.error.set(null);
+        return;
+      }
+
+      if (this.me.loading()) {
+        this.loading.set(true);
+        return;
+      }
+
+      if (this.me.error()) {
+        this.loading.set(false);
+        this.error.set(this.me.error());
+        return;
+      }
+
+      const tenantId = this.me.data()?.tenantId;
+      if (!tenantId) {
+        this.loading.set(false);
+        this.error.set('Tenant context is still loading. Refresh once the home /me panel shows your tenant.');
         return;
       }
 
@@ -321,6 +342,7 @@ export class CandidateDashboardComponent {
     this.phoneNumber = profile.phoneNumber ?? '';
     this.headline = profile.headline ?? '';
     this.summary = profile.summary ?? '';
+    this.error.set(null);
   }
 
   private toErrorMessage(error: unknown): string {

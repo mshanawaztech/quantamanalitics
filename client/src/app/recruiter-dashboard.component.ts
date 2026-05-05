@@ -150,10 +150,10 @@ import {
     </main>
   `,
   styles: `
-    .page { width: min(1180px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
+    .page { width: min(1320px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.15fr 0.85fr; margin-bottom: 1.5rem; }
-    .workspace { grid-template-columns: 0.95fr 1.05fr; align-items: start; }
+    .workspace { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); align-items: start; }
     .hero-card, .gate-card, .jobs-card, .board-card, .column, .application-card {
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
@@ -194,15 +194,41 @@ import {
     }
     .jobs-list { display: grid; gap: 0.8rem; }
     .job-item, .application-card { padding: 1rem; }
-    .job-item { display: flex; justify-content: space-between; gap: 1rem; border-radius: 1.1rem; background: #fffdf9; border: 1px solid #eadcc8; }
-    .slug { font-family: monospace; color: #8b5e34; }
-    .board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
-    .column { padding: 1rem; display: grid; gap: 0.8rem; align-content: start; min-height: 20rem; }
-    .application-card { background: #fffdf9; border: 1px solid #eadcc8; }
+    .job-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem); align-items: start; gap: 1rem; border-radius: 1.1rem; background: #fffdf9; border: 1px solid #eadcc8; }
+    .job-item strong, .application-card strong { display: block; margin-bottom: 0.45rem; }
+    .slug { font-family: monospace; color: #8b5e34; overflow-wrap: anywhere; text-align: right; }
+    .board-card { overflow: hidden; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(15rem, 1fr));
+      gap: 1rem;
+      overflow-x: auto;
+      padding-bottom: 0.35rem;
+      align-items: start;
+    }
+    .column {
+      padding: 1rem;
+      display: grid;
+      gap: 0.8rem;
+      align-content: start;
+      min-height: 20rem;
+      min-width: 15rem;
+    }
+    .application-card {
+      background: #fffdf9;
+      border: 1px solid #eadcc8;
+      display: grid;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .application-card p { margin: 0; overflow-wrap: anywhere; }
+    .application-card select { min-width: 0; }
     .empty { color: #7c6f5e; }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 980px) {
-      .hero, .workspace, .board, .job-form { grid-template-columns: 1fr; }
+      .hero, .workspace, .job-form { grid-template-columns: 1fr; }
+      .job-item { grid-template-columns: 1fr; }
+      .slug { text-align: left; }
     }
   `,
 })
