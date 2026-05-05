@@ -117,6 +117,10 @@ jobs:
           # succeeds and the API runs unauthenticated (with a startup warning).
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
           AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
         with:
           inlineScript: |
             az deployment group create \
@@ -127,7 +131,11 @@ jobs:
               --parameters apiImage="$IMAGE_REF" \
               --parameters postgresConnectionString="$PG_CONN" \
               --parameters auth0Domain="$AUTH0_DOMAIN" \
-              --parameters auth0Audience="$AUTH0_AUDIENCE"
+              --parameters auth0Audience="$AUTH0_AUDIENCE" \
+              --parameters r2AccountId="$R2_ACCOUNT_ID" \
+              --parameters r2AccessKeyId="$R2_ACCESS_KEY_ID" \
+              --parameters r2SecretAccessKey="$R2_SECRET_ACCESS_KEY" \
+              --parameters r2Bucket="$R2_BUCKET"
 
       - name: Read deployment outputs
         id: outputs

@@ -14,6 +14,8 @@ The API validates JWTs issued by an Auth0 tenant. This doc walks through the one
 
 Public values (domain, audience, client ID) live in **GitHub repository variables** because they're discoverable from any signed JWT — they're not secrets.
 
+Candidate resume uploads (PR-10) use **Cloudflare R2** via S3-compatible API calls. Those credentials are sensitive and therefore live in **GitHub repository secrets**, not variables.
+
 ## One-time tenant setup
 
 Do these in your browser at **[manage.auth0.com](https://manage.auth0.com)**.
@@ -136,6 +138,28 @@ warn: Program[0]
 ```
 
 That's fine for hacking offline; just don't expose that build to the internet.
+
+### Optional: enable resume uploads locally
+
+Candidate profile save works without storage, but resume uploads return `503` until R2 is configured.
+
+Set these via `dotnet user-secrets` on `api/QuantamAnalytics.Api`:
+
+```
+dotnet user-secrets set "Storage:R2:AccountId" "<your-cloudflare-account-id>"
+dotnet user-secrets set "Storage:R2:AccessKeyId" "<your-r2-access-key-id>"
+dotnet user-secrets set "Storage:R2:SecretAccessKey" "<your-r2-secret-access-key>"
+dotnet user-secrets set "Storage:R2:Bucket" "<your-r2-bucket-name>"
+```
+
+The deploy workflow reads the same values from GitHub Actions secrets:
+
+| Secret | Value |
+| --- | --- |
+| `R2_ACCOUNT_ID` | Cloudflare account ID |
+| `R2_ACCESS_KEY_ID` | R2 access key ID |
+| `R2_SECRET_ACCESS_KEY` | R2 secret access key |
+| `R2_BUCKET` | bucket used for candidate resumes |
 
 ## Creating your first user
 

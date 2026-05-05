@@ -36,6 +36,22 @@ param auth0Domain string = ''
 @description('Auth0 API audience identifier (e.g. https://api.quantamanalitics.com). NOT a secret — public token claim. Empty = app runs unauthenticated.')
 param auth0Audience string = ''
 
+@description('Cloudflare R2 account ID. Empty = resume uploads stay disabled.')
+@secure()
+param r2AccountId string = ''
+
+@description('Cloudflare R2 access key ID. Empty = resume uploads stay disabled.')
+@secure()
+param r2AccessKeyId string = ''
+
+@description('Cloudflare R2 secret access key. Empty = resume uploads stay disabled.')
+@secure()
+param r2SecretAccessKey string = ''
+
+@description('Cloudflare R2 bucket name. Empty = resume uploads stay disabled.')
+@secure()
+param r2Bucket string = ''
+
 @description('Port the container listens on. Must match ASPNETCORE_HTTP_PORTS.')
 param targetPort int = 8080
 
@@ -66,7 +82,6 @@ var postgresSecret = [
     value: postgresConnectionString
   }
 ]
-var allSecrets = hasPostgres ? concat(baseSecrets, postgresSecret) : baseSecrets
 
 var baseEnv = [
   {
@@ -118,11 +133,54 @@ var auth0Env = [
   }
 ]
 
+var hasR2 = !empty(r2AccountId) && !empty(r2AccessKeyId) && !empty(r2SecretAccessKey) && !empty(r2Bucket)
+var r2Secrets = [
+  {
+    name: 'r2-account-id'
+    value: r2AccountId
+  }
+  {
+    name: 'r2-access-key-id'
+    value: r2AccessKeyId
+  }
+  {
+    name: 'r2-secret-access-key'
+    value: r2SecretAccessKey
+  }
+  {
+    name: 'r2-bucket'
+    value: r2Bucket
+  }
+]
+var r2Env = [
+  {
+    name: 'Storage__R2__AccountId'
+    secretRef: 'r2-account-id'
+  }
+  {
+    name: 'Storage__R2__AccessKeyId'
+    secretRef: 'r2-access-key-id'
+  }
+  {
+    name: 'Storage__R2__SecretAccessKey'
+    secretRef: 'r2-secret-access-key'
+  }
+  {
+    name: 'Storage__R2__Bucket'
+    secretRef: 'r2-bucket'
+  }
+]
+
 var allEnv = concat(
   baseEnv,
   hasPostgres ? postgresEnv : [],
   hasCors ? corsEnv : [],
-  hasAuth0 ? auth0Env : []
+  hasAuth0 ? auth0Env : [],
+  hasR2 ? r2Env : []
+)
+var allSecrets = concat(
+  hasPostgres ? concat(baseSecrets, postgresSecret) : baseSecrets,
+  hasR2 ? r2Secrets : []
 )
 
 resource ca 'Microsoft.App/containerApps@2024-03-01' = {
