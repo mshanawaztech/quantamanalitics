@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { AuthService } from './core/auth/auth.service';
 
 @Component({
   selector: 'app-marketing-shell',
@@ -23,6 +24,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
           <a routerLink="/about" routerLinkActive="active">About</a>
           <a routerLink="/services" routerLinkActive="active">Services</a>
           <a routerLink="/jobs" routerLinkActive="active">Jobs</a>
+          <a routerLink="/candidate" routerLinkActive="active">Candidate</a>
           <a routerLink="/contact" routerLinkActive="active">Contact</a>
         </nav>
       </header>
@@ -32,6 +34,9 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
       <footer class="site-footer">
         <p>Quantam Analytics is building a multi-tenant staffing operating system from sourcing to submission.</p>
         <div>
+          @if (auth.isAuthenticated()) {
+            <a routerLink="/candidate">Candidate dashboard</a>
+          }
           <a routerLink="/contact">Talk to us</a>
           <span>Azure-hosted · Auth0-secured · SaaS-ready</span>
         </div>
@@ -196,4 +201,6 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     }
   `,
 })
-export class MarketingShellComponent {}
+export class MarketingShellComponent {
+  protected auth = inject(AuthService);
+}

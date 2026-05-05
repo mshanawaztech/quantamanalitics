@@ -86,6 +86,31 @@ public sealed class AppDbContextModelTests
         t.CreatedAtUtc.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(1));
     }
 
+    [Fact]
+    public void Model_includes_CandidateProfile_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(CandidateProfile));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("candidate_profiles");
+    }
+
+    [Fact]
+    public void CandidateProfile_has_unique_tenant_subject_index()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(CandidateProfile))!;
+        var subjectIndex = entity.GetIndexes()
+            .SingleOrDefault(i => i.Properties.Select(p => p.Name)
+                .SequenceEqual([nameof(CandidateProfile.TenantId), nameof(CandidateProfile.AuthSubject)]));
+
+        subjectIndex.Should().NotBeNull();
+        subjectIndex!.IsUnique.Should().BeTrue();
+    }
+
     private sealed class StubCurrentTenant : ICurrentTenant
     {
         public Guid? TenantId => null;

@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.22.2" />
     <!--
       Pinned to 10.0.1 because EFCore.NamingConventions 10.0.0 transitively
       requires Microsoft.EntityFrameworkCore >= 10.0.1, and Directory.Build.props

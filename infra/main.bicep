@@ -44,6 +44,22 @@ param auth0Domain string = ''
 @description('Auth0 API audience identifier (e.g. https://api.quantamanalitics.com). NOT a secret. Empty = API runs unauthenticated; the workflow passes the real value from vars.AUTH0_AUDIENCE.')
 param auth0Audience string = ''
 
+@description('Cloudflare R2 account ID. Empty = resume uploads stay disabled in the API.')
+@secure()
+param r2AccountId string = ''
+
+@description('Cloudflare R2 access key ID. Empty = resume uploads stay disabled in the API.')
+@secure()
+param r2AccessKeyId string = ''
+
+@description('Cloudflare R2 secret access key. Empty = resume uploads stay disabled in the API.')
+@secure()
+param r2SecretAccessKey string = ''
+
+@description('Cloudflare R2 bucket name for candidate resume uploads. Empty = resume uploads stay disabled in the API.')
+@secure()
+param r2Bucket string = ''
+
 // ── Naming ─────────────────────────────────────────────────────────────────
 // CAF-style abbreviations. Suffix unique per env so prd resources don't
 // collide with dev. Globally-unique names (KV, SWA) get a uniqueString suffix.
@@ -139,6 +155,10 @@ module containerApp 'modules/container-app.bicep' = {
     corsAllowedOrigins: 'https://${staticWebApp.outputs.defaultHostname}'
     auth0Domain: auth0Domain
     auth0Audience: auth0Audience
+    r2AccountId: r2AccountId
+    r2AccessKeyId: r2AccessKeyId
+    r2SecretAccessKey: r2SecretAccessKey
+    r2Bucket: r2Bucket
   }
 }
 

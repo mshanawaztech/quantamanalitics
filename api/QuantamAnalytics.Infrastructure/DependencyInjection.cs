@@ -1,7 +1,10 @@
+using Amazon.Runtime;
+using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
 namespace QuantamAnalytics.Infrastructure;
@@ -36,6 +39,8 @@ public static class DependencyInjection
         services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddScoped<ICurrentTenantSetter>(sp => sp.GetRequiredService<CurrentTenant>());
 
+        RegisterResumeStorage(services, configuration);
+
         // Non-pooled context because tenant state is request-scoped. Reusing a
         // pooled DbContext across requests risks stale TenantId leaking into the
         // global query filter. Snake_case naming converts PascalCase model names
@@ -51,5 +56,36 @@ public static class DependencyInjection
             .AddDbContextCheck<AppDbContext>(name: "postgres");
 
         return services;
+    }
+
+    private static void RegisterResumeStorage(
+        IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var accountId = configuration["Storage:R2:AccountId"];
+        var accessKeyId = configuration["Storage:R2:AccessKeyId"];
+        var secretAccessKey = configuration["Storage:R2:SecretAccessKey"];
+        var bucketName = configuration["Storage:R2:Bucket"];
+
+        if (string.IsNullOrWhiteSpace(accountId) ||
+            string.IsNullOrWhiteSpace(accessKeyId) ||
+            string.IsNullOrWhiteSpace(secretAccessKey) ||
+            string.IsNullOrWhiteSpace(bucketName))
+        {
+            services.AddSingleton<IResumeStorage, DisabledResumeStorage>();
+            return;
+        }
+
+        services.AddSingleton<IAmazonS3>(_ =>
+        {
+            var credentials = new BasicAWSCredentials(accessKeyId, secretAccessKey);
+            return new AmazonS3Client(credentials, new AmazonS3Config
+            {
+                ServiceURL = $"https://{accountId}.r2.cloudflarestorage.com",
+                ForcePathStyle = true
+            });
+        });
+        services.AddSingleton<IResumeStorage>(_ =>
+            new R2ResumeStorage(_.GetRequiredService<IAmazonS3>(), bucketName));
     }
 }
