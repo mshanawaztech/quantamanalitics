@@ -97,6 +97,26 @@ public sealed class TimesheetTests
         rejectApproved.Should().Throw<InvalidOperationException>();
     }
 
+    [Fact]
+    public void CalculateTotals_splits_regular_overtime_and_pto_hours()
+    {
+        var timesheet = NewTimesheet();
+        timesheet.AddOrUpdateEntry(new DateOnly(2026, 5, 4), 10, TimeEntryType.Work, null);
+        timesheet.AddOrUpdateEntry(new DateOnly(2026, 5, 5), 10, TimeEntryType.Work, null);
+        timesheet.AddOrUpdateEntry(new DateOnly(2026, 5, 6), 10, TimeEntryType.Work, null);
+        timesheet.AddOrUpdateEntry(new DateOnly(2026, 5, 7), 10, TimeEntryType.Work, null);
+        timesheet.AddOrUpdateEntry(new DateOnly(2026, 5, 8), 5, TimeEntryType.Work, null);
+        timesheet.AddOrUpdateEntry(new DateOnly(2026, 5, 9), 8, TimeEntryType.PaidTimeOff, "Holiday");
+
+        var totals = timesheet.CalculateTotals();
+
+        totals.WorkHours.Should().Be(45);
+        totals.PaidTimeOffHours.Should().Be(8);
+        totals.RegularHours.Should().Be(40);
+        totals.OvertimeHours.Should().Be(5);
+        totals.PayableHours.Should().Be(53);
+    }
+
     private static Timesheet NewTimesheet() =>
         new(
             Guid.CreateVersion7(),

@@ -40,6 +40,8 @@ type DayRow = {
             <dd>{{ weekStartUtc }}</dd>
             <dt>Total hours</dt>
             <dd>{{ totalEnteredHours() }}</dd>
+            <dt>Regular / OT</dt>
+            <dd>{{ totalsLabel() }}</dd>
           </dl>
         </div>
       </section>
@@ -163,6 +165,9 @@ type DayRow = {
             <p>
               Drafts stay editable. Submitted weeks lock entry fields and set
               up the next Phase 2 slices for approval, pay rules, and invoice staging.
+            </p>
+            <p>
+              Pay rules scaffold: {{ payRulesLabel() }}
             </p>
             <a routerLink="/recruiter">See recruiter side</a>
           </aside>
@@ -340,6 +345,24 @@ export class ContractorDashboardComponent {
       (sum, row) => sum + (row.workHours ?? 0) + (row.paidTimeOffHours ?? 0),
       0,
     );
+  }
+
+  protected totalsLabel(): string {
+    const totals = this.timesheet()?.totals;
+    if (!totals) {
+      return '0 / 0';
+    }
+
+    return `${totals.regularHours} reg · ${totals.overtimeHours} OT`;
+  }
+
+  protected payRulesLabel(): string {
+    const totals = this.timesheet()?.totals;
+    if (!totals) {
+      return '0 work · 0 PTO · 0 payable';
+    }
+
+    return `${totals.workHours} work · ${totals.paidTimeOffHours} PTO · ${totals.payableHours} payable`;
   }
 
   protected saveDraft(): void {

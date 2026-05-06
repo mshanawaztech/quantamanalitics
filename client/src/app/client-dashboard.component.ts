@@ -64,6 +64,7 @@ import {
                       <div>
                         <strong>{{ timesheet.contractorEmail }}</strong>
                         <p>Week of {{ timesheet.weekStartUtc }} · {{ timesheet.totalHours }} hours</p>
+                        <p>{{ totalsLabel(timesheet) }}</p>
                       </div>
                       <span class="pill">{{ timesheet.status }}</span>
                     </div>
@@ -115,6 +116,7 @@ import {
                 <article class="history-item">
                   <strong>{{ timesheet.contractorEmail }}</strong>
                   <p>{{ timesheet.status }} · Week of {{ timesheet.weekStartUtc }}</p>
+                  <p>{{ totalsLabel(timesheet) }}</p>
                   @if (timesheet.reviewNote) {
                     <p>{{ timesheet.reviewNote }}</p>
                   }
@@ -246,6 +248,10 @@ export class ClientDashboardComponent {
 
   protected reviewedTimesheets(): ClientApprovalTimesheet[] {
     return this.items().filter((item) => item.status !== 'Submitted');
+  }
+
+  protected totalsLabel(timesheet: ClientApprovalTimesheet): string {
+    return `${timesheet.totals.regularHours} reg · ${timesheet.totals.overtimeHours} OT · ${timesheet.totals.paidTimeOffHours} PTO`;
   }
 
   protected approve(timesheet: ClientApprovalTimesheet): void {

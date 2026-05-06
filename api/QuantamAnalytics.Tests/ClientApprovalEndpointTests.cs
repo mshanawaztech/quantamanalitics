@@ -43,6 +43,7 @@ public sealed class ClientApprovalEndpointTests : IClassFixture<WebApplicationFa
         payload.Items.Should().Contain(x => x.Id == seed.SubmittedId && x.Status == "Submitted");
         payload.Items.Should().Contain(x => x.Id == seed.SecondSubmittedId && x.Status == "Submitted");
         payload.Items.Should().Contain(x => x.Id == seed.ApprovedId && x.Status == "Approved");
+        payload.Items.Should().Contain(x => x.Id == seed.SubmittedId && x.Totals.RegularHours == 16 && x.Totals.OvertimeHours == 0);
     }
 
     [Fact]

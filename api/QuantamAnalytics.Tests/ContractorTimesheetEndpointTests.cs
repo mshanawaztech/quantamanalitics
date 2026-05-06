@@ -42,6 +42,7 @@ public sealed class ContractorTimesheetEndpointTests : IClassFixture<WebApplicat
         payload.WeekStartUtc.Should().Be(new DateOnly(2026, 5, 4));
         payload.Entries.Should().BeEmpty();
         payload.TotalHours.Should().Be(0);
+        payload.Totals.PayableHours.Should().Be(0);
     }
 
     [Fact]
@@ -72,6 +73,10 @@ public sealed class ContractorTimesheetEndpointTests : IClassFixture<WebApplicat
         saved.Should().NotBeNull();
         saved!.Status.Should().Be("Draft");
         saved.TotalHours.Should().Be(12);
+        saved.Totals.WorkHours.Should().Be(8);
+        saved.Totals.PaidTimeOffHours.Should().Be(4);
+        saved.Totals.RegularHours.Should().Be(8);
+        saved.Totals.OvertimeHours.Should().Be(0);
         saved.Entries.Should().HaveCount(2);
 
         var submitResponse = await client.PostAsJsonAsync("/api/v1/contractor/timesheets/current/submit", request);
