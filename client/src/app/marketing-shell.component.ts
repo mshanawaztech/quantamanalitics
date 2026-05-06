@@ -25,6 +25,7 @@ import { AuthService } from './core/auth/auth.service';
           <a routerLink="/services" routerLinkActive="active">Services</a>
           <a routerLink="/jobs" routerLinkActive="active">Jobs</a>
           <a routerLink="/candidate" routerLinkActive="active">Candidate</a>
+          <a routerLink="/contractor" routerLinkActive="active">Contractor</a>
           <a routerLink="/recruiter" routerLinkActive="active">Recruiter</a>
           <a routerLink="/contact" routerLinkActive="active">Contact</a>
         </nav>
@@ -37,6 +38,7 @@ import { AuthService } from './core/auth/auth.service';
         <div>
           @if (auth.isAuthenticated()) {
             <a routerLink="/candidate">Candidate dashboard</a>
+            <a routerLink="/contractor">Contractor portal</a>
             <a routerLink="/recruiter">Recruiter workspace</a>
           }
           <a routerLink="/contact">Talk to us</a>
