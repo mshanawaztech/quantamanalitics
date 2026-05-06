@@ -2,7 +2,7 @@
 
 A multi-tenant staffing platform — applicant tracking, interview management, onboarding, timesheets, invoicing, and outbound job-board posting. Built first for one staffing firm, designed to be sold as SaaS.
 
-**Status:** Phase 1 is merged and live in the shared dev environment. Phase 2 planning is queued in [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md). See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
+**Status:** Phase 2 is merged and live in the shared dev environment. Phase 3 planning is queued in [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md). See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
 
 ## Stack
 
@@ -108,11 +108,11 @@ The shared dev environment now demonstrates:
 
 This is still a dev preview, not a production-ready operations closeout:
 
-- contractor portal, weekly timesheets, and client approvals are still Phase 2 work
-- R2-backed resume upload depends on the environment secrets being present
+- candidate resume upload still depends on the environment R2 secrets being present
+- QuickBooks and Stripe are baseline handoff surfaces, not live external integrations yet
 - dev migrations are still applied manually outside the deploy workflow
 
-See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the active next queue, and [`plan/plan.md`](./plan/plan.md) for later phases.
+See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the completed Time & Money phase, [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md) for the active next queue, and [`plan/plan.md`](./plan/plan.md) for later phases.
 
 ## License
 
