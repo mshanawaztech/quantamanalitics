@@ -77,6 +77,7 @@ app.MapHealthChecks("/ready").AllowAnonymous();
 if (authEnabled)
 {
     app.MapMeEndpoint();
+    app.MapClientApprovalEndpoints();
     app.MapContractorTimesheetEndpoints();
     app.MapCandidateProfileEndpoints();
     app.MapRecruiterPortalEndpoints();
