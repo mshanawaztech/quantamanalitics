@@ -122,6 +122,42 @@ public sealed class AppDbContextModelTests
         entity!.GetTableName().Should().Be("applications");
     }
 
+    [Fact]
+    public void Model_includes_Timesheet_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(Timesheet));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("timesheets");
+    }
+
+    [Fact]
+    public void Model_includes_TimeEntry_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(TimeEntry));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("time_entries");
+    }
+
+    [Fact]
+    public void Timesheet_has_unique_tenant_contractor_week_index()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(Timesheet))!;
+        var weekIndex = entity.GetIndexes()
+            .SingleOrDefault(i => i.Properties.Select(p => p.Name).SequenceEqual(
+                [nameof(Timesheet.TenantId), nameof(Timesheet.ContractorAuthSubject), nameof(Timesheet.WeekStartUtc)]));
+
+        weekIndex.Should().NotBeNull();
+        weekIndex!.IsUnique.Should().BeTrue();
+    }
+
     private sealed class StubCurrentTenant : ICurrentTenant
     {
         public Guid? TenantId => null;
