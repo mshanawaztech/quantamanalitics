@@ -22,7 +22,16 @@ export interface ContractorTimesheet {
   submittedAtUtc: string | null;
   reviewedAtUtc: string | null;
   totalHours: number;
+  totals: TimesheetTotals;
   entries: ContractorTimesheetEntry[];
+}
+
+export interface TimesheetTotals {
+  workHours: number;
+  paidTimeOffHours: number;
+  regularHours: number;
+  overtimeHours: number;
+  payableHours: number;
 }
 
 export interface UpsertContractorTimesheetRequest {

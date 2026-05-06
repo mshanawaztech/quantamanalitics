@@ -282,10 +282,14 @@ public static class ContractorTimesheetEndpoint
             null,
             null,
             0,
+            new TimesheetTotalsResponse(0, 0, 0, 0, 0),
             []);
 
-    private static ContractorTimesheetResponse ToResponse(Timesheet timesheet) =>
-        new(
+    private static ContractorTimesheetResponse ToResponse(Timesheet timesheet)
+    {
+        var totals = timesheet.CalculateTotals();
+
+        return new(
             timesheet.Id,
             timesheet.TenantId,
             timesheet.ContractorAuthSubject,
@@ -297,6 +301,12 @@ public static class ContractorTimesheetEndpoint
             timesheet.SubmittedAtUtc,
             timesheet.ReviewedAtUtc,
             timesheet.Entries.Sum(x => x.Hours),
+            new TimesheetTotalsResponse(
+                totals.WorkHours,
+                totals.PaidTimeOffHours,
+                totals.RegularHours,
+                totals.OvertimeHours,
+                totals.PayableHours),
             timesheet.Entries
                 .OrderBy(x => x.WorkDate)
                 .ThenBy(x => x.EntryType)
@@ -306,6 +316,7 @@ public static class ContractorTimesheetEndpoint
                     x.EntryType.ToString(),
                     x.Notes))
                 .ToArray());
+    }
 
     private static ProblemHttpResult TenantRequired() =>
         TypedResults.Problem(
@@ -350,6 +361,7 @@ public sealed record ContractorTimesheetResponse(
     DateTimeOffset? SubmittedAtUtc,
     DateTimeOffset? ReviewedAtUtc,
     decimal TotalHours,
+    TimesheetTotalsResponse Totals,
     ContractorTimesheetEntryResponse[] Entries);
 
 public sealed record ContractorTimesheetEntryResponse(
@@ -357,3 +369,10 @@ public sealed record ContractorTimesheetEntryResponse(
     decimal Hours,
     string EntryType,
     string? Notes);
+
+public sealed record TimesheetTotalsResponse(
+    decimal WorkHours,
+    decimal PaidTimeOffHours,
+    decimal RegularHours,
+    decimal OvertimeHours,
+    decimal PayableHours);

@@ -36,29 +36,13 @@ public static class ClientApprovalEndpoint
         var items = await db.Timesheets
             .Include(x => x.Entries)
             .Where(x => x.Status != TimesheetStatus.Draft)
-            .OrderByDescending(x => x.SubmittedAtUtc ?? x.UpdatedAtUtc)
-            .Select(x => new ClientApprovalTimesheetResponse(
-                x.Id,
-                x.ContractorAuthSubject,
-                x.ContractorEmail,
-                x.WeekStartUtc,
-                x.Status.ToString(),
-                x.SubmittedAtUtc,
-                x.ReviewedAtUtc,
-                x.ReviewNote,
-                x.Entries.Sum(entry => entry.Hours),
-                x.Entries
-                    .OrderBy(entry => entry.WorkDate)
-                    .ThenBy(entry => entry.EntryType)
-                    .Select(entry => new ClientApprovalTimeEntryResponse(
-                        entry.WorkDate,
-                        entry.Hours,
-                        entry.EntryType.ToString(),
-                        entry.Notes))
-                    .ToArray()))
             .ToArrayAsync(cancellationToken);
 
-        return TypedResults.Ok(new ClientApprovalTimesheetsResponse(items));
+        return TypedResults.Ok(new ClientApprovalTimesheetsResponse(
+            items
+                .OrderByDescending(x => x.SubmittedAtUtc ?? x.UpdatedAtUtc)
+                .Select(ToResponse)
+                .ToArray()));
     }
 
     private static async Task<Results<Ok<ClientApprovalTimesheetResponse>, NotFound, ProblemHttpResult>> ApproveAsync(
@@ -163,8 +147,11 @@ public static class ClientApprovalEndpoint
         return TypedResults.Ok(ToResponse(timesheet));
     }
 
-    private static ClientApprovalTimesheetResponse ToResponse(Timesheet timesheet) =>
-        new(
+    private static ClientApprovalTimesheetResponse ToResponse(Timesheet timesheet)
+    {
+        var totals = timesheet.CalculateTotals();
+
+        return new(
             timesheet.Id,
             timesheet.ContractorAuthSubject,
             timesheet.ContractorEmail,
@@ -174,6 +161,12 @@ public static class ClientApprovalEndpoint
             timesheet.ReviewedAtUtc,
             timesheet.ReviewNote,
             timesheet.Entries.Sum(x => x.Hours),
+            new TimesheetTotalsResponse(
+                totals.WorkHours,
+                totals.PaidTimeOffHours,
+                totals.RegularHours,
+                totals.OvertimeHours,
+                totals.PayableHours),
             timesheet.Entries
                 .OrderBy(x => x.WorkDate)
                 .ThenBy(x => x.EntryType)
@@ -183,6 +176,7 @@ public static class ClientApprovalEndpoint
                     x.EntryType.ToString(),
                     x.Notes))
                 .ToArray());
+    }
 
     private static ProblemHttpResult TenantRequired() =>
         TypedResults.Problem(
@@ -205,6 +199,7 @@ public sealed record ClientApprovalTimesheetResponse(
     DateTimeOffset? ReviewedAtUtc,
     string? ReviewNote,
     decimal TotalHours,
+    TimesheetTotalsResponse Totals,
     ClientApprovalTimeEntryResponse[] Entries);
 
 public sealed record ClientApprovalTimeEntryResponse(

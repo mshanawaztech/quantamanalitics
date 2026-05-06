@@ -20,7 +20,16 @@ export interface ClientApprovalTimesheet {
   reviewedAtUtc: string | null;
   reviewNote: string | null;
   totalHours: number;
+  totals: TimesheetTotals;
   entries: ClientApprovalTimeEntry[];
+}
+
+export interface TimesheetTotals {
+  workHours: number;
+  paidTimeOffHours: number;
+  regularHours: number;
+  overtimeHours: number;
+  payableHours: number;
 }
 
 export interface ClientApprovalTimesheetsResponse {
