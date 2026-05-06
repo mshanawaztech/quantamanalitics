@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
+  CandidateApplication,
   CandidateProfile,
   CandidateProfileService,
 } from './core/candidate/candidate-profile.service';
@@ -154,6 +155,50 @@ import {
             <p class="hint">PDF, DOC, or DOCX up to 5 MB. Cloudflare R2 credentials are required in the environment.</p>
           </aside>
         </section>
+
+        <section class="history-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Applied jobs</p>
+              <h2>Track the roles already in motion.</h2>
+            </div>
+            @if (applicationsLoading()) {
+              <span class="pill">Loading</span>
+            }
+          </div>
+
+          @if (applicationsError()) {
+            <p class="error">{{ applicationsError() }}</p>
+          } @else {
+            <div class="history-list">
+              @for (application of applications(); track application.id) {
+                <article class="history-item">
+                  <div class="history-top">
+                    <div>
+                      <strong>{{ application.jobTitle }}</strong>
+                      <p>{{ application.location }}</p>
+                    </div>
+                    <span class="status-pill">{{ application.status }}</span>
+                  </div>
+                  <p class="history-meta">Applied {{ application.appliedAtUtc }}</p>
+                  @if (application.note) {
+                    <p class="history-note">{{ application.note }}</p>
+                  }
+                  <a [routerLink]="['/jobs', application.jobSlug]">View role</a>
+                </article>
+              } @empty {
+                <article class="history-empty">
+                  <h3>No submitted applications yet</h3>
+                  <p>
+                    Your candidate profile is ready. Browse the live job board
+                    and submit your first application to see it here.
+                  </p>
+                  <a routerLink="/jobs">Browse jobs</a>
+                </article>
+              }
+            </div>
+          }
+        </section>
       }
     </main>
   `,
@@ -161,7 +206,7 @@ import {
     .page { width: min(1120px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.2fr 0.8fr; margin-bottom: 1.5rem; }
-    .hero-card, .gate-card, .profile-card, .resume-card {
+    .hero-card, .gate-card, .profile-card, .resume-card, .history-card, .history-item, .history-empty {
       padding: 1.6rem;
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
@@ -205,10 +250,29 @@ import {
     .meta-list dt { font-weight: 700; color: #3f372c; }
     .meta-list dd { margin: 0; color: #554d41; word-break: break-word; }
     .upload-field { margin-bottom: 1rem; }
+    .history-card { margin-top: 1.25rem; }
+    .history-list { display: grid; gap: 0.9rem; }
+    .history-item, .history-empty { background: #fffdf9; border: 1px solid #eadcc8; }
+    .history-top { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+    .history-top strong { display: block; margin-bottom: 0.35rem; font-size: 1.05rem; }
+    .history-top p, .history-meta, .history-note { margin: 0; }
+    .history-meta { color: #8b5e34; font-size: 0.92rem; }
+    .history-note { margin-top: 0.65rem; }
+    .status-pill {
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      background: #e7e5e4;
+      color: #44403c;
+      font-size: 0.85rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .history-empty h3 { margin: 0 0 0.75rem; font-size: 1.15rem; }
     .success { color: #166534; font-weight: 600; }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 900px) {
       .hero, .workspace, .profile-form { grid-template-columns: 1fr; }
+      .history-top { flex-direction: column; }
     }
   `,
 })
@@ -218,10 +282,13 @@ export class CandidateDashboardComponent {
   private candidateProfile = inject(CandidateProfileService);
 
   protected profile = signal<CandidateProfile | null>(null);
+  protected applications = signal<CandidateApplication[]>([]);
   protected loading = signal(false);
+  protected applicationsLoading = signal(false);
   protected saving = signal(false);
   protected uploading = signal(false);
   protected error = signal<string | null>(null);
+  protected applicationsError = signal<string | null>(null);
   protected savedMessage = signal<string | null>(null);
   protected uploadMessage = signal<string | null>(null);
   protected selectedFile = signal<File | null>(null);
@@ -236,8 +303,10 @@ export class CandidateDashboardComponent {
     effect(() => {
       if (!this.auth.isAuthenticated()) {
         this.profile.set(null);
+        this.applications.set([]);
         this.selectedFile.set(null);
         this.error.set(null);
+        this.applicationsError.set(null);
         return;
       }
 
@@ -260,6 +329,7 @@ export class CandidateDashboardComponent {
       }
 
       this.fetchProfile();
+      this.fetchApplications();
     });
   }
 
@@ -331,6 +401,23 @@ export class CandidateDashboardComponent {
       error: (error: unknown) => {
         this.loading.set(false);
         this.error.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private fetchApplications(): void {
+    this.applicationsLoading.set(true);
+    this.applicationsError.set(null);
+
+    this.candidateProfile.applications().subscribe({
+      next: (response) => {
+        this.applications.set(response.items);
+        this.applicationsLoading.set(false);
+      },
+      error: (error: unknown) => {
+        this.applications.set([]);
+        this.applicationsLoading.set(false);
+        this.applicationsError.set(this.toErrorMessage(error));
       },
     });
   }

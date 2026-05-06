@@ -143,6 +143,7 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
             delete from applications;
             delete from candidate_profiles;
             delete from jobs;
+            delete from tenants;
             """);
     }
 

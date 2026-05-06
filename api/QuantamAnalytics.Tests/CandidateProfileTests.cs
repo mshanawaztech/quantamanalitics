@@ -68,4 +68,23 @@ public sealed class CandidateProfileTests
         profile.ResumeUploadedAtUtc.Should().Be(uploadedAtUtc);
         profile.UpdatedAtUtc.Should().Be(uploadedAtUtc);
     }
+
+    [Fact]
+    public void AttachAuthenticatedIdentity_updates_subject_and_preserves_existing_name()
+    {
+        var profile = new CandidateProfile(
+            Guid.CreateVersion7(),
+            "guest|candidate-1",
+            "person@example.com",
+            "Jane Candidate");
+
+        profile.AttachAuthenticatedIdentity(
+            "auth0|candidate-1",
+            "PERSON@example.com",
+            "Different Name");
+
+        profile.AuthSubject.Should().Be("auth0|candidate-1");
+        profile.Email.Should().Be("person@example.com");
+        profile.FullName.Should().Be("Jane Candidate");
+    }
 }
