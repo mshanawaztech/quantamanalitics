@@ -16,6 +16,18 @@ export interface CandidateProfile {
   resumeUploadedAtUtc: string | null;
 }
 
+export interface CandidateApplication {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobSlug: string;
+  location: string;
+  status: string;
+  note: string | null;
+  appliedAtUtc: string;
+  updatedAtUtc: string;
+}
+
 export interface UpdateCandidateProfileRequest {
   email: string;
   fullName: string | null;
@@ -48,6 +60,12 @@ export class CandidateProfileService {
     return this.http.post<CandidateProfile>(
       `${environment.apiBase}/api/v1/candidate/profile/resume`,
       body,
+    );
+  }
+
+  applications() {
+    return this.http.get<{ items: CandidateApplication[] }>(
+      `${environment.apiBase}/api/v1/candidate/profile/applications`,
     );
   }
 }

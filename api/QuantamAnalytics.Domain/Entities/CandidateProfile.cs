@@ -60,6 +60,25 @@ public sealed class CandidateProfile : ITenantScoped
         UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
+    public void AttachAuthenticatedIdentity(
+        string authSubject,
+        string email,
+        string? fullName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(authSubject);
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+
+        AuthSubject = authSubject.Trim();
+        Email = email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(FullName) && !string.IsNullOrWhiteSpace(fullName))
+        {
+            FullName = fullName.Trim();
+        }
+
+        UpdatedAtUtc = DateTimeOffset.UtcNow;
+    }
+
     public void AttachResume(
         string objectKey,
         string fileName,

@@ -26,6 +26,7 @@ public static class CandidateProfileEndpoint
             .RequireAuthorization();
 
         group.MapGet("/", GetProfileAsync);
+        group.MapGet("/applications", GetApplicationsAsync);
         group.MapPut("/", UpdateProfileAsync);
         group.MapPost("/resume", UploadResumeAsync)
             .DisableAntiforgery();
@@ -48,6 +49,42 @@ public static class CandidateProfileEndpoint
         }
 
         return TypedResults.Ok(ToResponse(profile));
+    }
+
+    private static async Task<Results<Ok<CandidateApplicationsResponse>, ProblemHttpResult>> GetApplicationsAsync(
+        ClaimsPrincipal user,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        if (profile is null)
+        {
+            return TypedResults.Problem(
+                title: "Tenant assignment required",
+                detail: "Candidate profiles require a tenant_id claim in the authenticated session.",
+                statusCode: StatusCodes.Status412PreconditionFailed);
+        }
+
+        var applications = await db.Applications
+            .Where(x => x.CandidateProfileId == profile.Id)
+            .OrderByDescending(x => x.AppliedAtUtc)
+            .Join(
+                db.Jobs,
+                application => application.JobId,
+                job => job.Id,
+                (application, job) => new CandidateApplicationResponse(
+                    application.Id,
+                    job.Id,
+                    job.Title,
+                    job.Slug,
+                    job.Location,
+                    application.Status.ToString(),
+                    application.Note,
+                    application.AppliedAtUtc,
+                    application.UpdatedAtUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return TypedResults.Ok(new CandidateApplicationsResponse(applications));
     }
 
     private static async Task<Results<Ok<CandidateProfileResponse>, ProblemHttpResult>> UpdateProfileAsync(
@@ -147,6 +184,7 @@ public static class CandidateProfileEndpoint
         var authSubject = user.FindFirstValue(ClaimTypes.NameIdentifier);
         var email = user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email");
         var tenantIdClaim = user.FindFirstValue(Roles.TenantIdClaim);
+        var displayName = user.FindFirstValue("name");
 
         if (string.IsNullOrWhiteSpace(authSubject) ||
             string.IsNullOrWhiteSpace(email) ||
@@ -155,6 +193,7 @@ public static class CandidateProfileEndpoint
             return null;
         }
 
+        var normalizedEmail = email.Trim().ToLowerInvariant();
         var profile = await db.CandidateProfiles
             .SingleOrDefaultAsync(x => x.AuthSubject == authSubject, cancellationToken);
 
@@ -163,11 +202,23 @@ public static class CandidateProfileEndpoint
             return profile;
         }
 
+        profile = await db.CandidateProfiles
+            .SingleOrDefaultAsync(
+                x => x.TenantId == tenantId && x.Email == normalizedEmail,
+                cancellationToken);
+
+        if (profile is not null)
+        {
+            profile.AttachAuthenticatedIdentity(authSubject, normalizedEmail, displayName);
+            await db.SaveChangesAsync(cancellationToken);
+            return profile;
+        }
+
         profile = new CandidateProfile(
             tenantId,
             authSubject,
-            email,
-            user.FindFirstValue("name"));
+            normalizedEmail,
+            displayName);
 
         db.CandidateProfiles.Add(profile);
         await db.SaveChangesAsync(cancellationToken);
@@ -206,3 +257,16 @@ public sealed record CandidateProfileResponse(
     string? Summary,
     string? ResumeFileName,
     DateTimeOffset? ResumeUploadedAtUtc);
+
+public sealed record CandidateApplicationResponse(
+    Guid Id,
+    Guid JobId,
+    string JobTitle,
+    string JobSlug,
+    string Location,
+    string Status,
+    string? Note,
+    DateTimeOffset AppliedAtUtc,
+    DateTimeOffset UpdatedAtUtc);
+
+public sealed record CandidateApplicationsResponse(CandidateApplicationResponse[] Items);
