@@ -123,6 +123,17 @@ public sealed class AppDbContextModelTests
     }
 
     [Fact]
+    public void Model_includes_Submission_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(Submission));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("submissions");
+    }
+
+    [Fact]
     public void Model_includes_Timesheet_entity()
     {
         using var ctx = NewContext();

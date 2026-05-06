@@ -79,6 +79,7 @@ public sealed class DemoDataSeeder
             cancellationToken);
 
         await EnsureApplicationsAsync(quantam.Id, quantamJobs, quantamProfiles, cancellationToken);
+        await EnsureSubmissionsAsync(quantam.Id, cancellationToken);
 
     }
 
@@ -210,6 +211,49 @@ public sealed class DemoDataSeeder
                 "Strong fit for cloud and data coordination.");
             application.TransitionToInterviewing();
             _db.Applications.Add(application);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureSubmissionsAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var applications = await _db.Applications
+            .IgnoreQueryFilters()
+            .Where(x => x.TenantId == tenantId)
+            .OrderBy(x => x.AppliedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        foreach (var application in applications.Take(2))
+        {
+            if (await _db.Submissions.IgnoreQueryFilters().AnyAsync(
+                x => x.TenantId == tenantId && x.ApplicationId == application.Id,
+                cancellationToken))
+            {
+                continue;
+            }
+
+            var submission = new Submission(
+                tenantId,
+                application.Id,
+                application.JobId,
+                application.CandidateProfileId,
+                application.CandidateEmail,
+                application.CandidateName);
+
+            submission.SubmitToClient(
+                "seed|recruiter-1",
+                "Acme Client",
+                "Strong recruiter-vetted candidate ready for client feedback.");
+
+            if (application.Status == ApplicationStatus.Interviewing)
+            {
+                submission.MarkClientReviewing();
+            }
+
+            _db.Submissions.Add(submission);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
