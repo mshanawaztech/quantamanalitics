@@ -6,14 +6,14 @@ PR, one narrowly-scoped deliverable.
 
 | #   | Branch                               | Scope                                                                 | Status  |
 | --- | ------------------------------------ | --------------------------------------------------------------------- | ------- |
-| 13  | `qa001-phase2-plan`                  | Phase 2 deliverables board + repo state handoff from Phase 1          | pending |
-| 14  | `qa001-timesheet-domain`             | `Timesheet`, `TimeEntry`, and status model + EF migration             | pending |
-| 15  | `qa001-contractor-portal-shell`      | Protected contractor routes, nav shell, and portal status card        | pending |
-| 16  | `qa001-timesheet-entry`              | Weekly contractor time entry API + Angular draft/submit workflow      | pending |
-| 17  | `qa001-client-approval`              | Client approval/reject flow for submitted timesheets                  | pending |
-| 18  | `qa001-pay-rules`                    | PTO + overtime calculation scaffolding on approved time               | pending |
-| 19  | `qa001-invoice-staging`              | Invoice-ready aggregates and recruiter/admin review surface           | pending |
-| 20  | `qa001-qbo-stripe-baseline`          | QuickBooks export baseline + Stripe fallback invoice handoff scaffold | pending |
+| 13  | `qa001-phase2-plan`                  | Phase 2 deliverables board + repo state handoff from Phase 1          | merged  |
+| 14  | `qa001-timesheet-domain`             | `Timesheet`, `TimeEntry`, and status model + EF migration             | merged  |
+| 15  | `qa001-contractor-portal-shell`      | Protected contractor routes, nav shell, and portal status card        | merged  |
+| 16  | `qa001-timesheet-entry`              | Weekly contractor time entry API + Angular draft/submit workflow      | merged  |
+| 17  | `qa001-client-approval`              | Client approval/reject flow for submitted timesheets                  | merged  |
+| 18  | `qa001-pay-rules`                    | PTO + overtime calculation scaffolding on approved time               | merged  |
+| 19  | `qa001-invoice-staging`              | Invoice-ready aggregates and recruiter/admin review surface           | merged  |
+| 20  | `qa001-qbo-stripe-baseline`          | QuickBooks export baseline + Stripe fallback invoice handoff scaffold | merged  |
 
 ---
 
