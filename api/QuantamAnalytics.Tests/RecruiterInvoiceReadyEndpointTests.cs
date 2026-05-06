@@ -45,6 +45,54 @@ public sealed class RecruiterInvoiceReadyEndpointTests : IClassFixture<WebApplic
         payload.Items[0].PayableHours.Should().Be(50);
     }
 
+    [Fact]
+    public async Task Invoice_handoff_endpoint_returns_stripe_fallback_batch()
+    {
+        var tenantId = SeedApprovedTimesheets(_factory.Services);
+
+        var client = _factory.WithAuthenticatedUser(
+            tenantId,
+            "auth0|recruiter-1",
+            "recruiter@example.com",
+            "PlatformAdmin")
+            .CreateClient();
+
+        var response = await client.GetAsync("/api/v1/recruiter/invoice-handoff");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+
+        var payload = await response.Content.ReadFromJsonAsync<RecruiterInvoiceHandoffResponse>();
+        payload.Should().NotBeNull();
+        payload!.ApprovedTimesheetCount.Should().Be(1);
+        payload.TotalPayableHours.Should().Be(50);
+        payload.StripeFallback.Items.Should().ContainSingle();
+        payload.StripeFallback.Items[0].CollectionMethod.Should().Be("send_invoice");
+        payload.StripeFallback.Items[0].Quantity.Should().Be(50);
+    }
+
+    [Fact]
+    public async Task Quickbooks_csv_export_returns_only_approved_timesheets()
+    {
+        var tenantId = SeedApprovedTimesheets(_factory.Services);
+
+        var client = _factory.WithAuthenticatedUser(
+            tenantId,
+            "auth0|recruiter-1",
+            "recruiter@example.com",
+            "PlatformAdmin")
+            .CreateClient();
+
+        var response = await client.GetAsync("/api/v1/recruiter/invoice-handoff/quickbooks.csv");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("text/csv");
+        body.Should().Contain("contractor@example.com");
+        body.Should().NotContain("contractor2@example.com");
+        body.Should().Contain("payable_hours");
+    }
+
     private static Guid SeedApprovedTimesheets(IServiceProvider services)
     {
         using var scope = services.CreateScope();
