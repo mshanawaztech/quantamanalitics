@@ -1,9 +1,4 @@
 {
-  "responseOverrides": {
-    "500": {
-      "rewrite": "/500.html"
-    }
-  },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": [
