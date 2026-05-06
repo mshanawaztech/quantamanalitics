@@ -144,6 +144,27 @@ public sealed class Timesheet : ITenantScoped
         UpdatedAtUtc = ReviewedAtUtc.Value;
     }
 
+    public TimesheetTotals CalculateTotals()
+    {
+        var workHours = _entries
+            .Where(x => x.EntryType == TimeEntryType.Work)
+            .Sum(x => x.Hours);
+
+        var paidTimeOffHours = _entries
+            .Where(x => x.EntryType == TimeEntryType.PaidTimeOff)
+            .Sum(x => x.Hours);
+
+        var regularHours = decimal.Min(workHours, 40m);
+        var overtimeHours = decimal.Max(workHours - 40m, 0m);
+
+        return new TimesheetTotals(
+            workHours,
+            paidTimeOffHours,
+            regularHours,
+            overtimeHours,
+            workHours + paidTimeOffHours);
+    }
+
     private void EnsureEditable()
     {
         if (Status is not (TimesheetStatus.Draft or TimesheetStatus.Rejected))

@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using QuantamAnalytics.Domain.Common;
 
 namespace QuantamAnalytics.Tests.TestAuth;
 
@@ -24,7 +25,11 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var identity = new ClaimsIdentity(_claimsProvider.Claims, SchemeName);
+        var identity = new ClaimsIdentity(
+            _claimsProvider.Claims,
+            SchemeName,
+            ClaimTypes.NameIdentifier,
+            Roles.RolesClaim);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
