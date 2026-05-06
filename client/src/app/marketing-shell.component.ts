@@ -28,6 +28,7 @@ import { AuthService } from './core/auth/auth.service';
           <a routerLink="/candidate" routerLinkActive="active">Candidate</a>
           <a routerLink="/contractor" routerLinkActive="active">Contractor</a>
           <a routerLink="/recruiter" routerLinkActive="active">Recruiter</a>
+          <a routerLink="/interviews" routerLinkActive="active">Interviews</a>
           <a routerLink="/contact" routerLinkActive="active">Contact</a>
         </nav>
       </header>
@@ -42,6 +43,7 @@ import { AuthService } from './core/auth/auth.service';
             <a routerLink="/candidate">Candidate dashboard</a>
             <a routerLink="/contractor">Contractor portal</a>
             <a routerLink="/recruiter">Recruiter workspace</a>
+            <a routerLink="/interviews">Interview planning</a>
           }
           <a routerLink="/contact">Talk to us</a>
           <span>Azure-hosted · Auth0-secured · SaaS-ready</span>
