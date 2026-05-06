@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Infrastructure.Interviews;
 using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
@@ -38,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<CurrentTenant>();
         services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddScoped<ICurrentTenantSetter>(sp => sp.GetRequiredService<CurrentTenant>());
+        services.AddSingleton<IInterviewCalendarProviderCatalog, InterviewCalendarProviderCatalog>();
 
         RegisterResumeStorage(services, configuration);
 

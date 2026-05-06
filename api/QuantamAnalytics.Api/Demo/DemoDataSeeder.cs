@@ -80,7 +80,7 @@ public sealed class DemoDataSeeder
 
         await EnsureApplicationsAsync(quantam.Id, quantamJobs, quantamProfiles, cancellationToken);
         await EnsureSubmissionsAsync(quantam.Id, cancellationToken);
-
+        await EnsureInterviewEventsAsync(quantam.Id, cancellationToken);
     }
 
     private async Task<Tenant> EnsureTenantAsync(
@@ -211,6 +211,58 @@ public sealed class DemoDataSeeder
                 "Strong fit for cloud and data coordination.");
             application.TransitionToInterviewing();
             _db.Applications.Add(application);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureInterviewEventsAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var submissions = await _db.Submissions
+            .IgnoreQueryFilters()
+            .Where(x => x.TenantId == tenantId &&
+                (x.Status == SubmissionStatus.ClientReviewing || x.Status == SubmissionStatus.ClientAccepted))
+            .OrderBy(x => x.UpdatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        foreach (var submission in submissions.Take(2))
+        {
+            if (await _db.InterviewEvents.IgnoreQueryFilters().AnyAsync(
+                x => x.TenantId == tenantId && x.SubmissionId == submission.Id,
+                cancellationToken))
+            {
+                continue;
+            }
+
+            var start = DateTimeOffset.UtcNow.Date.AddDays(2).AddHours(15);
+            if (_db.InterviewEvents.IgnoreQueryFilters().Any(x => x.TenantId == tenantId))
+            {
+                start = start.AddDays(1);
+            }
+
+            var provider = submission.Status == SubmissionStatus.ClientAccepted
+                ? InterviewCalendarProvider.OutlookCalendar
+                : InterviewCalendarProvider.GoogleCalendar;
+
+            var interview = new InterviewEvent(
+                tenantId,
+                submission.Id,
+                submission.CandidateName,
+                submission.CandidateEmail,
+                submission.Status == SubmissionStatus.ClientAccepted
+                    ? "Client debrief and closeout"
+                    : "Client screening panel",
+                submission.Status == SubmissionStatus.ClientAccepted
+                    ? "Delivery manager"
+                    : "Hiring manager",
+                provider,
+                start,
+                start.AddHours(1));
+
+            interview.AttachProviderReference($"{provider.ToString().ToLowerInvariant()}-{submission.Id:N}"[..36]);
+            _db.InterviewEvents.Add(interview);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

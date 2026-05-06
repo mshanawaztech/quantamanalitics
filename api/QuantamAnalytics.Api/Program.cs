@@ -76,6 +76,7 @@ app.MapHealthChecks("/ready").AllowAnonymous();
 // RequireAuthorization() with no auth scheme would fail at request time.
 if (authEnabled)
 {
+    app.MapInterviewSchedulingEndpoints();
     app.MapMeEndpoint();
     app.MapClientApprovalEndpoints();
     app.MapContractorTimesheetEndpoints();

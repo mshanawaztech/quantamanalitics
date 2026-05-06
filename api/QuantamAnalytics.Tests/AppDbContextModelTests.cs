@@ -145,6 +145,17 @@ public sealed class AppDbContextModelTests
     }
 
     [Fact]
+    public void Model_includes_InterviewEvent_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(InterviewEvent));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("interview_events");
+    }
+
+    [Fact]
     public void Model_includes_TimeEntry_entity()
     {
         using var ctx = NewContext();
