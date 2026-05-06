@@ -10,6 +10,7 @@ import { NotFoundComponent } from './not-found.component';
 import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
 import { ContractorDashboardComponent } from './contractor-dashboard.component';
 import { HomeComponent } from './home.component';
+import { InterviewSchedulingComponent } from './interview-scheduling.component';
 import { ServicesComponent } from './services.component';
 import { LoginComponent } from './core/auth/login.component';
 
@@ -57,6 +58,10 @@ export const routes: Routes = [
       {
         path: 'recruiter',
         component: RecruiterDashboardComponent,
+      },
+      {
+        path: 'interviews',
+        component: InterviewSchedulingComponent,
       },
       {
         path: '**',
