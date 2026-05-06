@@ -33,6 +33,8 @@ public class AppDbContext : DbContext
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<CandidateProfile> CandidateProfiles => Set<CandidateProfile>();
     public DbSet<Application> Applications => Set<Application>();
+    public DbSet<Timesheet> Timesheets => Set<Timesheet>();
+    public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
