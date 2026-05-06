@@ -1,18 +1,18 @@
-import { Component, computed, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
+import {
+  InterviewOverviewEvent,
+  InterviewOverviewProvider,
+  InterviewSchedulingService,
+} from './core/interviews/interview-scheduling.service';
 
 type ScorecardTemplate = {
   title: string;
   audience: string;
   sections: string[];
-};
-
-type SchedulerProvider = {
-  name: string;
-  status: string;
-  detail: string;
 };
 
 @Component({
@@ -25,9 +25,8 @@ type SchedulerProvider = {
           <p class="eyebrow">Interview scheduling</p>
           <h1>Turn approved submissions into a repeatable interview cadence.</h1>
           <p>
-            This shell gives Phase 3 a real home before provider integrations land.
-            Recruiters can see the scorecard kits, scheduler readiness, and the
-            handoff states that will connect submissions to calendar events.
+            This route now shows live provider readiness and seeded interview
+            events so the Phase 3 calendar work has a persistent place to grow.
           </p>
         </div>
         <div class="hero-card">
@@ -38,9 +37,9 @@ type SchedulerProvider = {
             <dt>Tenant</dt>
             <dd>{{ me.data()?.tenantId || 'Pending tenant claim' }}</dd>
             <dt>Current slice</dt>
-            <dd>Interview shell + scorecards</dd>
+            <dd>Google / Outlook baseline</dd>
             <dt>Next slice</dt>
-            <dd>Google / Outlook provider baseline</dd>
+            <dd>Meeting link scaffold</dd>
           </dl>
         </div>
       </section>
@@ -95,13 +94,21 @@ type SchedulerProvider = {
             <div class="section-head">
               <div>
                 <p class="eyebrow">Scheduler readiness</p>
-                <h2>Provider surfaces that Phase 3 will wire next</h2>
+                <h2>Provider baselines now backed by live API state</h2>
               </div>
-              <span class="pill">{{ activeProviderCount() }} active next-step integrations</span>
+              @if (loadingOverview()) {
+                <span class="pill">Loading</span>
+              } @else {
+                <span class="pill">{{ activeProviderCount() }} active provider paths</span>
+              }
             </div>
 
+            @if (overviewError()) {
+              <p class="error">{{ overviewError() }}</p>
+            }
+
             <div class="provider-list">
-              @for (provider of providers; track provider.name) {
+              @for (provider of providers(); track provider.name) {
                 <article class="provider-item">
                   <div class="provider-head">
                     <strong>{{ provider.name }}</strong>
@@ -109,9 +116,35 @@ type SchedulerProvider = {
                   </div>
                   <p>{{ provider.detail }}</p>
                 </article>
+              } @empty {
+                <p class="empty">No provider baselines are registered for this environment yet.</p>
               }
             </div>
           </article>
+        </section>
+
+        <section class="events-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Interview events</p>
+              <h2>Submission-linked sessions ready for calendar expansion</h2>
+            </div>
+            <span class="pill">{{ events().length }} scheduled events</span>
+          </div>
+
+          <div class="events-grid">
+            @for (event of events(); track event.id) {
+              <article class="event-item">
+                <strong>{{ event.title }}</strong>
+                <p>{{ event.candidateName }} · {{ event.candidateEmail }}</p>
+                <p>{{ event.interviewerName }} · {{ providerLabel(event.provider) }}</p>
+                <p>{{ formatWindow(event) }}</p>
+                <p>Status: {{ event.status }}</p>
+              </article>
+            } @empty {
+              <p class="empty">No interview events are scheduled for this tenant yet.</p>
+            }
+          </div>
         </section>
 
         <section class="flow-card">
@@ -129,11 +162,11 @@ type SchedulerProvider = {
             </article>
             <article class="flow-item">
               <strong>Client reviewing</strong>
-              <p>Once the client accepts the handoff, this shell becomes the home for interview creation.</p>
+              <p>Once the client accepts the handoff, this route becomes the home for persistent interview creation.</p>
             </article>
             <article class="flow-item">
               <strong>Calendar booked</strong>
-              <p>Google and Outlook connectors will attach event details and availability handling in the next PR.</p>
+              <p>Google and Outlook provider records now exist; meeting-link generation lands in the next PR.</p>
             </article>
             <article class="flow-item">
               <strong>Scorecard captured</strong>
@@ -149,7 +182,7 @@ type SchedulerProvider = {
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.1fr 0.9fr; margin-bottom: 1.5rem; }
     .workspace { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); align-items: start; margin-bottom: 1.25rem; }
-    .hero-card, .gate-card, .scorecard-card, .scheduler-card, .flow-card, .scorecard-item, .provider-item, .flow-item {
+    .hero-card, .gate-card, .scorecard-card, .scheduler-card, .flow-card, .events-card, .scorecard-item, .provider-item, .flow-item, .event-item {
       padding: 1.6rem;
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
@@ -191,13 +224,14 @@ type SchedulerProvider = {
       cursor: pointer;
     }
     a { color: #9a3412; font-weight: 700; text-decoration: none; }
-    .scorecard-list, .provider-list, .flow-grid {
+    .scorecard-list, .provider-list, .flow-grid, .events-grid {
       display: grid;
       gap: 0.9rem;
       grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
     }
-    .scorecard-item, .provider-item, .flow-item { background: #fffdf9; }
-    .scorecard-item strong, .provider-item strong, .flow-item strong { display: block; margin-bottom: 0.45rem; }
+    .events-card { margin-bottom: 1.25rem; }
+    .scorecard-item, .provider-item, .flow-item, .event-item { background: #fffdf9; }
+    .scorecard-item strong, .provider-item strong, .flow-item strong, .event-item strong { display: block; margin-bottom: 0.45rem; }
     ul { margin: 0.75rem 0 0; padding-left: 1.1rem; }
     .provider-head {
       display: flex;
@@ -207,6 +241,9 @@ type SchedulerProvider = {
       margin-bottom: 0.5rem;
     }
     .provider-status { color: #9a3412; font-weight: 700; }
+    .event-item p { margin: 0.2rem 0; }
+    .error { color: #b91c1c; font-weight: 600; }
+    .empty { color: #7c6f5e; }
     @media (max-width: 980px) {
       .hero, .workspace { grid-template-columns: 1fr; }
     }
@@ -215,6 +252,7 @@ type SchedulerProvider = {
 export class InterviewSchedulingComponent {
   protected auth = inject(AuthService);
   protected me = inject(MeService);
+  private interviews = inject(InterviewSchedulingService);
 
   protected readonly scorecards: ScorecardTemplate[] = [
     {
@@ -234,27 +272,28 @@ export class InterviewSchedulingComponent {
     },
   ];
 
-  protected readonly providers: SchedulerProvider[] = [
-    {
-      name: 'Google Calendar baseline',
-      status: 'Next PR',
-      detail: 'Provider abstraction and event persistence will start here for recruiter-led scheduling.',
-    },
-    {
-      name: 'Outlook baseline',
-      status: 'Next PR',
-      detail: 'Same interview surface, alternate calendar provider path for Microsoft-centered teams.',
-    },
-    {
-      name: 'Meeting link scaffold',
-      status: 'Queued',
-      detail: 'Zoom / Teams link generation lands after provider persistence is in place.',
-    },
-  ];
+  protected providers = signal<InterviewOverviewProvider[]>([]);
+  protected events = signal<InterviewOverviewEvent[]>([]);
+  protected loadingOverview = signal(false);
+  protected overviewError = signal<string | null>(null);
 
   protected readonly activeProviderCount = computed(
-    () => this.providers.filter((provider) => provider.status !== 'Queued').length,
+    () => this.providers().filter((provider) => provider.status !== 'Queued').length,
   );
+
+  constructor() {
+    effect(() => {
+      if (!this.auth.isAuthenticated() || !this.hasRecruitingAccess()) {
+        this.providers.set([]);
+        this.events.set([]);
+        this.loadingOverview.set(false);
+        this.overviewError.set(null);
+        return;
+      }
+
+      this.loadOverview();
+    });
+  }
 
   protected hasRecruitingAccess(): boolean {
     const roles = this.me.data()?.roles ?? [];
@@ -266,10 +305,45 @@ export class InterviewSchedulingComponent {
       return 'Awaiting sign in';
     }
 
-    return this.hasRecruitingAccess() ? 'Interview workflow shell ready' : 'Authenticated without recruiter access';
+    return this.hasRecruitingAccess() ? 'Interview provider baseline ready' : 'Authenticated without recruiter access';
   }
 
   protected roleLabel(): string {
     return this.me.data()?.roles.join(', ') || 'Role not yet available';
+  }
+
+  protected providerLabel(provider: string): string {
+    return provider === 'GoogleCalendar' ? 'Google Calendar'
+      : provider === 'OutlookCalendar' ? 'Outlook Calendar'
+      : provider;
+  }
+
+  protected formatWindow(event: InterviewOverviewEvent): string {
+    const start = new Date(event.scheduledStartUtc);
+    const end = new Date(event.scheduledEndUtc);
+    return `${start.toLocaleString()} - ${end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  }
+
+  private loadOverview(): void {
+    this.loadingOverview.set(true);
+    this.overviewError.set(null);
+
+    this.interviews.overview().subscribe({
+      next: (payload) => {
+        this.providers.set(payload.providers);
+        this.events.set(payload.events);
+        this.loadingOverview.set(false);
+      },
+      error: (error: unknown) => {
+        const detail = error instanceof HttpErrorResponse
+          ? error.error?.detail || error.error?.title || error.message
+          : 'Unable to load interview overview.';
+
+        this.overviewError.set(detail);
+        this.providers.set([]);
+        this.events.set([]);
+        this.loadingOverview.set(false);
+      },
+    });
   }
 }
