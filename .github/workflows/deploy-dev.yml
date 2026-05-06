@@ -135,7 +135,8 @@ jobs:
               --parameters r2AccountId="$R2_ACCOUNT_ID" \
               --parameters r2AccessKeyId="$R2_ACCESS_KEY_ID" \
               --parameters r2SecretAccessKey="$R2_SECRET_ACCESS_KEY" \
-              --parameters r2Bucket="$R2_BUCKET"
+              --parameters r2Bucket="$R2_BUCKET" \
+              --parameters demoDataSeedOnStartup=true
 
       - name: Read deployment outputs
         id: outputs
@@ -224,3 +225,31 @@ jobs:
           action: upload
           app_location: client/dist/client/browser
           skip_app_build: true
+
+      - name: Smoke test deployed SPA routes
+        env:
+          WEB_BASE_URL: https://${{ needs.deploy-infra.outputs.swa_hostname }}
+        run: |
+          set -euo pipefail
+
+          probe() {
+            local path="$1"
+            local expected="$2"
+            local url="${WEB_BASE_URL}${path}"
+
+            echo "Probing ${url}"
+            for i in $(seq 1 18); do
+              if curl --fail --silent --show-error "$url" | tee /tmp/route.html | grep -q "$expected"; then
+                return 0
+              fi
+              echo "Attempt $i for ${path} failed, retrying in 10s..."
+              sleep 10
+            done
+
+            echo "Route ${path} never returned expected content."
+            exit 1
+          }
+
+          probe "/" "Quantam Analytics"
+          probe "/jobs" "Public job board"
+          probe "/does-not-exist" "Page not found"

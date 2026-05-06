@@ -1,10 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { map, switchMap } from 'rxjs';
-import { PublicJobsService } from './core/jobs/public-jobs.service';
+import { map } from 'rxjs';
+import { PublicJobDetail, PublicJobsService } from './core/jobs/public-jobs.service';
 
 @Component({
   selector: 'app-job-detail',
@@ -13,7 +13,24 @@ import { PublicJobsService } from './core/jobs/public-jobs.service';
     <main class="page">
       <a routerLink="/jobs" class="back-link">Back to jobs</a>
 
-      @if (job(); as role) {
+      @if (loading()) {
+        <section class="missing-card">
+          <h1>Loading job detail…</h1>
+          <p>We are pulling the latest published role from the live API.</p>
+        </section>
+      } @else if (notFound()) {
+        <section class="missing-card">
+          <h1>Job not found</h1>
+          <p>The role you requested is not currently published.</p>
+          <a routerLink="/jobs" class="back-link inline-link">Browse active jobs</a>
+        </section>
+      } @else if (loadError()) {
+        <section class="missing-card">
+          <h1>We could not load this job right now</h1>
+          <p>{{ loadError() }}</p>
+          <button type="button" (click)="reload()">Try again</button>
+        </section>
+      } @else if (job(); as role) {
         <section class="detail-grid">
           <article class="role-card">
             <p class="eyebrow">Open role</p>
@@ -55,11 +72,6 @@ import { PublicJobsService } from './core/jobs/public-jobs.service';
             </form>
           </aside>
         </section>
-      } @else {
-        <section class="missing-card">
-          <h1>Job not found</h1>
-          <p>The role you requested is not currently published.</p>
-        </section>
       }
     </main>
   `,
@@ -80,12 +92,19 @@ import { PublicJobsService } from './core/jobs/public-jobs.service';
     button[disabled] { opacity: 0.65; cursor: wait; }
     .success { color: #166534; font-weight: 600; }
     .error { color: #b91c1c; font-weight: 600; }
+    .inline-link { margin-top: 0.5rem; }
     @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
   `,
 })
 export class JobDetailComponent {
   private route = inject(ActivatedRoute);
   private jobsService = inject(PublicJobsService);
+
+  protected slug = signal('');
+  protected job = signal<PublicJobDetail | null>(null);
+  protected loading = signal(true);
+  protected notFound = signal(false);
+  protected loadError = signal<string | null>(null);
   protected submitting = signal(false);
   protected applyMessage = signal<string | null>(null);
   protected applyError = signal<string | null>(null);
@@ -93,18 +112,27 @@ export class JobDetailComponent {
   protected email = '';
   protected note = '';
 
-  protected slug = toSignal(
-    this.route.paramMap.pipe(map((params) => params.get('slug') ?? '')),
-    { initialValue: '' },
-  );
+  constructor() {
+    this.route.paramMap
+      .pipe(
+        map((params) => params.get('slug') ?? ''),
+        takeUntilDestroyed(),
+      )
+      .subscribe((slug) => {
+        this.slug.set(slug);
+        this.loadJob(slug);
+      });
 
-  protected job = toSignal(
-    this.route.paramMap.pipe(
-      map((params) => params.get('slug') ?? ''),
-      switchMap((slug) => this.jobsService.detail(slug)),
-    ),
-    { initialValue: null },
-  );
+    effect(() => {
+      const role = this.job();
+      if (!role) {
+        return;
+      }
+
+      this.applyMessage.set(null);
+      this.applyError.set(null);
+    });
+  }
 
   protected apply(): void {
     const slug = this.slug();
@@ -132,7 +160,49 @@ export class JobDetailComponent {
             ? error.error?.detail ?? error.error?.title ?? error.message
             : error instanceof Error
               ? error.message
-              : 'Could not submit application.',
+            : 'Could not submit application.',
+        );
+      },
+    });
+  }
+
+  protected reload(): void {
+    this.loadJob(this.slug());
+  }
+
+  private loadJob(slug: string): void {
+    if (!slug) {
+      this.job.set(null);
+      this.notFound.set(true);
+      this.loading.set(false);
+      this.loadError.set(null);
+      return;
+    }
+
+    this.loading.set(true);
+    this.notFound.set(false);
+    this.loadError.set(null);
+
+    this.jobsService.detail(slug).subscribe({
+      next: (job) => {
+        this.job.set(job);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.job.set(null);
+        this.loading.set(false);
+
+        if (error instanceof HttpErrorResponse && error.status === 404) {
+          this.notFound.set(true);
+          return;
+        }
+
+        this.loadError.set(
+          error instanceof HttpErrorResponse
+            ? error.error?.detail ?? error.error?.title ?? error.message
+            : error instanceof Error
+              ? error.message
+              : 'Could not load this job.',
         );
       },
     });

@@ -52,6 +52,9 @@ param r2SecretAccessKey string = ''
 @secure()
 param r2Bucket string = ''
 
+@description('When true, the API seeds demo tenants, jobs, and applications at startup.')
+param demoDataSeedOnStartup bool = false
+
 @description('Port the container listens on. Must match ASPNETCORE_HTTP_PORTS.')
 param targetPort int = 8080
 
@@ -171,12 +174,20 @@ var r2Env = [
   }
 ]
 
+var demoDataEnv = [
+  {
+    name: 'DemoData__SeedOnStartup'
+    value: string(demoDataSeedOnStartup)
+  }
+]
+
 var allEnv = concat(
   baseEnv,
   hasPostgres ? postgresEnv : [],
   hasCors ? corsEnv : [],
   hasAuth0 ? auth0Env : [],
-  hasR2 ? r2Env : []
+  hasR2 ? r2Env : [],
+  demoDataEnv
 )
 var allSecrets = concat(
   hasPostgres ? concat(baseSecrets, postgresSecret) : baseSecrets,

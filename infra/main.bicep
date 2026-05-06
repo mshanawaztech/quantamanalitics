@@ -60,6 +60,9 @@ param r2SecretAccessKey string = ''
 @secure()
 param r2Bucket string = ''
 
+@description('Seed demo tenants, jobs, and recruiter pipeline data on API startup. True for the shared dev environment only.')
+param demoDataSeedOnStartup bool = false
+
 // ── Naming ─────────────────────────────────────────────────────────────────
 // CAF-style abbreviations. Suffix unique per env so prd resources don't
 // collide with dev. Globally-unique names (KV, SWA) get a uniqueString suffix.
@@ -159,6 +162,7 @@ module containerApp 'modules/container-app.bicep' = {
     r2AccessKeyId: r2AccessKeyId
     r2SecretAccessKey: r2SecretAccessKey
     r2Bucket: r2Bucket
+    demoDataSeedOnStartup: demoDataSeedOnStartup
   }
 }
 
