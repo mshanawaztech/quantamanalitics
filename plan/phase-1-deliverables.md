@@ -10,13 +10,13 @@ Each row below is one branch + one PR + one squash-merge. Small, reviewable, che
 | 04  | `qa001-infra-bicep-dev`         | Bicep for `rg-qa-dev`: Container Apps, SWA, Key Vault, App Insights, Log Analytics | merged |
 | 05  | `qa001-cicd`                    | `.github/workflows/ci.yml` + `deploy-dev.yml` + Dockerfile + OIDC setup doc    | merged |
 | 06  | `qa001-auth-api-wireup`         | Auth0 server-side: JWT bearer, role policies, /me, conditional wiring          | merged |
-| 06.5 | `qa001-auth-spa`               | Angular @auth0/auth0-angular SDK + login/logout + token interceptor + /me UI   | in review |
-| 07  | `qa001-multi-tenant`            | `TenantId` everywhere, EF global query filter, tenant resolver middleware      | pending |
-| 08  | `qa001-marketing-site`          | Angular public routes: Home, About, Services, Contact + responsive layout      | pending |
-| 09  | `qa001-public-job-board`        | `GET /api/v1/jobs`, `/jobs` and `/jobs/:id` Angular pages, guest apply form    | pending |
-| 10  | `qa001-candidate-profile`       | Signup, resume upload to R2, profile fields, candidate dashboard skeleton      | pending |
-| 11  | `qa001-recruiter-portal`        | Recruiter login, jobs CRUD, applications Kanban (Applied → Hired/Rejected)     | pending |
-| 12  | `qa001-phase1-hardening`        | 404/500 pages, loading states, smoke tests, demo seeder, milestone doc updates | pending |
+| 06.5 | `qa001-auth-spa`               | Angular @auth0/auth0-angular SDK + login/logout + token interceptor + /me UI   | merged |
+| 07  | `qa001-multi-tenant`            | `TenantId` everywhere, EF global query filter, tenant resolver middleware      | merged |
+| 08  | `qa001-marketing-site`          | Angular public routes: Home, About, Services, Contact + responsive layout      | merged |
+| 09  | `qa001-public-job-board`        | `GET /api/v1/jobs`, `/jobs` and `/jobs/:id` Angular pages, guest apply form    | merged |
+| 10  | `qa001-candidate-profile`       | Signup, resume upload to R2, profile fields, candidate dashboard skeleton      | merged |
+| 11  | `qa001-recruiter-portal`        | Recruiter login, jobs CRUD, applications Kanban (Applied → Hired/Rejected)     | merged |
+| 12  | `qa001-phase1-hardening`        | 404/500 pages, loading states, smoke tests, demo seeder, milestone doc updates | merged |
 
 ---
 
