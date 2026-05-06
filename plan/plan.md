@@ -42,6 +42,8 @@ Phase 1 is split into **12 small PRs**, see [`phase-1-deliverables.md`](./phase-
 - Stripe Billing for client invoicing where QBO isn't required
 - Contractor portal: view paystubs, submit timesheets, request PTO
 
+Phase 2 is split into **8 small PRs**, see [`phase-2-deliverables.md`](./phase-2-deliverables.md).
+
 Outcome: **the platform replaces the spreadsheets and Bullhorn-lite tools that staffing firms pay $300–500/seat/month for.**
 
 ### Phase 3 — Hiring Workflow Depth (target: 2 months after Phase 2)

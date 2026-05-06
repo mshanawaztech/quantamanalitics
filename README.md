@@ -2,7 +2,7 @@
 
 A multi-tenant staffing platform — applicant tracking, interview management, onboarding, timesheets, invoicing, and outbound job-board posting. Built first for one staffing firm, designed to be sold as SaaS.
 
-**Status:** Phase 1 slices are merged and live in the shared dev environment. See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
+**Status:** Phase 1 is merged and live in the shared dev environment. Phase 2 planning is queued in [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md). See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
 
 ## Stack
 
@@ -101,17 +101,18 @@ The shared dev environment now demonstrates:
 - guest application intake from `/jobs/:slug`
 - Auth0 login with `/me` verification and tenant-aware JWT claims
 - candidate profile + resume metadata storage
+- candidate applied jobs history after sign-in
 - recruiter jobs CRUD and application stage movement
 - startup-seeded demo tenants/jobs/applications for repeatable previews
-- SPA `404` handling and a static `500` fallback page
+- SPA `404` handling and client-routed deep-link deploy smoke checks
 
-This is still a dev preview, not a production-ready closeout:
+This is still a dev preview, not a production-ready operations closeout:
 
-- candidate "applied jobs" history is still thin compared to the Phase 1 definition of done
+- contractor portal, weekly timesheets, and client approvals are still Phase 2 work
 - R2-backed resume upload depends on the environment secrets being present
 - dev migrations are still applied manually outside the deploy workflow
 
-See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the delivery sequence and [`plan/plan.md`](./plan/plan.md) for later phases.
+See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the active next queue, and [`plan/plan.md`](./plan/plan.md) for later phases.
 
 ## License
 
