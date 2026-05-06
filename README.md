@@ -2,7 +2,7 @@
 
 A multi-tenant staffing platform — applicant tracking, interview management, onboarding, timesheets, invoicing, and outbound job-board posting. Built first for one staffing firm, designed to be sold as SaaS.
 
-**Status:** Phase 1 (MVP) in progress. See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
+**Status:** Phase 1 slices are merged and live in the shared dev environment. See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
 
 ## Stack
 
@@ -80,7 +80,7 @@ dotnet ef migrations add <DescriptiveName> \
 
 Every PR runs `.github/workflows/ci.yml` (build + test + lint for the API, the client, the Bicep, and the Docker image). Branch protection on `main` requires it to pass.
 
-Every squash-merge into `main` runs `.github/workflows/deploy-dev.yml` (build → push to GHCR → re-deploy Bicep with the new image → smoke-test `/health` → build Angular bundle → ship to SWA). Authenticates to Azure via OIDC federation — no client secret stored anywhere.
+Every squash-merge into `main` runs `.github/workflows/deploy-dev.yml` (build → push to GHCR → re-deploy Bicep with the new image → smoke-test `/health` → build Angular bundle → ship to SWA → probe live SPA routes). Authenticates to Azure via OIDC federation — no client secret stored anywhere.
 
 One-time setup (Azure SP, federated credentials, GitHub secrets, branch protection) is documented in [`docs/cicd.md`](./docs/cicd.md).
 
@@ -93,11 +93,25 @@ This is a single-maintainer project, but the workflow is enforced strictly to ke
 - See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for branch naming, PR checklist, and commit conventions
 - See [`CLAUDE.md`](./CLAUDE.md) if you're using Claude / Cowork to contribute
 
-## Phase 1 — MVP scope
+## Current dev preview
 
-A guest visitor browses jobs and applies; a candidate signs up, uploads a resume, and tracks applications; a recruiter logs in, posts jobs, and moves applications across a Kanban pipeline. Two seeded tenants prove multi-tenant isolation. Auto-deployed to a dev environment from `main`.
+The shared dev environment now demonstrates:
 
-Twelve small PRs to get there — see [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md).
+- public marketing pages plus a live public jobs board
+- guest application intake from `/jobs/:slug`
+- Auth0 login with `/me` verification and tenant-aware JWT claims
+- candidate profile + resume metadata storage
+- recruiter jobs CRUD and application stage movement
+- startup-seeded demo tenants/jobs/applications for repeatable previews
+- SPA `404` handling and a static `500` fallback page
+
+This is still a dev preview, not a production-ready closeout:
+
+- candidate "applied jobs" history is still thin compared to the Phase 1 definition of done
+- R2-backed resume upload depends on the environment secrets being present
+- dev migrations are still applied manually outside the deploy workflow
+
+See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the delivery sequence and [`plan/plan.md`](./plan/plan.md) for later phases.
 
 ## License
 
