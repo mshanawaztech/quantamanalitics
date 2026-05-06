@@ -6,9 +6,11 @@ import { MeService } from './core/auth/me.service';
 import {
   RecruiterApplication,
   RecruiterApplicationsBoard,
+  RecruiterInvoiceHandoffResponse,
   RecruiterInvoiceReadyItem,
   RecruiterJob,
   RecruiterPortalService,
+  RecruiterStripeFallbackItem,
 } from './core/recruiter/recruiter-portal.service';
 
 @Component({
@@ -176,6 +178,62 @@ import {
             </div>
           }
         </section>
+
+        <section class="handoff-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">QuickBooks + Stripe baseline</p>
+              <h2>Turn approved time into a billing handoff package</h2>
+            </div>
+            @if (loadingHandoff()) {
+              <span class="pill">Loading</span>
+            }
+          </div>
+
+          <div class="handoff-actions">
+            <button type="button" class="primary" (click)="downloadQuickBooksCsv()" [disabled]="downloadingQuickBooks()">
+              {{ downloadingQuickBooks() ? 'Preparing CSV…' : 'Download QuickBooks CSV' }}
+            </button>
+            <button type="button" class="secondary" (click)="fetchInvoiceHandoff()" [disabled]="loadingHandoff()">
+              Refresh Stripe fallback preview
+            </button>
+          </div>
+
+          @if (handoffError()) {
+            <p class="error">{{ handoffError() }}</p>
+          } @else if (invoiceHandoff()) {
+            <div class="handoff-summary">
+              <article class="handoff-stat">
+                <span class="label">CSV file</span>
+                <strong>{{ invoiceHandoff()!.quickBooksFileName }}</strong>
+              </article>
+              <article class="handoff-stat">
+                <span class="label">Approved weeks</span>
+                <strong>{{ invoiceHandoff()!.approvedTimesheetCount }}</strong>
+              </article>
+              <article class="handoff-stat">
+                <span class="label">Payable hours</span>
+                <strong>{{ invoiceHandoff()!.totalPayableHours }}</strong>
+              </article>
+              <article class="handoff-stat">
+                <span class="label">Stripe batch</span>
+                <strong>{{ invoiceHandoff()!.stripeFallback.batchReference }}</strong>
+              </article>
+            </div>
+
+            <div class="handoff-preview">
+              @for (item of stripeFallbackItems(); track item.timesheetId) {
+                <article class="handoff-item">
+                  <strong>{{ item.contractorEmail }}</strong>
+                  <p>{{ item.description }}</p>
+                  <p>{{ item.quantity }} {{ item.unit }} · {{ item.collectionMethod }}</p>
+                </article>
+              } @empty {
+                <p class="empty">No Stripe fallback lines are ready yet.</p>
+              }
+            </div>
+          }
+        </section>
       }
     </main>
   `,
@@ -184,13 +242,13 @@ import {
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.15fr 0.85fr; margin-bottom: 1.5rem; }
     .workspace { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); align-items: start; }
-    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .column, .application-card, .invoice-item {
+    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card, .column, .application-card, .invoice-item, .handoff-item, .handoff-stat {
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
       border: 1px solid rgb(87 70 42 / 0.14);
       box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
     }
-    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card { padding: 1.6rem; }
+    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card { padding: 1.6rem; }
     .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
     h2, h3 { margin: 0; }
@@ -222,10 +280,22 @@ import {
       font-weight: 700;
       cursor: pointer;
     }
+    .secondary {
+      padding: 0.9rem 1rem;
+      border-radius: 999px;
+      border: 1px solid #d8c8b0;
+      background: #fffdf9;
+      color: #3f372c;
+      font-weight: 700;
+      cursor: pointer;
+    }
     .jobs-list { display: grid; gap: 0.8rem; }
     .invoice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
+    .handoff-actions, .handoff-summary, .handoff-preview { display: grid; gap: 0.9rem; }
+    .handoff-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); margin-bottom: 1rem; }
+    .handoff-summary, .handoff-preview { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
     .job-item, .application-card { padding: 1rem; }
-    .invoice-item { padding: 1rem; background: #fffdf9; }
+    .invoice-item, .handoff-item, .handoff-stat { padding: 1rem; background: #fffdf9; }
     .job-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem); align-items: start; gap: 1rem; border-radius: 1.1rem; background: #fffdf9; border: 1px solid #eadcc8; }
     .job-item strong, .application-card strong { display: block; margin-bottom: 0.45rem; }
     .slug { font-family: monospace; color: #8b5e34; overflow-wrap: anywhere; text-align: right; }
@@ -274,13 +344,17 @@ export class RecruiterDashboardComponent {
   protected jobs = signal<RecruiterJob[]>([]);
   protected applications = signal<RecruiterApplication[]>([]);
   protected invoiceReady = signal<RecruiterInvoiceReadyItem[]>([]);
+  protected invoiceHandoff = signal<RecruiterInvoiceHandoffResponse | null>(null);
   protected loadingJobs = signal(false);
   protected loadingApplications = signal(false);
   protected loadingInvoiceReady = signal(false);
+  protected loadingHandoff = signal(false);
   protected creatingJob = signal(false);
+  protected downloadingQuickBooks = signal(false);
   protected jobsError = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
   protected invoiceReadyError = signal<string | null>(null);
+  protected handoffError = signal<string | null>(null);
 
   protected jobTitle = '';
   protected jobLocation = '';
@@ -297,6 +371,7 @@ export class RecruiterDashboardComponent {
       this.fetchJobs();
       this.fetchApplications();
       this.fetchInvoiceReady();
+      this.fetchInvoiceHandoff();
     });
   }
 
@@ -319,6 +394,10 @@ export class RecruiterDashboardComponent {
 
   protected applicationsByStatus(status: string): RecruiterApplication[] {
     return this.applications().filter((application) => application.status === status);
+  }
+
+  protected stripeFallbackItems(): RecruiterStripeFallbackItem[] {
+    return this.invoiceHandoff()?.stripeFallback.items ?? [];
   }
 
   protected createJob(): void {
@@ -366,6 +445,36 @@ export class RecruiterDashboardComponent {
     });
   }
 
+  protected downloadQuickBooksCsv(): void {
+    this.downloadingQuickBooks.set(true);
+    this.handoffError.set(null);
+
+    this.recruiter.quickBooksCsv().subscribe({
+      next: (response) => {
+        if (!response.body) {
+          this.downloadingQuickBooks.set(false);
+          this.handoffError.set('QuickBooks CSV export returned no file content.');
+          return;
+        }
+
+        const url = URL.createObjectURL(response.body);
+        const anchor = document.createElement('a');
+        const disposition = response.headers.get('content-disposition');
+        const fileName = disposition?.match(/filename=\"?([^\";]+)\"?/)?.[1] ?? 'qbo-timesheets.csv';
+
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        this.downloadingQuickBooks.set(false);
+      },
+      error: (error: unknown) => {
+        this.downloadingQuickBooks.set(false);
+        this.handoffError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
   private fetchJobs(): void {
     this.loadingJobs.set(true);
     this.recruiter.jobs().subscribe({
@@ -404,6 +513,21 @@ export class RecruiterDashboardComponent {
       error: (error: unknown) => {
         this.loadingInvoiceReady.set(false);
         this.invoiceReadyError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected fetchInvoiceHandoff(): void {
+    this.loadingHandoff.set(true);
+    this.handoffError.set(null);
+    this.recruiter.invoiceHandoff().subscribe({
+      next: (response) => {
+        this.invoiceHandoff.set(response);
+        this.loadingHandoff.set(false);
+      },
+      error: (error: unknown) => {
+        this.loadingHandoff.set(false);
+        this.handoffError.set(this.toErrorMessage(error));
       },
     });
   }

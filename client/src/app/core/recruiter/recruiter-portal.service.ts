@@ -45,6 +45,27 @@ export interface RecruiterInvoiceReadyResponse {
   items: RecruiterInvoiceReadyItem[];
 }
 
+export interface RecruiterStripeFallbackItem {
+  timesheetId: string;
+  contractorEmail: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  collectionMethod: string;
+}
+
+export interface RecruiterStripeFallbackBatch {
+  batchReference: string;
+  items: RecruiterStripeFallbackItem[];
+}
+
+export interface RecruiterInvoiceHandoffResponse {
+  quickBooksFileName: string;
+  approvedTimesheetCount: number;
+  totalPayableHours: number;
+  stripeFallback: RecruiterStripeFallbackBatch;
+}
+
 export interface UpsertRecruiterJobRequest {
   title: string;
   location: string;
@@ -73,6 +94,19 @@ export class RecruiterPortalService {
   invoiceReady() {
     return this.http.get<RecruiterInvoiceReadyResponse>(
       `${environment.apiBase}/api/v1/recruiter/invoice-ready`,
+    );
+  }
+
+  invoiceHandoff() {
+    return this.http.get<RecruiterInvoiceHandoffResponse>(
+      `${environment.apiBase}/api/v1/recruiter/invoice-handoff`,
+    );
+  }
+
+  quickBooksCsv() {
+    return this.http.get(
+      `${environment.apiBase}/api/v1/recruiter/invoice-handoff/quickbooks.csv`,
+      { observe: 'response', responseType: 'blob' },
     );
   }
 
