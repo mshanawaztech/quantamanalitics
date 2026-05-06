@@ -137,8 +137,6 @@ public static class RecruiterPortalEndpoint
             return TenantRequired();
         }
 
-        await EnsureSeedApplicationsAsync(db, currentTenant, cancellationToken);
-
         var items = await db.Applications
             .OrderByDescending(x => x.AppliedAtUtc)
             .Join(
@@ -213,58 +211,6 @@ public static class RecruiterPortalEndpoint
             application.Status.ToString(),
             application.AppliedAtUtc,
             application.UpdatedAtUtc));
-    }
-
-    internal static async Task EnsureSeedApplicationsAsync(
-        AppDbContext db,
-        ICurrentTenant currentTenant,
-        CancellationToken cancellationToken)
-    {
-        if (await db.Applications.AnyAsync(cancellationToken))
-        {
-            return;
-        }
-
-        var jobs = await db.Jobs.OrderByDescending(x => x.PostedOnUtc).Take(2).ToArrayAsync(cancellationToken);
-        if (jobs.Length == 0 || currentTenant.TenantId is null)
-        {
-            return;
-        }
-
-        var profiles = new[]
-        {
-            new CandidateProfile(currentTenant.TenantId.Value, "seed|candidate-1", "candidate.one@example.com", "Candidate One"),
-            new CandidateProfile(currentTenant.TenantId.Value, "seed|candidate-2", "candidate.two@example.com", "Candidate Two")
-        };
-
-        profiles[0].UpdateProfile(profiles[0].Email, profiles[0].FullName, "+1 555 010 1001", "Cloud recruiter", "Interested in platform recruiting roles.");
-        profiles[1].UpdateProfile(profiles[1].Email, profiles[1].FullName, "+1 555 010 1002", "Data sourcer", "Brings hybrid sourcing and coordination experience.");
-
-        db.CandidateProfiles.AddRange(profiles);
-        await db.SaveChangesAsync(cancellationToken);
-
-        var applications = new List<Application>
-        {
-            new(
-                currentTenant.TenantId.Value,
-                jobs[0].Id,
-                profiles[0].Id,
-                profiles[0].Email,
-                profiles[0].FullName ?? "Candidate One",
-                "Ready for a recruiter screening this week."),
-            new(
-                currentTenant.TenantId.Value,
-                jobs.Length > 1 ? jobs[1].Id : jobs[0].Id,
-                profiles[1].Id,
-                profiles[1].Email,
-                profiles[1].FullName ?? "Candidate Two",
-                "Strong fit for cloud and data coordination.")
-        };
-
-        applications[1].TransitionToInterviewing();
-
-        db.Applications.AddRange(applications);
-        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static RecruiterJobResponse ToJobResponse(Job job) =>

@@ -85,7 +85,7 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
     private HttpClient CreateClientWithInitializedSchema()
     {
         InitializeJobsSchema(_factory.Services);
-        SeedTenant(_factory.Services);
+        SeedDemoData(_factory.Services);
         return _factory.CreateClient();
     }
 
@@ -146,17 +146,39 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
             """);
     }
 
-    private static void SeedTenant(IServiceProvider services)
+    private static void SeedDemoData(IServiceProvider services)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        if (db.Tenants.Any())
+        if (!db.Tenants.Any())
         {
-            return;
+            db.Tenants.Add(new Tenant("quantam", "Quantam Analytics"));
+            db.SaveChanges();
         }
 
-        db.Tenants.Add(new Tenant("quantam", "Quantam Analytics"));
-        db.SaveChanges();
+        var tenant = db.Tenants.Single(x => x.Slug == "quantam");
+
+        if (!db.Jobs.IgnoreQueryFilters().Any())
+        {
+            db.Jobs.AddRange(
+                new Job(
+                    tenant.Id,
+                    "Senior .NET Staffing Solutions Lead",
+                    "senior-dotnet-staffing-solutions-lead",
+                    "Remote · United States",
+                    "Own recruiter collaboration, client intake, and candidate workflow design for a growing staffing operation.",
+                    "Lead the shaping of recruiter-facing workflow inside a modern staffing platform. You will partner with delivery leadership, turn recruiting process pain into software requirements, and help operationalize better candidate submission velocity.",
+                    DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-4))),
+                new Job(
+                    tenant.Id,
+                    "Technical Recruiter - Cloud & Data",
+                    "technical-recruiter-cloud-and-data",
+                    "Dallas, TX · Hybrid",
+                    "Drive sourcing and screening for cloud, data, and engineering roles while improving reusable search playbooks.",
+                    "Join a staffing team focused on cloud and data talent. This role blends hands-on sourcing, hiring-manager calibration, candidate storytelling, and lightweight process improvement across the submission funnel.",
+                    DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-1))));
+            db.SaveChanges();
+        }
     }
 }

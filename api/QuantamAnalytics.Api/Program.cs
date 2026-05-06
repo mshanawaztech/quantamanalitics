@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Options;
 using QuantamAnalytics.Api;
 using QuantamAnalytics.Api.Auth;
+using QuantamAnalytics.Api.Demo;
 using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Api.Tenancy;
 using QuantamAnalytics.Infrastructure;
@@ -23,10 +25,12 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddProblemDetails();
+builder.Services.Configure<DemoDataOptions>(builder.Configuration.GetSection("DemoData"));
 
 // EF Core, Postgres, health checks. Reads ConnectionStrings:Postgres from
 // configuration (appsettings, user-secrets in dev, env vars in prod).
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<DemoDataSeeder>();
 
 // JWT bearer + role policies. Returns false if Auth0:Domain / Auth0:Audience
 // aren't configured, in which case auth middleware is also skipped below.
@@ -41,6 +45,8 @@ if (!authEnabled)
         AuthExtensions.Auth0DomainKey,
         AuthExtensions.Auth0AudienceKey);
 }
+
+await SeedDemoDataIfEnabledAsync(app);
 
 // Standardized RFC 7807 error responses for any unhandled exception.
 app.UseExceptionHandler();
@@ -76,6 +82,19 @@ if (authEnabled)
 }
 
 app.Run();
+
+static async Task SeedDemoDataIfEnabledAsync(WebApplication app)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var options = scope.ServiceProvider.GetRequiredService<IOptions<DemoDataOptions>>().Value;
+    if (!options.SeedOnStartup)
+    {
+        return;
+    }
+
+    var seeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
+    await seeder.SeedAsync(CancellationToken.None);
+}
 
 // Exposed for WebApplicationFactory<TEntryPoint> in QuantamAnalytics.Tests.
 public partial class Program;
