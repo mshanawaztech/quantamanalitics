@@ -6,6 +6,7 @@ import { MeService } from './core/auth/me.service';
 import {
   RecruiterApplication,
   RecruiterApplicationsBoard,
+  RecruiterInvoiceReadyItem,
   RecruiterJob,
   RecruiterPortalService,
 } from './core/recruiter/recruiter-portal.service';
@@ -146,6 +147,35 @@ import {
             </div>
           </article>
         </section>
+
+        <section class="invoice-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Invoice staging</p>
+              <h2>Approved weeks ready for billing handoff</h2>
+            </div>
+            @if (loadingInvoiceReady()) {
+              <span class="pill">Loading</span>
+            }
+          </div>
+
+          @if (invoiceReadyError()) {
+            <p class="error">{{ invoiceReadyError() }}</p>
+          } @else {
+            <div class="invoice-list">
+              @for (item of invoiceReady(); track item.timesheetId) {
+                <article class="invoice-item">
+                  <strong>{{ item.contractorEmail }}</strong>
+                  <p>Week of {{ item.weekStartUtc }}</p>
+                  <p>{{ item.regularHours }} reg · {{ item.overtimeHours }} OT · {{ item.paidTimeOffHours }} PTO</p>
+                  <p>{{ item.payableHours }} payable hours · Approved {{ item.approvedAtUtc || 'pending timestamp' }}</p>
+                </article>
+              } @empty {
+                <p class="empty">No approved time is staged for invoicing yet.</p>
+              }
+            </div>
+          }
+        </section>
       }
     </main>
   `,
@@ -154,13 +184,13 @@ import {
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.15fr 0.85fr; margin-bottom: 1.5rem; }
     .workspace { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); align-items: start; }
-    .hero-card, .gate-card, .jobs-card, .board-card, .column, .application-card {
+    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .column, .application-card, .invoice-item {
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
       border: 1px solid rgb(87 70 42 / 0.14);
       box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
     }
-    .hero-card, .gate-card, .jobs-card, .board-card { padding: 1.6rem; }
+    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card { padding: 1.6rem; }
     .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
     h2, h3 { margin: 0; }
@@ -193,7 +223,9 @@ import {
       cursor: pointer;
     }
     .jobs-list { display: grid; gap: 0.8rem; }
+    .invoice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
     .job-item, .application-card { padding: 1rem; }
+    .invoice-item { padding: 1rem; background: #fffdf9; }
     .job-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem); align-items: start; gap: 1rem; border-radius: 1.1rem; background: #fffdf9; border: 1px solid #eadcc8; }
     .job-item strong, .application-card strong { display: block; margin-bottom: 0.45rem; }
     .slug { font-family: monospace; color: #8b5e34; overflow-wrap: anywhere; text-align: right; }
@@ -241,11 +273,14 @@ export class RecruiterDashboardComponent {
 
   protected jobs = signal<RecruiterJob[]>([]);
   protected applications = signal<RecruiterApplication[]>([]);
+  protected invoiceReady = signal<RecruiterInvoiceReadyItem[]>([]);
   protected loadingJobs = signal(false);
   protected loadingApplications = signal(false);
+  protected loadingInvoiceReady = signal(false);
   protected creatingJob = signal(false);
   protected jobsError = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
+  protected invoiceReadyError = signal<string | null>(null);
 
   protected jobTitle = '';
   protected jobLocation = '';
@@ -261,6 +296,7 @@ export class RecruiterDashboardComponent {
 
       this.fetchJobs();
       this.fetchApplications();
+      this.fetchInvoiceReady();
     });
   }
 
@@ -354,6 +390,20 @@ export class RecruiterDashboardComponent {
       error: (error: unknown) => {
         this.loadingApplications.set(false);
         this.applicationsError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private fetchInvoiceReady(): void {
+    this.loadingInvoiceReady.set(true);
+    this.recruiter.invoiceReady().subscribe({
+      next: (response) => {
+        this.invoiceReady.set(response.items);
+        this.loadingInvoiceReady.set(false);
+      },
+      error: (error: unknown) => {
+        this.loadingInvoiceReady.set(false);
+        this.invoiceReadyError.set(this.toErrorMessage(error));
       },
     });
   }

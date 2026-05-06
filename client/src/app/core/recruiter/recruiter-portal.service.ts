@@ -30,6 +30,21 @@ export interface RecruiterApplicationsBoard {
   items: RecruiterApplication[];
 }
 
+export interface RecruiterInvoiceReadyItem {
+  timesheetId: string;
+  contractorEmail: string;
+  weekStartUtc: string;
+  approvedAtUtc: string | null;
+  regularHours: number;
+  overtimeHours: number;
+  paidTimeOffHours: number;
+  payableHours: number;
+}
+
+export interface RecruiterInvoiceReadyResponse {
+  items: RecruiterInvoiceReadyItem[];
+}
+
 export interface UpsertRecruiterJobRequest {
   title: string;
   location: string;
@@ -53,6 +68,12 @@ export class RecruiterPortalService {
 
   applications() {
     return this.http.get<RecruiterApplicationsBoard>(`${environment.apiBase}/api/v1/recruiter/applications`);
+  }
+
+  invoiceReady() {
+    return this.http.get<RecruiterInvoiceReadyResponse>(
+      `${environment.apiBase}/api/v1/recruiter/invoice-ready`,
+    );
   }
 
   moveApplication(applicationId: string, status: string) {

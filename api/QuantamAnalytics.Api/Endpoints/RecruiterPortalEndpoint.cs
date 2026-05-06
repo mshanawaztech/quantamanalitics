@@ -20,6 +20,7 @@ public static class RecruiterPortalEndpoint
         group.MapPut("/jobs/{jobId:guid}", UpdateJobAsync);
 
         group.MapGet("/applications", GetApplicationsAsync);
+        group.MapGet("/invoice-ready", GetInvoiceReadyAsync);
         group.MapPost("/applications/{applicationId:guid}/status", UpdateApplicationStatusAsync);
 
         return app;
@@ -158,6 +159,38 @@ public static class RecruiterPortalEndpoint
         return TypedResults.Ok(new RecruiterApplicationsBoardResponse(items));
     }
 
+    private static async Task<Results<Ok<RecruiterInvoiceReadyResponse>, ProblemHttpResult>> GetInvoiceReadyAsync(
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var items = await db.Timesheets
+            .Include(x => x.Entries)
+            .Where(x => x.Status == TimesheetStatus.Approved)
+            .OrderByDescending(x => x.ReviewedAtUtc ?? x.UpdatedAtUtc)
+            .ToArrayAsync(cancellationToken);
+
+        return TypedResults.Ok(new RecruiterInvoiceReadyResponse(
+            items.Select(x =>
+            {
+                var totals = x.CalculateTotals();
+                return new RecruiterInvoiceReadyItemResponse(
+                    x.Id,
+                    x.ContractorEmail,
+                    x.WeekStartUtc,
+                    x.ReviewedAtUtc,
+                    totals.RegularHours,
+                    totals.OvertimeHours,
+                    totals.PaidTimeOffHours,
+                    totals.PayableHours);
+            }).ToArray()));
+    }
+
     private static async Task<Results<Ok<RecruiterApplicationResponse>, NotFound, ProblemHttpResult>> UpdateApplicationStatusAsync(
         Guid applicationId,
         UpdateApplicationStatusRequest request,
@@ -269,3 +302,15 @@ public sealed record RecruiterApplicationResponse(
     DateTimeOffset UpdatedAtUtc);
 
 public sealed record RecruiterApplicationsBoardResponse(RecruiterApplicationResponse[] Items);
+
+public sealed record RecruiterInvoiceReadyResponse(RecruiterInvoiceReadyItemResponse[] Items);
+
+public sealed record RecruiterInvoiceReadyItemResponse(
+    Guid TimesheetId,
+    string ContractorEmail,
+    DateOnly WeekStartUtc,
+    DateTimeOffset? ApprovedAtUtc,
+    decimal RegularHours,
+    decimal OvertimeHours,
+    decimal PaidTimeOffHours,
+    decimal PayableHours);
