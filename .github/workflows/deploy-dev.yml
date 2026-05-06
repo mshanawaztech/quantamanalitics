@@ -250,6 +250,11 @@ jobs:
             exit 1
           }
 
+          # Angular is deployed as a client-side SPA, so direct route probes
+          # receive the shared shell HTML rather than route-specific text that
+          # only appears after browser hydration. Validate that each route
+          # serves the app shell successfully instead of checking client-rendered
+          # copy that curl cannot see.
           probe "/" "Quantam Analytics"
-          probe "/jobs" "Public job board"
-          probe "/does-not-exist" "Page not found"
+          probe "/jobs" "Quantam Analytics"
+          probe "/does-not-exist" "Quantam Analytics"
