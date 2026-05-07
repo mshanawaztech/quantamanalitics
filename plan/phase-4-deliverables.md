@@ -1,22 +1,26 @@
 # Phase 4 — Distribution & Client Visibility · 8 Deliverables
 
-Phase 4 turns the now-complete placement workflow into something a staffing
-firm can use to win and retain client business: outbound job posting, a real
-client portal, and the reporting that justifies the platform's value.
+**Status: COMPLETE.** All 8 deliverables shipped to `main`. Phase 4 turned the
+placement workflow into something a staffing firm can win and retain client
+business with: outbound job posting (Indeed feed + Dice scaffold), a real
+client portal (jobs visibility + document sharing), and a baseline reporting
+surface. The ops floor (multi-tenant isolation IT, auto-applied migrations)
+landed first so the rest of Phase 4 could ship safely on top.
 
-Keep the same discipline as Phases 1–3: one branch, one PR, one tightly scoped
-deliverable. Branch prefix stays `qa001-`.
+Per the operating principle: same discipline going forward — one branch, one
+PR, one tightly scoped deliverable. See [`phase-5-deliverables.md`](./phase-5-deliverables.md)
+for the next slice (real provider integrations, prod hardening, SaaS productization).
 
 | #   | Branch                                 | Scope                                                                  | Status  |
 | --- | -------------------------------------- | ---------------------------------------------------------------------- | ------- |
-| 29  | `qa001-phase4-plan`                    | Phase 4 deliverables board + repo state handoff from Phase 3           | pending |
-| 30  | `qa001-tenant-isolation-it`            | Testcontainers-backed multi-tenant isolation integration test          | pending |
-| 31  | `qa001-migrations-in-ci`               | Auto-applied EF migrations on dev deploy + safety guard                | pending |
-| 32  | `qa001-job-feed-indeed`                | Indeed XML feed export of public jobs + per-tenant feed URL            | pending |
-| 33  | `qa001-job-feed-dice`                  | Dice posting handoff scaffold (interface + stub provider)              | pending |
-| 34  | `qa001-client-portal-jobs`             | Client portal: jobs requested, candidates submitted, status visibility | pending |
-| 35  | `qa001-client-portal-docs`             | Client-facing document sharing (offers, signed packets) read surface   | pending |
-| 36  | `qa001-reporting-baseline`             | Recruiter activity, time-to-fill, source-of-hire baseline reports      | pending |
+| 29  | `qa001-phase4-plan`                    | Phase 4 deliverables board + repo state handoff from Phase 3           | merged  |
+| 30  | `qa001-tenant-isolation-it`            | Testcontainers-backed multi-tenant isolation integration test          | merged  |
+| 31  | `qa001-migrations-in-ci`               | Auto-applied EF migrations on dev deploy + safety guard                | merged  |
+| 32  | `qa001-job-feed-indeed`                | Indeed XML feed export of public jobs + per-tenant feed URL            | merged  |
+| 33  | `qa001-job-feed-dice`                  | Dice posting handoff scaffold (interface + stub provider)              | merged  |
+| 34  | `qa001-client-portal-jobs`             | Client portal: jobs requested, candidates submitted, status visibility | merged  |
+| 35  | `qa001-client-portal-docs`             | Client-facing document sharing (offers, signed packets) read surface   | merged  |
+| 36  | `qa001-reporting-baseline`             | Recruiter activity, time-to-fill, source-of-hire baseline reports      | merged  |
 
 > Order is a guideline. PR-30 (tenant isolation IT) and PR-31 (migrations in CI)
 > should land **before** anything that adds new endpoints or new tables — they
