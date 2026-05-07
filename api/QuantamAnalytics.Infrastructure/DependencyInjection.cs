@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Infrastructure.Esign;
 using QuantamAnalytics.Infrastructure.Interviews;
 using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
@@ -43,6 +44,7 @@ public static class DependencyInjection
         services.AddSingleton<IInterviewCalendarProviderCatalog, InterviewCalendarProviderCatalog>();
         services.AddSingleton<IMeetingLinkGenerator, MeetingLinkGenerator>();
         services.AddSingleton<ICheckrClient, StubCheckrClient>();
+        services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
 
         RegisterResumeStorage(services, configuration);
 
