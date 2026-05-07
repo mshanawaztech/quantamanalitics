@@ -12,7 +12,7 @@ This file is read by Claude on every session in this repo. Treat the rules below
 - Live dev SPA: `https://ambitious-dune-099500b0f.7.azurestaticapps.net`
 - Live dev API: `https://ca-qa-dev-api.icymushroom-94be4003.eastus2.azurecontainerapps.io`
 
-Roadmap: [`plan/plan.md`](./plan/plan.md). Per-phase boards: [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md), [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md), [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md), [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md).
+Roadmap: [`plan/plan.md`](./plan/plan.md). Per-phase boards: [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md), [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md), [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md), [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md), [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md).
 
 ## Stack (locked — do not change without an ADR)
 
@@ -59,17 +59,20 @@ quantamanalitics/
 │   │   ├── Interviews/  ← Calendar provider + meeting-link generator
 │   │   ├── BackgroundChecks/ ← ICheckrClient + StubCheckrClient
 │   │   ├── Esign/       ← IDocuSealClient + StubDocuSealClient
+│   │   ├── JobBoards/   ← IDicePostingClient + StubDicePostingClient
 │   │   └── Migrations/
 │   ├── QuantamAnalytics.Api/
 │   │   ├── Auth/        ← AuthExtensions, AuthorizationPolicies, StartupLog
 │   │   ├── Tenancy/     ← Tenant resolver middleware
 │   │   ├── Demo/        ← DemoDataSeeder (startup seed for repeatable previews)
-│   │   └── Endpoints/   ← Health, Me, PublicJobs, RecruiterPortal,
+│   │   └── Endpoints/   ← Health, Me, PublicJobs, JobFeed, RecruiterPortal,
 │   │                       CandidateProfile, ContractorTimesheet,
-│   │                       ClientApproval, InterviewScheduling,
+│   │                       ClientApproval, ClientPortalJobs,
+│   │                       ClientPortalDocuments, InterviewScheduling,
 │   │                       BackgroundCheck, EsignDocument,
-│   │                       OnboardingChecklist
+│   │                       OnboardingChecklist, DicePosting, Reporting
 │   └── QuantamAnalytics.Tests/
+│       ├── Fixtures/    ← PostgresFixture + IsolatedAppFactory (PR-30 IT pattern)
 │       └── TestAuth/    ← TestAuthHandler for synthetic JWT integration tests
 ├── client/
 │   └── src/app/
@@ -122,7 +125,13 @@ quantamanalitics/
 | Meeting-link generator (stub) | `api/QuantamAnalytics.Infrastructure/Interviews/MeetingLinkGenerator.cs` |
 | Checkr client (stub) | `api/QuantamAnalytics.Infrastructure/BackgroundChecks/StubCheckrClient.cs` |
 | DocuSeal client (stub) | `api/QuantamAnalytics.Infrastructure/Esign/StubDocuSealClient.cs` |
+| Dice posting client (stub) | `api/QuantamAnalytics.Infrastructure/JobBoards/StubDicePostingClient.cs` |
+| Indeed XML feed | `api/QuantamAnalytics.Api/Endpoints/JobFeedEndpoint.cs` (anonymous, per-tenant slug) |
+| Client portal endpoints | `api/QuantamAnalytics.Api/Endpoints/ClientPortal{Jobs,Documents}Endpoint.cs` |
+| Reporting summary | `api/QuantamAnalytics.Api/Endpoints/ReportingEndpoint.cs` |
 | Anonymous webhook landing pads | `BackgroundCheckEndpoint.cs`, `EsignDocumentEndpoint.cs` (use `IgnoreQueryFilters()` + provider id lookup) |
+| Multi-tenant isolation IT fixture | `api/QuantamAnalytics.Tests/Fixtures/{PostgresFixture,IsolatedAppFactory}.cs` (PR-30) |
+| Auto-applied migrations on deploy | `.github/workflows/deploy-dev.yml` `apply-migrations` job (PR-31) |
 | Demo seed data | `api/QuantamAnalytics.Api/Demo/DemoDataSeeder.cs` |
 | SPA Auth0 wiring | `client/src/app/app.config.ts` |
 | SPA AuthService facade | `client/src/app/core/auth/auth.service.ts` |
@@ -145,25 +154,27 @@ Use **Variables** for public OIDC config (anything embedded in a JWT or HTML bun
 
 ## Current state
 
-- **Phases 1 + 2 + 3: MERGED** (PRs 01–28). Live dev environment serves the marketing site, public jobs board, candidate intake, recruiter portal, contractor timesheets, client approval, pay rules, invoice staging, QBO/Stripe scaffold, full submission + interview + meeting-link + Checkr + DocuSeal + onboarding-checklist surfaces.
-- **Phase 4: starting.** Distribution & client visibility — outbound job-board posting (Indeed/Dice), client portal expansion, reporting (time-to-fill, source-of-hire, recruiter activity, gross margin). Skeleton board: [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md).
+- **Phases 1 + 2 + 3 + 4: MERGED** (PRs 01–36). Live dev environment serves the marketing site, public jobs board, candidate intake, recruiter portal, contractor timesheets, client approval, pay rules, invoice staging, QBO/Stripe scaffold, full submission + interview + meeting-link + Checkr + DocuSeal + onboarding-checklist surfaces, Indeed XML feed, Dice posting scaffold, client portal (jobs + documents), and a baseline reporting summary.
+- **Phase 5: starting.** Real provider integrations + prod hardening + SaaS productization (self-serve signup, Stripe billing, SOC 2 prep). Skeleton board: [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md).
 
-### Phase 3 — what just landed
+### Phase 4 — what just landed
 
-All eight Phase 3 PRs merged. End-to-end placement surface now exists in code:
-sourced → screened → submitted → interviewed (with meeting link) →
-background-checked (Checkr stub + webhook landing pad) → offered + onboarded
-(DocuSeal stub) → onboarding forms tracked. Real provider integrations remain
-in their stub form by design — Phase 5 swaps them in once revenue justifies it.
+All eight Phase 4 PRs merged. The platform is now demonstrably "client-ready":
+recruiters have a baseline reporting dashboard, clients have a read-only portal
+over jobs and signed documents, and the dev tenant has a stable Indeed XML
+feed URL anyone can hand to Indeed publishers. The two ops-floor PRs (PR-30
+multi-tenant isolation IT, PR-31 auto-applied migrations) landed first so the
+rest of Phase 4 could ship safely on top — and any new Phase 5 endpoint
+inherits that same safety net for free.
 
 ### Standing follow-ups (carry across phases)
 
-- **Multi-tenant isolation integration test** — Testcontainers-backed: two synthetic JWTs with different tenant claims, assert tenant A's request can't read tenant B's row. Highest-value test in the codebase; still not written. Bump priority to "first thing in Phase 4" before adding more endpoints.
-- **Auto-applied migrations in CI** — currently manual via `dotnet ef database update` from a laptop. Schedule into Phase 4 ops cleanup before any client-facing data lands.
 - **Branch protection on `main`** — confirm at `Settings → Branches` that the four CI checks are required.
-- **Webhook signature verification** — Checkr (`X-Checkr-Signature`) and DocuSeal webhook landing pads currently accept any payload that matches a known provider id. Add HMAC verification before exposing the URLs to real providers.
-- **Replace the stubs** — `MeetingLinkGenerator`, `StubCheckrClient`, `StubDocuSealClient` mint deterministic ids today. Real Zoom/Teams, Checkr, DocuSeal API calls land in Phase 5.
-- **Phase 5+ topics** — production hardening (private GHCR + managed identity pull), prod tenant in Auth0, MFA + breach-password detection, custom domain.
+- **Webhook signature verification** — Checkr (`X-Checkr-Signature`) and DocuSeal webhook landing pads currently accept any payload that matches a known provider id. Add HMAC verification before exposing the URLs to real providers (lands alongside PR-38 / PR-39 in Phase 5).
+- **Replace the stubs** — `MeetingLinkGenerator`, `StubCheckrClient`, `StubDocuSealClient`, and `StubDicePostingClient` mint deterministic ids today. Real Zoom/Teams, Checkr, DocuSeal, and Dice API calls land in Phase 5 (PR-38 → 40, plus a Dice partner-API PR when a contract is in place).
+- **Source-of-hire attribution** — `Application` has no source column. The reporting summary will grow a SourceOfHire section once a structured `source` field is added. Separate PR with a migration; not bundled with the Phase 5 plan above.
+- **Migrate existing endpoint tests onto the PR-30 PostgresFixture pattern** — `RecruiterInvoiceReadyEndpointTests` and similar still use `db.Database.ExecuteSqlRaw` against whatever Postgres user-secrets points at. Working today only because the developer has Neon configured locally; CI silently skips. Track as a hygiene PR before any new endpoint test lands.
+- **Phase 5 product topics** — production hardening (private GHCR + managed identity pull), prod tenant in Auth0, MFA + breach-password detection, custom domain, self-serve tenant signup, Stripe subscriptions, SOC 2 baseline (audit logs, access reviews, encryption attestations).
 
 ## Local dev quick-start
 
@@ -200,7 +211,7 @@ Build phase target: **$0–10/month total run cost.** If any decision pushes spe
 ## Working with this project (every session)
 
 1. Read this file (you're doing it).
-2. Skim `plan/phase-4-deliverables.md` for what's pending.
+2. Skim `plan/phase-5-deliverables.md` for what's pending.
 3. Pull latest `main` and branch off (`git checkout main && git pull && git checkout -b qa001-<scope>`).
 4. Stay in the slice — no "while I'm here" adjacent work.
 5. Update the active phase's deliverables board status column on merge. Keep CLAUDE.md current at every phase boundary.

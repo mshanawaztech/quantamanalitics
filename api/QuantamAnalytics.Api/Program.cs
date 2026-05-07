@@ -67,6 +67,7 @@ if (authEnabled)
 // .AllowAnonymous() is set inside MapHealthEndpoint().
 app.MapHealthEndpoint();
 app.MapPublicJobsEndpoints();
+app.MapJobFeedEndpoints();
 
 // Readiness — process is up AND can reach Postgres. Anonymous on purpose:
 // load balancer probes can't carry a JWT.
@@ -83,9 +84,11 @@ if (authEnabled)
     app.MapDicePostingEndpoints();
     app.MapMeEndpoint();
     app.MapClientApprovalEndpoints();
+    app.MapClientPortalDocumentsEndpoints();
     app.MapContractorTimesheetEndpoints();
     app.MapCandidateProfileEndpoints();
     app.MapRecruiterPortalEndpoints();
+    app.MapReportingEndpoints();
 }
 
 app.Run();
