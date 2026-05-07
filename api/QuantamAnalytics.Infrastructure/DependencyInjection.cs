@@ -7,6 +7,7 @@ using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Esign;
 using QuantamAnalytics.Infrastructure.Interviews;
+using QuantamAnalytics.Infrastructure.JobBoards;
 using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
@@ -45,6 +46,13 @@ public static class DependencyInjection
         services.AddSingleton<IMeetingLinkGenerator, MeetingLinkGenerator>();
         services.AddSingleton<ICheckrClient, StubCheckrClient>();
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
+        services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
+
+        // Audit-log interceptor needs the request's auth subject — pull it
+        // from HttpContextAccessor. Idempotent: AddHttpContextAccessor is a
+        // no-op if the host already registered it.
+        services.AddHttpContextAccessor();
+        services.AddScoped<AuditLogSaveChangesInterceptor>();
 
         RegisterResumeStorage(services, configuration);
 
@@ -52,10 +60,14 @@ public static class DependencyInjection
         // pooled DbContext across requests risks stale TenantId leaking into the
         // global query filter. Snake_case naming converts PascalCase model names
         // to postgres conventions (Tenant -> tenants, CreatedAtUtc -> created_at_utc).
-        services.AddDbContext<AppDbContext>(options => options
+        services.AddDbContext<AppDbContext>((sp, options) => options
             .UseNpgsql(connectionString, npgsql => npgsql
                 .MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
-            .UseSnakeCaseNamingConvention());
+            .UseSnakeCaseNamingConvention()
+            // Interceptor is scoped, same as DbContext — resolve from the
+            // current request's service provider so it sees the per-request
+            // tenant + auth subject rather than a stale snapshot.
+            .AddInterceptors(sp.GetRequiredService<AuditLogSaveChangesInterceptor>()));
 
         // /ready endpoint pings this. Returns Healthy only when EF can open
         // a connection and execute a trivial query.

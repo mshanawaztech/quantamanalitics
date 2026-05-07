@@ -2,7 +2,7 @@
 
 A multi-tenant staffing platform — applicant tracking, interview management, onboarding, timesheets, invoicing, and outbound job-board posting. Built first for one staffing firm, designed to be sold as SaaS.
 
-**Status:** Phases 1 + 2 + 3 + 4 are merged and live in the shared dev environment. Phase 5 (production readiness, real provider integrations, SaaS productization) is structured as Epic → Story in [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md) — each story has explicit prerequisites because most Phase 5 work depends on real partner-API credentials. PR-44 (SOC 2 audit-log baseline) is the first Phase 5 story in review. Verification reference for everything shipped through Phase 4: [`docs/verification.md`](./docs/verification.md). Full roadmap: [`plan/plan.md`](./plan/plan.md).
+**Status:** Phases 1 + 2 + 3 + 4 are merged and live in the shared dev environment. Phase 5 (real provider integrations + prod hardening + SaaS productization) is queued in [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md). See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
 
 ## Stack
 
@@ -109,27 +109,24 @@ The shared dev environment now demonstrates:
 - Google / Outlook calendar provider abstraction with Zoom / Teams meeting-link generation (deterministic stub)
 - Checkr background-check request / status surface with anonymous webhook landing pad
 - DocuSeal offer-letter and onboarding-packet handoff surface with anonymous webhook landing pad
-- candidate onboarding forms checklist with recruiter approve / reject review surface
+- Candidate onboarding forms checklist with recruiter approve / reject review surface
 - per-tenant Indeed XML feed at `/api/v1/feeds/{tenantSlug}/indeed.xml`
 - Dice posting handoff scaffold for recruiter-driven outbound posting
 - read-only client portal: jobs at the tenant, candidates submitted, signed documents
 - baseline reporting summary: application funnel, time-to-fill, recruiter activity
 - Testcontainers-backed multi-tenant isolation integration test
 - auto-applied EF migrations on every dev deploy (no more laptop-bound `dotnet ef database update`)
-- SOC 2 audit-log baseline via EF Core SaveChangesInterceptor (PR-44, in review)
 - startup-seeded demo tenants / jobs / applications for repeatable previews
 - SPA `404` handling and client-routed deep-link deploy smoke checks
 
 This is still a dev preview, not a production-ready operations closeout:
 
 - candidate resume upload still depends on the environment R2 secrets being present
-- QuickBooks, Stripe, Checkr, DocuSeal, Zoom, Teams, and Dice are all baseline handoff surfaces today, not live external integrations (Phase 5 — see `plan/phase-5-deliverables.md`)
-- production hardening (private GHCR + managed-identity pull, prod Auth0 tenant with MFA, custom domain) is Phase 5 Epic B
-- self-serve tenant signup and Stripe subscription billing are Phase 5 Epic C
+- QuickBooks, Stripe, Checkr, DocuSeal, Zoom, Teams, and Dice are all baseline handoff surfaces today, not live external integrations (Phase 5)
+- production hardening (private GHCR + managed-identity pull, prod Auth0 tenant, custom domain) is Phase 5
+- self-serve tenant signup and Stripe subscription billing are Phase 5
 
-After any deploy, walk the relevant section of [`docs/verification.md`](./docs/verification.md) — it maps every shipped surface to its automated test coverage and lists the manual smoke steps for what's not automated.
-
-See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the completed Time & Money phase, [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md) for the completed Hiring Workflow Depth phase, [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md) for the completed Distribution & Client Visibility phase, [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md) for the active Epic → Story queue, and [`plan/plan.md`](./plan/plan.md) for later phases.
+See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the completed Time & Money phase, [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md) for the completed Hiring Workflow Depth phase, [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md) for the completed Distribution & Client Visibility phase, [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md) for the active next queue, and [`plan/plan.md`](./plan/plan.md) for later phases.
 
 ## License
 

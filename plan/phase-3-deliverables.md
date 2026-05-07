@@ -14,10 +14,10 @@ for the next slice.
 | 22  | `qa001-submission-domain`            | Submission aggregate + recruiter/client handoff state model            | merged  |
 | 23  | `qa001-interview-scheduling-shell`   | Interview route shell, scorecard model, and scheduler status surfaces  | merged  |
 | 24  | `qa001-google-outlook-baseline`      | Calendar provider baseline and interview event handoff abstraction     | merged  |
-| 25  | `qa001-meeting-link-scaffold`        | Zoom/Teams meeting link generation scaffold on interview events        | pending |
-| 26  | `qa001-checkr-baseline`              | Checkr request/status baseline with webhook-ready persistence          | in review |
-| 27  | `qa001-esign-docuseal`               | Offer-letter and onboarding packet handoff scaffold via DocuSeal       | pending |
-| 28  | `qa001-onboarding-forms`             | Candidate onboarding forms collection status and document checklist    | in review |
+| 25  | `qa001-meeting-link-scaffold`        | Zoom/Teams meeting link generation scaffold on interview events        | merged  |
+| 26  | `qa001-checkr-baseline`              | Checkr request/status baseline with webhook-ready persistence          | merged  |
+| 27  | `qa001-esign-docuseal`               | Offer-letter and onboarding packet handoff scaffold via DocuSeal       | merged  |
+| 28  | `qa001-onboarding-forms`             | Candidate onboarding forms collection status and document checklist    | merged  |
 
 ---
 

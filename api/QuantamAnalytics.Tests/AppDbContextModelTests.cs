@@ -167,6 +167,30 @@ public sealed class AppDbContextModelTests
     }
 
     [Fact]
+    public void Model_includes_AuditLogEntry_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(AuditLogEntry));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("audit_log_entries");
+    }
+
+    [Fact]
+    public void AuditLogEntry_has_tenant_recorded_at_index()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(AuditLogEntry))!;
+        var index = entity.GetIndexes()
+            .SingleOrDefault(i => i.Properties.Select(p => p.Name).SequenceEqual(
+                [nameof(AuditLogEntry.TenantId), nameof(AuditLogEntry.RecordedAtUtc)]));
+
+        index.Should().NotBeNull("recent-activity-per-tenant is the most common audit query — needs an index");
+    }
+
+    [Fact]
     public void Model_includes_BackgroundCheck_entity()
     {
         using var ctx = NewContext();
