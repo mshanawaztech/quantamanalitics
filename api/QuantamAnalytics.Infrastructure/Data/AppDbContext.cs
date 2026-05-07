@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<Application> Applications => Set<Application>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<InterviewEvent> InterviewEvents => Set<InterviewEvent>();
+    public DbSet<BackgroundCheck> BackgroundChecks => Set<BackgroundCheck>();
     public DbSet<Timesheet> Timesheets => Set<Timesheet>();
     public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
 

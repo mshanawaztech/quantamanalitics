@@ -3,6 +3,7 @@ using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Interviews;
 using QuantamAnalytics.Infrastructure.Storage;
@@ -40,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddScoped<ICurrentTenantSetter>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddSingleton<IInterviewCalendarProviderCatalog, InterviewCalendarProviderCatalog>();
+        services.AddSingleton<ICheckrClient, StubCheckrClient>();
 
         RegisterResumeStorage(services, configuration);
 

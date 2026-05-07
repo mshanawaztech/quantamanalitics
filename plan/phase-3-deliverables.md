@@ -12,7 +12,7 @@ scoped deliverable.
 | 23  | `qa001-interview-scheduling-shell`   | Interview route shell, scorecard model, and scheduler status surfaces  | merged  |
 | 24  | `qa001-google-outlook-baseline`      | Calendar provider baseline and interview event handoff abstraction     | merged  |
 | 25  | `qa001-meeting-link-scaffold`        | Zoom/Teams meeting link generation scaffold on interview events        | pending |
-| 26  | `qa001-checkr-baseline`              | Checkr request/status baseline with webhook-ready persistence          | pending |
+| 26  | `qa001-checkr-baseline`              | Checkr request/status baseline with webhook-ready persistence          | in review |
 | 27  | `qa001-esign-docuseal`               | Offer-letter and onboarding packet handoff scaffold via DocuSeal       | pending |
 | 28  | `qa001-onboarding-forms`             | Candidate onboarding forms collection status and document checklist    | pending |
 
