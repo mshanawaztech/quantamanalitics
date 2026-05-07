@@ -146,6 +146,13 @@ public enum EsignDocumentStatus
     Drafted = 0,
     Sent = 1,
     Viewed = 2,
+    // CA1720 flags `Signed` because it matches the C/C++ `signed` keyword (not
+    // even a C# type alias). The e-sign domain term is the right name here —
+    // renaming to `FullySigned` or `Completed` would be worse for readers.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Naming",
+        "CA1720:Identifier contains type name",
+        Justification = "Signed is the canonical e-signature domain term.")]
     Signed = 3,
     Cancelled = 4,
 }
