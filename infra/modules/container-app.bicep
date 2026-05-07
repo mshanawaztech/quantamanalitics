@@ -52,6 +52,9 @@ param r2SecretAccessKey string = ''
 @secure()
 param r2Bucket string = ''
 
+@description('Public-facing base URL of the SPA, e.g. https://ambitious-dune-099500b0f.7.azurestaticapps.net. Used by anonymous public-facing endpoints (the Indeed job feed, future feeds) when constructing per-job URLs that crawlers / external systems will follow back into the app. Empty = the API falls back to its own request scheme+host, which is wrong for crawled feeds in prod.')
+param publicWebBaseUrl string = ''
+
 @description('When true, the API seeds demo tenants, jobs, and applications at startup.')
 param demoDataSeedOnStartup bool = false
 
@@ -181,12 +184,26 @@ var demoDataEnv = [
   }
 ]
 
+// Public web base URL (SWA hostname) for anonymous feeds. Same double-
+// underscore mapping convention — surfaces as PublicWeb:BaseUrl in
+// IConfiguration, which JobFeedEndpoint reads at request time. Only
+// emitted when the param is non-empty so local-style deploys keep
+// falling back to the request scheme+host.
+var hasPublicWebBaseUrl = !empty(publicWebBaseUrl)
+var publicWebEnv = [
+  {
+    name: 'PublicWeb__BaseUrl'
+    value: publicWebBaseUrl
+  }
+]
+
 var allEnv = concat(
   baseEnv,
   hasPostgres ? postgresEnv : [],
   hasCors ? corsEnv : [],
   hasAuth0 ? auth0Env : [],
   hasR2 ? r2Env : [],
+  hasPublicWebBaseUrl ? publicWebEnv : [],
   demoDataEnv
 )
 var allSecrets = concat(

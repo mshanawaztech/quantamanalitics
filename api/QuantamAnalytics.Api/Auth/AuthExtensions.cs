@@ -82,6 +82,9 @@ public static class AuthExtensions
             options.AddPolicy(AuthorizationPolicies.RequireTimeApprovalAccess,
                 p => p.RequireAuthenticatedUser().RequireRole(Roles.Client, Roles.PlatformAdmin));
 
+            options.AddPolicy(AuthorizationPolicies.RequireClientPortalAccess,
+                p => p.RequireAuthenticatedUser().RequireRole(Roles.Client, Roles.PlatformAdmin));
+
             options.AddPolicy(AuthorizationPolicies.RequireCandidate,
                 p => p.RequireAuthenticatedUser().RequireRole(Roles.Candidate));
 

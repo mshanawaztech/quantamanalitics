@@ -7,6 +7,7 @@ using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Esign;
 using QuantamAnalytics.Infrastructure.Interviews;
+using QuantamAnalytics.Infrastructure.JobBoards;
 using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
@@ -45,6 +46,7 @@ public static class DependencyInjection
         services.AddSingleton<IMeetingLinkGenerator, MeetingLinkGenerator>();
         services.AddSingleton<ICheckrClient, StubCheckrClient>();
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
+        services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
 
         // Audit-log interceptor needs the request's auth subject — pull it
         // from HttpContextAccessor. Idempotent: AddHttpContextAccessor is a
