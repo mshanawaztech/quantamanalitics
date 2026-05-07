@@ -192,28 +192,31 @@ public sealed class AppDbContextModelTests
     }
 
     [Fact]
-    public void Model_includes_EsignDocument_entity()
+    public void Model_includes_OnboardingChecklistItem_entity()
     {
         using var ctx = NewContext();
 
-        var entity = ctx.Model.FindEntityType(typeof(EsignDocument));
+        var entity = ctx.Model.FindEntityType(typeof(OnboardingChecklistItem));
 
         entity.Should().NotBeNull();
-        entity!.GetTableName().Should().Be("esign_documents");
+        entity!.GetTableName().Should().Be("onboarding_checklist_items");
     }
 
     [Fact]
-    public void EsignDocument_has_unique_provider_submission_id_index()
+    public void OnboardingChecklistItem_has_tenant_candidate_assigned_index()
     {
         using var ctx = NewContext();
 
-        var entity = ctx.Model.FindEntityType(typeof(EsignDocument))!;
-        var providerIndex = entity.GetIndexes()
-            .SingleOrDefault(i => i.Properties.Select(p => p.Name)
-                .SequenceEqual([nameof(EsignDocument.ProviderSubmissionId)]));
+        var entity = ctx.Model.FindEntityType(typeof(OnboardingChecklistItem))!;
+        var index = entity.GetIndexes()
+            .SingleOrDefault(i => i.Properties.Select(p => p.Name).SequenceEqual(
+                [
+                    nameof(OnboardingChecklistItem.TenantId),
+                    nameof(OnboardingChecklistItem.CandidateProfileId),
+                    nameof(OnboardingChecklistItem.AssignedAtUtc),
+                ]));
 
-        providerIndex.Should().NotBeNull();
-        providerIndex!.IsUnique.Should().BeTrue();
+        index.Should().NotBeNull();
     }
 
     [Fact]

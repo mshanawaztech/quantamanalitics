@@ -36,7 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<InterviewEvent> InterviewEvents => Set<InterviewEvent>();
     public DbSet<BackgroundCheck> BackgroundChecks => Set<BackgroundCheck>();
-    public DbSet<EsignDocument> EsignDocuments => Set<EsignDocument>();
+    public DbSet<OnboardingChecklistItem> OnboardingChecklistItems => Set<OnboardingChecklistItem>();
     public DbSet<Timesheet> Timesheets => Set<Timesheet>();
     public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
 
