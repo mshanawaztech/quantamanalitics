@@ -14,8 +14,8 @@ public sealed class InterviewCalendarProviderCatalog : IInterviewCalendarProvide
             "The same interview event model is available for Microsoft-centered teams without branching the workflow."),
         new(
             "Meeting link scaffold",
-            "Queued",
-            "Zoom and Teams join-link generation stays in the follow-up PR once provider records are live.")
+            "Generator wired",
+            "Recruiters can mint a deterministic Google Meet / Teams-shaped join link per interview event; provider-API integration arrives in Phase 5.")
     ];
 
     public IReadOnlyList<InterviewCalendarProviderSummary> GetProviders() => Providers;

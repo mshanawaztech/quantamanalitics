@@ -17,8 +17,45 @@ public static class InterviewSchedulingEndpoint
             .RequireAuthorization(AuthorizationPolicies.RequireRecruitingAccess);
 
         group.MapGet("/overview", GetOverviewAsync);
+        group.MapPost("/{id:guid}/meeting-link", GenerateMeetingLinkAsync);
 
         return app;
+    }
+
+    private static async Task<Results<Ok<InterviewMeetingLinkResponse>, NotFound, ProblemHttpResult>> GenerateMeetingLinkAsync(
+        Guid id,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        IMeetingLinkGenerator linkGenerator,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TypedResults.Problem(
+                title: "Tenant assignment required",
+                detail: "Generating an interview meeting link requires a tenant_id claim in the authenticated session.",
+                statusCode: StatusCodes.Status412PreconditionFailed);
+        }
+
+        // Tenant filter on AppDbContext makes this lookup naturally tenant-safe:
+        // recruiters in tenant A can't mint links for events owned by tenant B.
+        var interview = await db.InterviewEvents
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (interview is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var url = linkGenerator.Generate(interview.Provider, interview.Id);
+        interview.AttachMeetingJoinUrl(url);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(new InterviewMeetingLinkResponse(
+            interview.Id,
+            interview.Provider.ToString(),
+            url,
+            interview.UpdatedAtUtc));
     }
 
     private static async Task<Results<Ok<InterviewOverviewResponse>, ProblemHttpResult>> GetOverviewAsync(
@@ -82,3 +119,15 @@ public sealed record InterviewOverviewEventResponse(
     DateTimeOffset ScheduledEndUtc,
     string? MeetingJoinUrl,
     string? ExternalEventId);
+
+/// <summary>
+/// Returned when a recruiter mints (or refreshes) a meeting join URL for an
+/// interview event. The URL is deterministic in Phase 3 — re-calling the
+/// endpoint yields the same value — so this response is safe to cache on the
+/// SPA side until the interview is rescheduled or cancelled.
+/// </summary>
+public sealed record InterviewMeetingLinkResponse(
+    Guid InterviewEventId,
+    string Provider,
+    string MeetingJoinUrl,
+    DateTimeOffset UpdatedAtUtc);
