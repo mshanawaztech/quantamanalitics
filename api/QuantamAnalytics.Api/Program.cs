@@ -81,6 +81,7 @@ if (authEnabled)
     app.MapBackgroundCheckEndpoints();
     app.MapEsignDocumentEndpoints();
     app.MapOnboardingChecklistEndpoints();
+    app.MapDicePostingEndpoints();
     app.MapMeEndpoint();
     app.MapClientApprovalEndpoints();
     app.MapClientPortalDocumentsEndpoints();
