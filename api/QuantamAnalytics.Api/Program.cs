@@ -82,6 +82,7 @@ if (authEnabled)
     app.MapOnboardingChecklistEndpoints();
     app.MapMeEndpoint();
     app.MapClientApprovalEndpoints();
+    app.MapClientPortalJobsEndpoints();
     app.MapContractorTimesheetEndpoints();
     app.MapCandidateProfileEndpoints();
     app.MapRecruiterPortalEndpoints();
