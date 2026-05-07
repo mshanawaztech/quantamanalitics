@@ -41,10 +41,18 @@ public static class DependencyInjection
         services.AddScoped<CurrentTenant>();
         services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddScoped<ICurrentTenantSetter>(sp => sp.GetRequiredService<CurrentTenant>());
+        services.AddScoped<CurrentUser>();
+        services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+        services.AddScoped<ICurrentUserSetter>(sp => sp.GetRequiredService<CurrentUser>());
         services.AddSingleton<IInterviewCalendarProviderCatalog, InterviewCalendarProviderCatalog>();
         services.AddSingleton<IMeetingLinkGenerator, MeetingLinkGenerator>();
         services.AddSingleton<ICheckrClient, StubCheckrClient>();
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
+
+        // Audit-log interceptor — scoped so it sees the per-request tenant
+        // and auth subject. Resolved into the DbContext options below via
+        // the (sp, options) overload of AddDbContext.
+        services.AddScoped<AuditLogSaveChangesInterceptor>();
 
         RegisterResumeStorage(services, configuration);
 
@@ -52,10 +60,11 @@ public static class DependencyInjection
         // pooled DbContext across requests risks stale TenantId leaking into the
         // global query filter. Snake_case naming converts PascalCase model names
         // to postgres conventions (Tenant -> tenants, CreatedAtUtc -> created_at_utc).
-        services.AddDbContext<AppDbContext>(options => options
+        services.AddDbContext<AppDbContext>((sp, options) => options
             .UseNpgsql(connectionString, npgsql => npgsql
                 .MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
-            .UseSnakeCaseNamingConvention());
+            .UseSnakeCaseNamingConvention()
+            .AddInterceptors(sp.GetRequiredService<AuditLogSaveChangesInterceptor>()));
 
         // /ready endpoint pings this. Returns Healthy only when EF can open
         // a connection and execute a trivial query.
