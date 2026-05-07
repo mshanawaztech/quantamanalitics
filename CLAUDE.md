@@ -51,12 +51,13 @@ quantamanalitics/
 │   │   └── Entities/    ← Tenant, Job, CandidateProfile, Application,
 │   │                       Submission, InterviewEvent, BackgroundCheck,
 │   │                       EsignDocument, OnboardingChecklistItem,
-│   │                       Timesheet, TimeEntry, TimesheetTotals
+│   │                       AuditLogEntry, Timesheet, TimeEntry, TimesheetTotals
 │   ├── QuantamAnalytics.Infrastructure/
 │   │   ├── Data/        ← AppDbContext + per-entity Configurations/
+│   │   │                 + AuditLogSaveChangesInterceptor (PR-44)
 │   │   ├── Tenancy/     ← CurrentTenant, ICurrentTenant{,Setter}
 │   │   ├── Storage/     ← R2 + DisabledResumeStorage fallback
-│   │   ├── Interviews/  ← Calendar provider + meeting-link generator
+│   │   ├── Interviews/  ← Calendar provider + meeting-link generator (stub)
 │   │   ├── BackgroundChecks/ ← ICheckrClient + StubCheckrClient
 │   │   ├── Esign/       ← IDocuSealClient + StubDocuSealClient
 │   │   ├── JobBoards/   ← IDicePostingClient + StubDicePostingClient
