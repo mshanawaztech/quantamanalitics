@@ -85,6 +85,7 @@ if (authEnabled)
     app.MapContractorTimesheetEndpoints();
     app.MapCandidateProfileEndpoints();
     app.MapRecruiterPortalEndpoints();
+    app.MapAuditLogEndpoints();
 }
 
 app.Run();
