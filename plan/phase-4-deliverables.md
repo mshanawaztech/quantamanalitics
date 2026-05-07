@@ -16,7 +16,7 @@ deliverable. Branch prefix stays `qa001-`.
 | 33  | `qa001-job-feed-dice`                  | Dice posting handoff scaffold (interface + stub provider)              | pending |
 | 34  | `qa001-client-portal-jobs`             | Client portal: jobs requested, candidates submitted, status visibility | pending |
 | 35  | `qa001-client-portal-docs`             | Client-facing document sharing (offers, signed packets) read surface   | pending |
-| 36  | `qa001-reporting-baseline`             | Recruiter activity, time-to-fill, source-of-hire baseline reports      | pending |
+| 36  | `qa001-reporting-baseline`             | Recruiter activity, time-to-fill, source-of-hire baseline reports      | in review |
 
 > Order is a guideline. PR-30 (tenant isolation IT) and PR-31 (migrations in CI)
 > should land **before** anything that adds new endpoints or new tables — they
