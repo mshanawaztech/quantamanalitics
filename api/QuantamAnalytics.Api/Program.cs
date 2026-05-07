@@ -78,6 +78,7 @@ if (authEnabled)
 {
     app.MapInterviewSchedulingEndpoints();
     app.MapBackgroundCheckEndpoints();
+    app.MapOnboardingChecklistEndpoints();
     app.MapMeEndpoint();
     app.MapClientApprovalEndpoints();
     app.MapContractorTimesheetEndpoints();
