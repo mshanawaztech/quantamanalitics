@@ -12,7 +12,7 @@ deliverable. Branch prefix stays `qa001-`.
 | 29  | `qa001-phase4-plan`                    | Phase 4 deliverables board + repo state handoff from Phase 3           | pending |
 | 30  | `qa001-tenant-isolation-it`            | Testcontainers-backed multi-tenant isolation integration test          | pending |
 | 31  | `qa001-migrations-in-ci`               | Auto-applied EF migrations on dev deploy + safety guard                | pending |
-| 32  | `qa001-job-feed-indeed`                | Indeed XML feed export of public jobs + per-tenant feed URL            | pending |
+| 32  | `qa001-job-feed-indeed`                | Indeed XML feed export of public jobs + per-tenant feed URL            | in review |
 | 33  | `qa001-job-feed-dice`                  | Dice posting handoff scaffold (interface + stub provider)              | pending |
 | 34  | `qa001-client-portal-jobs`             | Client portal: jobs requested, candidates submitted, status visibility | pending |
 | 35  | `qa001-client-portal-docs`             | Client-facing document sharing (offers, signed packets) read surface   | pending |
