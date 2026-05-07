@@ -15,7 +15,7 @@ deliverable. Branch prefix stays `qa001-`.
 | 32  | `qa001-job-feed-indeed`                | Indeed XML feed export of public jobs + per-tenant feed URL            | pending |
 | 33  | `qa001-job-feed-dice`                  | Dice posting handoff scaffold (interface + stub provider)              | pending |
 | 34  | `qa001-client-portal-jobs`             | Client portal: jobs requested, candidates submitted, status visibility | pending |
-| 35  | `qa001-client-portal-docs`             | Client-facing document sharing (offers, signed packets) read surface   | pending |
+| 35  | `qa001-client-portal-docs`             | Client-facing document sharing (offers, signed packets) read surface   | in review |
 | 36  | `qa001-reporting-baseline`             | Recruiter activity, time-to-fill, source-of-hire baseline reports      | pending |
 
 > Order is a guideline. PR-30 (tenant isolation IT) and PR-31 (migrations in CI)
