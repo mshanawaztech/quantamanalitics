@@ -1,9 +1,12 @@
 # Phase 3 — Hiring Workflow Depth · 8 Deliverables
 
-Phase 3 extends the live recruiting, time, and billing baseline into a fuller
-placement workflow: interview coordination, background checks, e-sign, and
-onboarding forms. Keep the same discipline: one branch, one PR, one tightly
-scoped deliverable.
+**Status: COMPLETE.** All 8 deliverables shipped to `main`. Phase 3 extended the
+live recruiting, time, and billing baseline into a fuller placement workflow:
+interview coordination, background checks, e-sign, and onboarding forms.
+
+Per the operating principle: same discipline going forward — one branch, one
+PR, one tightly scoped deliverable. See [`phase-4-deliverables.md`](./phase-4-deliverables.md)
+for the next slice.
 
 | #   | Branch                               | Scope                                                                  | Status  |
 | --- | ------------------------------------ | ---------------------------------------------------------------------- | ------- |
