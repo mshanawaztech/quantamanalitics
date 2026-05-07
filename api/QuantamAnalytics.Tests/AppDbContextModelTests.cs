@@ -192,6 +192,31 @@ public sealed class AppDbContextModelTests
     }
 
     [Fact]
+    public void Model_includes_EsignDocument_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(EsignDocument));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("esign_documents");
+    }
+
+    [Fact]
+    public void EsignDocument_has_unique_provider_submission_id_index()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(EsignDocument))!;
+        var providerIndex = entity.GetIndexes()
+            .SingleOrDefault(i => i.Properties.Select(p => p.Name)
+                .SequenceEqual([nameof(EsignDocument.ProviderSubmissionId)]));
+
+        providerIndex.Should().NotBeNull();
+        providerIndex!.IsUnique.Should().BeTrue();
+    }
+
+    [Fact]
     public void Timesheet_has_unique_tenant_contractor_week_index()
     {
         using var ctx = NewContext();
