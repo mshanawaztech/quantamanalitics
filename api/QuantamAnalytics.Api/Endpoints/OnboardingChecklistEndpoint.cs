@@ -123,8 +123,9 @@ public static class OnboardingChecklistEndpoint
         AppDbContext db,
         ICurrentTenant currentTenant,
         CancellationToken cancellationToken) =>
-        await ApplyReviewerActionAsync(id, body, db, currentTenant, cancellationToken,
-            (item, note) => item.Approve(note));
+        await ApplyReviewerActionAsync(id, body, db, currentTenant,
+            (item, note) => item.Approve(note),
+            cancellationToken);
 
     private static async Task<Results<Ok<OnboardingItemResponse>, NotFound, ProblemHttpResult>> RejectAsync(
         Guid id,
@@ -141,8 +142,9 @@ public static class OnboardingChecklistEndpoint
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        return await ApplyReviewerActionAsync(id, body, db, currentTenant, cancellationToken,
-            (item, note) => item.Reject(note!));
+        return await ApplyReviewerActionAsync(id, body, db, currentTenant,
+            (item, note) => item.Reject(note!),
+            cancellationToken);
     }
 
     private static async Task<Results<Ok<OnboardingItemResponse>, NotFound, ProblemHttpResult>> ApplyReviewerActionAsync(
@@ -150,8 +152,8 @@ public static class OnboardingChecklistEndpoint
         OnboardingDecisionBody body,
         AppDbContext db,
         ICurrentTenant currentTenant,
-        CancellationToken cancellationToken,
-        Action<OnboardingChecklistItem, string?> mutate)
+        Action<OnboardingChecklistItem, string?> mutate,
+        CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null)
         {
