@@ -1,11 +1,15 @@
 # Phase 4 — Distribution & Client Visibility · 8 Deliverables
 
-Phase 4 turns the now-complete placement workflow into something a staffing
-firm can use to win and retain client business: outbound job posting, a real
-client portal, and the reporting that justifies the platform's value.
+**Status: COMPLETE.** All 8 deliverables shipped to `main`. Phase 4 turned the
+placement workflow into something a staffing firm can win and retain client
+business with: outbound job posting (Indeed feed + Dice scaffold), a real
+client portal (jobs visibility + document sharing), and a baseline reporting
+surface. The ops floor (multi-tenant isolation IT, auto-applied migrations)
+landed first so the rest of Phase 4 could ship safely on top.
 
-Keep the same discipline as Phases 1–3: one branch, one PR, one tightly scoped
-deliverable. Branch prefix stays `qa001-`.
+Per the operating principle: same discipline going forward — one branch, one
+PR, one tightly scoped deliverable. See [`phase-5-deliverables.md`](./phase-5-deliverables.md)
+for the next slice (real provider integrations, prod hardening, SaaS productization).
 
 | #   | Branch                                 | Scope                                                                  | Status  |
 | --- | -------------------------------------- | ---------------------------------------------------------------------- | ------- |
