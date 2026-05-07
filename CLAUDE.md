@@ -12,7 +12,7 @@ This file is read by Claude on every session in this repo. Treat the rules below
 - Live dev SPA: `https://ambitious-dune-099500b0f.7.azurestaticapps.net`
 - Live dev API: `https://ca-qa-dev-api.icymushroom-94be4003.eastus2.azurecontainerapps.io`
 
-Roadmap: [`plan/plan.md`](./plan/plan.md). Per-phase boards: [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md), [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md), [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md).
+Roadmap: [`plan/plan.md`](./plan/plan.md). Per-phase boards: [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md), [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md), [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md), [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md).
 
 ## Stack (locked — do not change without an ADR)
 
@@ -49,13 +49,16 @@ quantamanalitics/
 │   ├── QuantamAnalytics.Domain/
 │   │   ├── Common/      ← IEntity, ITenantScoped, Roles, ClaimNamespace
 │   │   └── Entities/    ← Tenant, Job, CandidateProfile, Application,
-│   │                       Submission, InterviewEvent, Timesheet,
-│   │                       TimeEntry, TimesheetTotals
+│   │                       Submission, InterviewEvent, BackgroundCheck,
+│   │                       EsignDocument, OnboardingChecklistItem,
+│   │                       Timesheet, TimeEntry, TimesheetTotals
 │   ├── QuantamAnalytics.Infrastructure/
 │   │   ├── Data/        ← AppDbContext + per-entity Configurations/
 │   │   ├── Tenancy/     ← CurrentTenant, ICurrentTenant{,Setter}
 │   │   ├── Storage/     ← R2 + DisabledResumeStorage fallback
-│   │   ├── Interviews/  ← Calendar provider + meeting link abstractions
+│   │   ├── Interviews/  ← Calendar provider + meeting-link generator
+│   │   ├── BackgroundChecks/ ← ICheckrClient + StubCheckrClient
+│   │   ├── Esign/       ← IDocuSealClient + StubDocuSealClient
 │   │   └── Migrations/
 │   ├── QuantamAnalytics.Api/
 │   │   ├── Auth/        ← AuthExtensions, AuthorizationPolicies, StartupLog
@@ -63,7 +66,9 @@ quantamanalitics/
 │   │   ├── Demo/        ← DemoDataSeeder (startup seed for repeatable previews)
 │   │   └── Endpoints/   ← Health, Me, PublicJobs, RecruiterPortal,
 │   │                       CandidateProfile, ContractorTimesheet,
-│   │                       ClientApproval, InterviewScheduling
+│   │                       ClientApproval, InterviewScheduling,
+│   │                       BackgroundCheck, EsignDocument,
+│   │                       OnboardingChecklist
 │   └── QuantamAnalytics.Tests/
 │       └── TestAuth/    ← TestAuthHandler for synthetic JWT integration tests
 ├── client/
@@ -114,6 +119,10 @@ quantamanalitics/
 | Global query filter wiring | `api/QuantamAnalytics.Infrastructure/Data/AppDbContext.cs` (`ApplyTenantQueryFilters`) |
 | R2 / disabled fallback | `api/QuantamAnalytics.Infrastructure/Storage/` |
 | Calendar provider abstractions | `api/QuantamAnalytics.Infrastructure/Interviews/` |
+| Meeting-link generator (stub) | `api/QuantamAnalytics.Infrastructure/Interviews/MeetingLinkGenerator.cs` |
+| Checkr client (stub) | `api/QuantamAnalytics.Infrastructure/BackgroundChecks/StubCheckrClient.cs` |
+| DocuSeal client (stub) | `api/QuantamAnalytics.Infrastructure/Esign/StubDocuSealClient.cs` |
+| Anonymous webhook landing pads | `BackgroundCheckEndpoint.cs`, `EsignDocumentEndpoint.cs` (use `IgnoreQueryFilters()` + provider id lookup) |
 | Demo seed data | `api/QuantamAnalytics.Api/Demo/DemoDataSeeder.cs` |
 | SPA Auth0 wiring | `client/src/app/app.config.ts` |
 | SPA AuthService facade | `client/src/app/core/auth/auth.service.ts` |
@@ -136,26 +145,25 @@ Use **Variables** for public OIDC config (anything embedded in a JWT or HTML bun
 
 ## Current state
 
-- **Phases 1 + 2: MERGED** (PRs 01–20). Live dev environment serves the marketing site, public jobs board, candidate intake, recruiter portal, contractor timesheets, client approval, pay rules, invoice staging, QBO/Stripe scaffold.
-- **Phase 3: in flight.** PR-21 (plan), PR-22 (submissions), PR-23 (interview scheduling shell), PR-24 (calendar baseline) merged. Up next: PR-25 → 28.
+- **Phases 1 + 2 + 3: MERGED** (PRs 01–28). Live dev environment serves the marketing site, public jobs board, candidate intake, recruiter portal, contractor timesheets, client approval, pay rules, invoice staging, QBO/Stripe scaffold, full submission + interview + meeting-link + Checkr + DocuSeal + onboarding-checklist surfaces.
+- **Phase 4: starting.** Distribution & client visibility — outbound job-board posting (Indeed/Dice), client portal expansion, reporting (time-to-fill, source-of-hire, recruiter activity, gross margin). Skeleton board: [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md).
 
-### Phase 3 — what's still pending
+### Phase 3 — what just landed
 
-| # | Branch | Scope |
-| --- | --- | --- |
-| 25 | `qa001-meeting-link-scaffold` | Zoom/Teams meeting-link generation on interview events |
-| 26 | `qa001-checkr-baseline` | Checkr request/status baseline + webhook-ready persistence |
-| 27 | `qa001-esign-docuseal` | Offer-letter / onboarding packet handoff via DocuSeal |
-| 28 | `qa001-onboarding-forms` | Candidate onboarding forms collection + document checklist |
-
-Pick the next branch off latest `main`. Update `plan/phase-3-deliverables.md` status column on merge.
+All eight Phase 3 PRs merged. End-to-end placement surface now exists in code:
+sourced → screened → submitted → interviewed (with meeting link) →
+background-checked (Checkr stub + webhook landing pad) → offered + onboarded
+(DocuSeal stub) → onboarding forms tracked. Real provider integrations remain
+in their stub form by design — Phase 5 swaps them in once revenue justifies it.
 
 ### Standing follow-ups (carry across phases)
 
-- **Multi-tenant isolation integration test** — Testcontainers-backed: two synthetic JWTs with different tenant claims, assert tenant A's request can't read tenant B's row. Highest-value test in the codebase; not yet written.
-- **Auto-applied migrations in CI** — currently manual via `dotnet ef database update` from a laptop. Phase 4 ops cleanup.
+- **Multi-tenant isolation integration test** — Testcontainers-backed: two synthetic JWTs with different tenant claims, assert tenant A's request can't read tenant B's row. Highest-value test in the codebase; still not written. Bump priority to "first thing in Phase 4" before adding more endpoints.
+- **Auto-applied migrations in CI** — currently manual via `dotnet ef database update` from a laptop. Schedule into Phase 4 ops cleanup before any client-facing data lands.
 - **Branch protection on `main`** — confirm at `Settings → Branches` that the four CI checks are required.
-- **Phase 4+ topics** — production hardening (private GHCR + managed identity pull), prod tenant in Auth0, MFA + breach-password detection, custom domain.
+- **Webhook signature verification** — Checkr (`X-Checkr-Signature`) and DocuSeal webhook landing pads currently accept any payload that matches a known provider id. Add HMAC verification before exposing the URLs to real providers.
+- **Replace the stubs** — `MeetingLinkGenerator`, `StubCheckrClient`, `StubDocuSealClient` mint deterministic ids today. Real Zoom/Teams, Checkr, DocuSeal API calls land in Phase 5.
+- **Phase 5+ topics** — production hardening (private GHCR + managed identity pull), prod tenant in Auth0, MFA + breach-password detection, custom domain.
 
 ## Local dev quick-start
 
@@ -192,7 +200,7 @@ Build phase target: **$0–10/month total run cost.** If any decision pushes spe
 ## Working with this project (every session)
 
 1. Read this file (you're doing it).
-2. Skim `plan/phase-3-deliverables.md` for what's pending.
+2. Skim `plan/phase-4-deliverables.md` for what's pending.
 3. Pull latest `main` and branch off (`git checkout main && git pull && git checkout -b qa001-<scope>`).
 4. Stay in the slice — no "while I'm here" adjacent work.
-5. Update the deliverables board status column on merge. Keep CLAUDE.md current at every phase boundary.
+5. Update the active phase's deliverables board status column on merge. Keep CLAUDE.md current at every phase boundary.
