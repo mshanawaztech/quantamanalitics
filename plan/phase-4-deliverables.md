@@ -18,7 +18,7 @@ for the next slice (real provider integrations, prod hardening, SaaS productizat
 | 31  | `qa001-migrations-in-ci`               | Auto-applied EF migrations on dev deploy + safety guard                | pending |
 | 32  | `qa001-job-feed-indeed`                | Indeed XML feed export of public jobs + per-tenant feed URL            | in review |
 | 33  | `qa001-job-feed-dice`                  | Dice posting handoff scaffold (interface + stub provider)              | pending |
-| 34  | `qa001-client-portal-jobs`             | Client portal: jobs requested, candidates submitted, status visibility | pending |
+| 34  | `qa001-client-portal-jobs`             | Client portal: jobs requested, candidates submitted, status visibility | in review |
 | 35  | `qa001-client-portal-docs`             | Client-facing document sharing (offers, signed packets) read surface   | pending |
 | 36  | `qa001-reporting-baseline`             | Recruiter activity, time-to-fill, source-of-hire baseline reports      | in review |
 
