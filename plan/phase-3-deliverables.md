@@ -1,9 +1,12 @@
 # Phase 3 — Hiring Workflow Depth · 8 Deliverables
 
-Phase 3 extends the live recruiting, time, and billing baseline into a fuller
-placement workflow: interview coordination, background checks, e-sign, and
-onboarding forms. Keep the same discipline: one branch, one PR, one tightly
-scoped deliverable.
+**Status: COMPLETE.** All 8 deliverables shipped to `main`. Phase 3 extended the
+live recruiting, time, and billing baseline into a fuller placement workflow:
+interview coordination, background checks, e-sign, and onboarding forms.
+
+Per the operating principle: same discipline going forward — one branch, one
+PR, one tightly scoped deliverable. See [`phase-4-deliverables.md`](./phase-4-deliverables.md)
+for the next slice.
 
 | #   | Branch                               | Scope                                                                  | Status  |
 | --- | ------------------------------------ | ---------------------------------------------------------------------- | ------- |
@@ -11,10 +14,10 @@ scoped deliverable.
 | 22  | `qa001-submission-domain`            | Submission aggregate + recruiter/client handoff state model            | merged  |
 | 23  | `qa001-interview-scheduling-shell`   | Interview route shell, scorecard model, and scheduler status surfaces  | merged  |
 | 24  | `qa001-google-outlook-baseline`      | Calendar provider baseline and interview event handoff abstraction     | merged  |
-| 25  | `qa001-meeting-link-scaffold`        | Zoom/Teams meeting link generation scaffold on interview events        | pending |
-| 26  | `qa001-checkr-baseline`              | Checkr request/status baseline with webhook-ready persistence          | in review |
-| 27  | `qa001-esign-docuseal`               | Offer-letter and onboarding packet handoff scaffold via DocuSeal       | pending |
-| 28  | `qa001-onboarding-forms`             | Candidate onboarding forms collection status and document checklist    | in review |
+| 25  | `qa001-meeting-link-scaffold`        | Zoom/Teams meeting link generation scaffold on interview events        | merged  |
+| 26  | `qa001-checkr-baseline`              | Checkr request/status baseline with webhook-ready persistence          | merged  |
+| 27  | `qa001-esign-docuseal`               | Offer-letter and onboarding packet handoff scaffold via DocuSeal       | merged  |
+| 28  | `qa001-onboarding-forms`             | Candidate onboarding forms collection status and document checklist    | merged  |
 
 ---
 
