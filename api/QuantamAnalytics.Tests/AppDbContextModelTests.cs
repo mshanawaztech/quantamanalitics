@@ -167,6 +167,31 @@ public sealed class AppDbContextModelTests
     }
 
     [Fact]
+    public void Model_includes_BackgroundCheck_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(BackgroundCheck));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("background_checks");
+    }
+
+    [Fact]
+    public void BackgroundCheck_has_unique_provider_report_id_index()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(BackgroundCheck))!;
+        var providerIndex = entity.GetIndexes()
+            .SingleOrDefault(i => i.Properties.Select(p => p.Name)
+                .SequenceEqual([nameof(BackgroundCheck.ProviderReportId)]));
+
+        providerIndex.Should().NotBeNull();
+        providerIndex!.IsUnique.Should().BeTrue();
+    }
+
+    [Fact]
     public void Timesheet_has_unique_tenant_contractor_week_index()
     {
         using var ctx = NewContext();
