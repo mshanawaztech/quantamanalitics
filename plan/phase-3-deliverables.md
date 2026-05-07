@@ -7,10 +7,10 @@ scoped deliverable.
 
 | #   | Branch                               | Scope                                                                  | Status  |
 | --- | ------------------------------------ | ---------------------------------------------------------------------- | ------- |
-| 21  | `qa001-phase3-plan`                  | Phase 3 deliverables board + repo state handoff from Phase 2           | pending |
-| 22  | `qa001-submission-domain`            | Submission aggregate + recruiter/client handoff state model            | pending |
-| 23  | `qa001-interview-scheduling-shell`   | Interview route shell, scorecard model, and scheduler status surfaces  | pending |
-| 24  | `qa001-google-outlook-baseline`      | Calendar provider baseline and interview event handoff abstraction     | pending |
+| 21  | `qa001-phase3-plan`                  | Phase 3 deliverables board + repo state handoff from Phase 2           | merged  |
+| 22  | `qa001-submission-domain`            | Submission aggregate + recruiter/client handoff state model            | merged  |
+| 23  | `qa001-interview-scheduling-shell`   | Interview route shell, scorecard model, and scheduler status surfaces  | merged  |
+| 24  | `qa001-google-outlook-baseline`      | Calendar provider baseline and interview event handoff abstraction     | merged  |
 | 25  | `qa001-meeting-link-scaffold`        | Zoom/Teams meeting link generation scaffold on interview events        | pending |
 | 26  | `qa001-checkr-baseline`              | Checkr request/status baseline with webhook-ready persistence          | pending |
 | 27  | `qa001-esign-docuseal`               | Offer-letter and onboarding packet handoff scaffold via DocuSeal       | pending |
