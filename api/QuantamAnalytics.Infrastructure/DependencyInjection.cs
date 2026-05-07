@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddScoped<ICurrentTenantSetter>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddSingleton<IInterviewCalendarProviderCatalog, InterviewCalendarProviderCatalog>();
+        services.AddSingleton<IMeetingLinkGenerator, MeetingLinkGenerator>();
         services.AddSingleton<ICheckrClient, StubCheckrClient>();
 
         RegisterResumeStorage(services, configuration);
