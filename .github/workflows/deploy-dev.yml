@@ -106,37 +106,56 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Install dotnet-ef
-        # Pin to the same major as the runtime so the tool and the EF Core
-        # provider speak the same wire protocol. `--version 10.*` accepts
-        # any 10.x patch published to NuGet.
-        run: dotnet tool install -g dotnet-ef --version 10.*
+        # Pin to the GA 10.0 line. Earlier we used `--version 10.*` which
+        # is ambiguous when 10.0 prereleases are still in the feed.
+        run: dotnet tool install -g dotnet-ef --version 10.0.*
+
+      - name: Restore + build the solution
+        # Restore the WHOLE solution, not just the Api csproj. `dotnet ef`
+        # resolves project metadata for both --project (Infrastructure)
+        # and --startup-project (Api) directly, so each one needs its own
+        # obj/project.assets.json. Restoring only one project leaves the
+        # other unbuilt and the migration tool fails with NETSDK1004.
+        run: |
+          dotnet restore QuantamAnalytics.sln
+          dotnet build   QuantamAnalytics.sln \
+            --configuration Release --no-restore
 
       - name: List migration state (informational, never fails the job)
         env:
-          PG_CONN: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          # Double-underscore = ASP.NET Core configuration's nested-key
+          # separator. This env var maps to ConnectionStrings:Postgres
+          # in IConfiguration — which is what AddInfrastructure reads at
+          # host-build time before dotnet ef can even discover the
+          # DbContext. Setting only PG_CONN + passing `--connection` was
+          # not enough: the host build threw before the migration
+          # command got a chance to run.
+          ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
         run: |
-          # Logs `Pending` / `Applied` per migration so the action log is the
-          # audit trail of what this deploy will change. Tolerant of failure
-          # (`|| true`) because we don't want a connection blip on the list
-          # call to cancel the actual apply step.
+          # Logs `Pending` / `Applied` per migration so the action log is
+          # the audit trail of what this deploy will change. Tolerant of
+          # failure (`|| true`) because we don't want a connection blip
+          # on the list call to cancel the actual apply step.
           dotnet ef migrations list \
             --project QuantamAnalytics.Infrastructure \
             --startup-project QuantamAnalytics.Api \
-            --connection "$PG_CONN" \
+            --no-build \
+            --configuration Release \
             || true
 
       - name: Apply pending migrations
         env:
-          PG_CONN: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
         run: |
           # Idempotent: EF tracks applied migrations in __EFMigrationsHistory
           # and skips any already-present row, so re-runs of the same SHA
-          # are a no-op. Each migration runs inside a transaction by default
-          # — a failure rolls back to the last clean state.
+          # are a no-op. Each migration runs inside a transaction by
+          # default — a failure rolls back to the last clean state.
           dotnet ef database update \
             --project QuantamAnalytics.Infrastructure \
             --startup-project QuantamAnalytics.Api \
-            --connection "$PG_CONN"
+            --no-build \
+            --configuration Release
 
   # ── Apply Bicep + point Container App at the new image ────────────────────
   deploy-infra:
