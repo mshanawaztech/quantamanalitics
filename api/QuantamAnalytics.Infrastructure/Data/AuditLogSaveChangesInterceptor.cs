@@ -1,6 +1,4 @@
-using System.Security.Claims;
 using System.Text.Json;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -25,7 +23,7 @@ namespace QuantamAnalytics.Infrastructure.Data;
 /// - Every <see cref="ITenantScoped"/> entity in Added / Modified /
 ///   Deleted state at SaveChanges time.
 /// - The current tenant id (from <see cref="ICurrentTenant"/>) and the
-///   acting auth subject (from <see cref="IHttpContextAccessor"/>).
+///   acting auth subject (from <see cref="ICurrentUser"/>).
 /// - For Modified entries, a JSON object of changed property names →
 ///   from/to values. Original/current values are flattened to strings
 ///   to keep the column type simple (jsonb of strings).
@@ -60,14 +58,17 @@ public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
     private const string PostgresUndefinedTableSqlState = "42P01";
 
     private readonly ICurrentTenant _currentTenant;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUser _currentUser;
+    private readonly ILogger<AuditLogSaveChangesInterceptor> _logger;
 
     public AuditLogSaveChangesInterceptor(
         ICurrentTenant currentTenant,
-        IHttpContextAccessor httpContextAccessor)
+        ICurrentUser currentUser,
+        ILogger<AuditLogSaveChangesInterceptor> logger)
     {
         _currentTenant = currentTenant;
-        _httpContextAccessor = httpContextAccessor;
+        _currentUser = currentUser;
+        _logger = logger;
     }
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
@@ -114,7 +115,7 @@ public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
         }
 
         var tenantId = _currentTenant.TenantId.Value;
-        var subject = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var subject = _currentUser.AuthSubject;
 
         // Snapshot the candidate entries first — Add() during enumeration
         // would otherwise pull our own audit rows back into the loop.

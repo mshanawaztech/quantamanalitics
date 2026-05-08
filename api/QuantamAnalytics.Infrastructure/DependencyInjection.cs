@@ -51,12 +51,6 @@ public static class DependencyInjection
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
         services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
 
-        // Audit-log interceptor needs the request's auth subject — pull it
-        // from HttpContextAccessor. Idempotent: AddHttpContextAccessor is a
-        // no-op if the host already registered it.
-        services.AddHttpContextAccessor();
-        services.AddScoped<AuditLogSaveChangesInterceptor>();
-
         // Audit-log interceptor — scoped so it sees the per-request tenant
         // and auth subject. Resolved into the DbContext options below via
         // the (sp, options) overload of AddDbContext.
