@@ -27,6 +27,8 @@ public static class CandidateProfileEndpoint
 
         group.MapGet("/", GetProfileAsync);
         group.MapGet("/applications", GetApplicationsAsync);
+        group.MapGet("/timeline", GetTimelineAsync);
+        group.MapGet("/applications/{applicationId:guid}/timeline", GetApplicationTimelineAsync);
         group.MapPut("/", UpdateProfileAsync);
         group.MapPost("/resume", UploadResumeAsync)
             .DisableAntiforgery();
@@ -85,6 +87,129 @@ public static class CandidateProfileEndpoint
             .ToArrayAsync(cancellationToken);
 
         return TypedResults.Ok(new CandidateApplicationsResponse(applications));
+    }
+
+    private static async Task<Results<Ok<CandidateTimelineFeedResponse>, ProblemHttpResult>> GetTimelineAsync(
+        ClaimsPrincipal user,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        if (profile is null)
+        {
+            return TypedResults.Problem(
+                title: "Tenant assignment required",
+                detail: "Candidate profiles require a tenant_id claim in the authenticated session.",
+                statusCode: StatusCodes.Status412PreconditionFailed);
+        }
+
+        var applicationMap = await db.Applications
+            .Where(x => x.CandidateProfileId == profile.Id)
+            .Join(
+                db.Jobs,
+                application => application.JobId,
+                job => job.Id,
+                (application, job) => new
+                {
+                    application.Id,
+                    application.Status,
+                    JobId = job.Id,
+                    JobTitle = job.Title,
+                    JobSlug = job.Slug,
+                })
+            .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        if (applicationMap.Count == 0)
+        {
+            return TypedResults.Ok(new CandidateTimelineFeedResponse([]));
+        }
+
+        var items = await db.ApplicationTimelineEvents
+            .Where(x =>
+                x.CandidateProfileId == profile.Id &&
+                x.Audience == ApplicationTimelineAudience.CandidateAndRecruiter)
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var response = items
+            .Where(x => applicationMap.ContainsKey(x.ApplicationId))
+            .Select(x =>
+            {
+                var application = applicationMap[x.ApplicationId];
+                return new CandidateTimelineFeedItemResponse(
+                    x.Id,
+                    x.ApplicationId,
+                    application.JobId,
+                    application.JobTitle,
+                    application.JobSlug,
+                    x.EventType.ToString(),
+                    x.Title,
+                    x.Description,
+                    x.ActorLabel,
+                    application.Status.ToString(),
+                    x.OccurredAtUtc);
+            })
+            .ToArray();
+
+        return TypedResults.Ok(new CandidateTimelineFeedResponse(response));
+    }
+
+    private static async Task<Results<Ok<ApplicationTimelineResponse>, NotFound, ProblemHttpResult>> GetApplicationTimelineAsync(
+        Guid applicationId,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        if (profile is null)
+        {
+            return TypedResults.Problem(
+                title: "Tenant assignment required",
+                detail: "Candidate profiles require a tenant_id claim in the authenticated session.",
+                statusCode: StatusCodes.Status412PreconditionFailed);
+        }
+
+        var application = await db.Applications
+            .Where(x => x.Id == applicationId && x.CandidateProfileId == profile.Id)
+            .Join(
+                db.Jobs,
+                app => app.JobId,
+                job => job.Id,
+                (app, job) => new
+                {
+                    Application = app,
+                    JobTitle = job.Title,
+                })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (application is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var events = await db.ApplicationTimelineEvents
+            .Where(x =>
+                x.ApplicationId == applicationId &&
+                x.Audience == ApplicationTimelineAudience.CandidateAndRecruiter)
+            .OrderBy(x => x.OccurredAtUtc)
+            .Select(x => new TimelineEventResponse(
+                x.Id,
+                x.EventType.ToString(),
+                x.Audience.ToString(),
+                x.Title,
+                x.Description,
+                x.ActorLabel,
+                x.OccurredAtUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return TypedResults.Ok(new ApplicationTimelineResponse(
+            application.Application.Id,
+            application.Application.CandidateProfileId,
+            application.Application.CandidateName,
+            application.Application.CandidateEmail,
+            application.JobTitle,
+            application.Application.Status.ToString(),
+            events));
     }
 
     private static async Task<Results<Ok<CandidateProfileResponse>, ProblemHttpResult>> UpdateProfileAsync(
