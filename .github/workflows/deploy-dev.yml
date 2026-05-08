@@ -78,11 +78,89 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
 
+  # ── Apply EF Core migrations to the dev Postgres ──────────────────────────
+  # Runs BEFORE deploy-infra so the new schema is in place before the new
+  # image starts handling traffic. Safe for additive migrations (new tables,
+  # new nullable columns) — old code on the old image keeps working against
+  # the wider schema. Destructive migrations (column drops, type narrows)
+  # require expand-contract: ship the additive migration in one deploy, the
+  # code that stops using the old shape in the next, and the destructive
+  # migration in a third. We have no destructive migrations today.
+  #
+  # If a migration fails, this job fails, deploy-infra never runs, and the
+  # old image keeps serving the old schema. That's the desired behavior —
+  # better to halt and investigate than to half-migrate behind live traffic.
+  apply-migrations:
+    name: DB · apply EF migrations
+    runs-on: ubuntu-24.04
+    needs: api-image
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install dotnet-ef
+        # Pin to the GA 10.0 line. Earlier we used `--version 10.*` which
+        # is ambiguous when 10.0 prereleases are still in the feed.
+        run: dotnet tool install -g dotnet-ef --version 10.0.*
+
+      - name: Restore + build (so dotnet ef runs against compiled output)
+        # `dotnet ef` would otherwise build implicitly with no restore in
+        # this fresh job, which has hit transient package-resolution
+        # failures in the past. Explicit restore + build keeps the
+        # later `--no-build` invocations cheap.
+        run: |
+          dotnet restore QuantamAnalytics.Api/QuantamAnalytics.Api.csproj
+          dotnet build  QuantamAnalytics.Api/QuantamAnalytics.Api.csproj \
+            --configuration Release --no-restore
+
+      - name: List migration state (informational, never fails the job)
+        env:
+          # Double-underscore = ASP.NET Core configuration's nested-key
+          # separator. This env var maps to ConnectionStrings:Postgres in
+          # IConfiguration — which is what AddInfrastructure reads at
+          # host-build time before dotnet ef can even discover the
+          # DbContext. Setting only PG_CONN + passing `--connection` was
+          # not enough: the host build threw before the migration
+          # command got a chance to run.
+          ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+        run: |
+          # Logs `Pending` / `Applied` per migration so the action log is
+          # the audit trail of what this deploy will change. Tolerant of
+          # failure (`|| true`) because we don't want a connection blip
+          # on the list call to cancel the actual apply step.
+          dotnet ef migrations list \
+            --project QuantamAnalytics.Infrastructure \
+            --startup-project QuantamAnalytics.Api \
+            --no-build \
+            --configuration Release \
+            || true
+
+      - name: Apply pending migrations
+        env:
+          ConnectionStrings__Postgres: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+        run: |
+          # Idempotent: EF tracks applied migrations in __EFMigrationsHistory
+          # and skips any already-present row, so re-runs of the same SHA
+          # are a no-op. Each migration runs inside a transaction by
+          # default — a failure rolls back to the last clean state.
+          dotnet ef database update \
+            --project QuantamAnalytics.Infrastructure \
+            --startup-project QuantamAnalytics.Api \
+            --no-build \
+            --configuration Release
+
   # ── Apply Bicep + point Container App at the new image ────────────────────
   deploy-infra:
     name: Infra · deploy bicep with new image
     runs-on: ubuntu-24.04
-    needs: api-image
+    needs: [api-image, apply-migrations]
     outputs:
       api_url: ${{ steps.outputs.outputs.api_url }}
       swa_name: ${{ steps.outputs.outputs.swa_name }}
