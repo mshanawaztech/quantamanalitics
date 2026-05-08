@@ -1,52 +1,229 @@
-import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, inject, signal } from '@angular/core';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { AuthService } from './core/auth/auth.service';
 
+interface Crumb {
+  label: string;
+  href: string;
+}
+
+interface NavItem {
+  href: string;
+  label: string;
+  exact?: boolean;
+  authedOnly?: boolean;
+}
+
+const PRIMARY_NAV: NavItem[] = [
+  { href: '/', label: 'Home', exact: true },
+  { href: '/about', label: 'About' },
+  { href: '/services', label: 'Services' },
+  { href: '/jobs', label: 'Jobs' },
+  { href: '/contact', label: 'Contact' },
+];
+
+const PORTAL_NAV: NavItem[] = [
+  { href: '/recruiter', label: 'Recruiter', authedOnly: true },
+  { href: '/client', label: 'Client', authedOnly: true },
+  { href: '/candidate', label: 'Candidate', authedOnly: true },
+  { href: '/contractor', label: 'Contractor', authedOnly: true },
+  { href: '/interviews', label: 'Interviews', authedOnly: true },
+];
+
+const ROUTE_LABELS: Record<string, string> = {
+  '': 'Home',
+  about: 'About',
+  services: 'Services',
+  jobs: 'Jobs',
+  contact: 'Contact',
+  recruiter: 'Recruiter',
+  client: 'Client',
+  candidate: 'Candidate',
+  contractor: 'Contractor',
+  interviews: 'Interviews',
+  'style-guide': 'Style guide',
+};
+
+/**
+ * Phase 6 / Story 46 — global application shell.
+ *
+ * Provides the persistent visual frame around every routed view:
+ *
+ *   - Skip-to-main-content link (WCAG 2.4.1)
+ *   - Header with logo, primary nav, portal nav (when authenticated),
+ *     global search input, and user menu
+ *   - Breadcrumbs auto-generated from the current URL
+ *   - Footer with sitemap, accessibility link, environment notice
+ *   - Mobile hamburger menu (< 768px) that mirrors the desktop nav
+ *
+ * Replaces the cream / orange ambient marketing-shell from before.
+ * The visual identity now matches the design tokens established in
+ * Story 45 (white surface, deep-blue accent, Inter typography).
+ */
 @Component({
   selector: 'app-marketing-shell',
+  standalone: true,
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   template: `
-    <div class="site-shell">
-      <div class="ambient ambient-left"></div>
-      <div class="ambient ambient-right"></div>
+    <a class="skip-link" href="#main">Skip to main content</a>
 
-      <header class="site-header">
-        <a class="brand" routerLink="/">
-          <span class="brand-mark">QA</span>
-          <span class="brand-copy">
-            <strong>Quantam Analytics</strong>
-            <span>Staffing platform for modern recruiting teams</span>
-          </span>
-        </a>
+    <div class="shell">
+      <header class="shell__header" role="banner">
+        <div class="shell__header-inner">
+          <a class="brand" routerLink="/" aria-label="Quantam Analytics — home">
+            <span class="brand__mark" aria-hidden="true">QA</span>
+            <span class="brand__copy">
+              <strong>Quantam Analytics</strong>
+              <span>Staffing platform</span>
+            </span>
+          </a>
 
-        <nav class="site-nav" aria-label="Primary">
-          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
-          <a routerLink="/about" routerLinkActive="active">About</a>
-          <a routerLink="/services" routerLinkActive="active">Services</a>
-          <a routerLink="/jobs" routerLinkActive="active">Jobs</a>
-          <a routerLink="/client" routerLinkActive="active">Client</a>
-          <a routerLink="/candidate" routerLinkActive="active">Candidate</a>
-          <a routerLink="/contractor" routerLinkActive="active">Contractor</a>
-          <a routerLink="/recruiter" routerLinkActive="active">Recruiter</a>
-          <a routerLink="/interviews" routerLinkActive="active">Interviews</a>
-          <a routerLink="/contact" routerLinkActive="active">Contact</a>
-        </nav>
+          <nav class="shell__nav shell__nav--primary" aria-label="Primary">
+            @for (item of primaryNav; track item.href) {
+              <a
+                [routerLink]="item.href"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: !!item.exact }"
+              >{{ item.label }}</a>
+            }
+          </nav>
+
+          <div class="shell__header-right">
+            <form class="search" role="search" (submit)="onSearchSubmit($event)">
+              <label class="visually-hidden" for="global-search">Search</label>
+              <input
+                id="global-search"
+                type="search"
+                placeholder="Search jobs, candidates, submissions…"
+                [value]="searchQuery()"
+                (input)="onSearchInput($event)"
+                autocomplete="off"
+              />
+            </form>
+
+            @if (auth.isAuthenticated()) {
+              <button
+                type="button"
+                class="user-menu"
+                (click)="toggleUserMenu()"
+                [attr.aria-expanded]="userMenuOpen()"
+                aria-haspopup="menu"
+                aria-label="Account menu"
+              >
+                <span class="user-menu__avatar" aria-hidden="true">
+                  {{ initials() }}
+                </span>
+                <span class="user-menu__caret" aria-hidden="true">▾</span>
+              </button>
+              @if (userMenuOpen()) {
+                <div class="user-menu__panel" role="menu">
+                  <p class="user-menu__email">{{ auth.email() }}</p>
+                  <a routerLink="/candidate" role="menuitem" (click)="closeUserMenu()">My profile</a>
+                  <button type="button" role="menuitem" (click)="signOut()">Sign out</button>
+                </div>
+              }
+            } @else {
+              <a class="cta" routerLink="/login">Sign in</a>
+            }
+
+            <button
+              type="button"
+              class="mobile-toggle"
+              (click)="toggleMobileNav()"
+              [attr.aria-expanded]="mobileNavOpen()"
+              aria-label="Toggle menu"
+              aria-controls="mobile-nav"
+            >
+              <span aria-hidden="true">☰</span>
+            </button>
+          </div>
+        </div>
+
+        @if (auth.isAuthenticated()) {
+          <nav class="shell__nav shell__nav--portal" aria-label="Portals">
+            <div class="shell__nav-inner">
+              @for (item of portalNav; track item.href) {
+                <a [routerLink]="item.href" routerLinkActive="active">{{ item.label }}</a>
+              }
+            </div>
+          </nav>
+        }
+
+        @if (mobileNavOpen()) {
+          <nav id="mobile-nav" class="shell__mobile-nav" aria-label="Mobile">
+            @for (item of primaryNav; track item.href) {
+              <a [routerLink]="item.href" (click)="closeMobileNav()">{{ item.label }}</a>
+            }
+            @if (auth.isAuthenticated()) {
+              <hr />
+              @for (item of portalNav; track item.href) {
+                <a [routerLink]="item.href" (click)="closeMobileNav()">{{ item.label }}</a>
+              }
+            }
+          </nav>
+        }
       </header>
 
-      <router-outlet />
+      @if (crumbs().length > 1) {
+        <nav class="breadcrumbs" aria-label="Breadcrumb">
+          <div class="breadcrumbs__inner">
+            <ol>
+              @for (c of crumbs(); track c.href; let last = $last) {
+                <li>
+                  @if (!last) {
+                    <a [routerLink]="c.href">{{ c.label }}</a>
+                    <span class="breadcrumbs__sep" aria-hidden="true">/</span>
+                  } @else {
+                    <span aria-current="page">{{ c.label }}</span>
+                  }
+                </li>
+              }
+            </ol>
+          </div>
+        </nav>
+      }
 
-      <footer class="site-footer">
-        <p>Quantam Analytics is building a multi-tenant staffing operating system from sourcing to submission.</p>
-        <div>
-          @if (auth.isAuthenticated()) {
-            <a routerLink="/client">Client approvals</a>
+      <main id="main" class="shell__main" tabindex="-1">
+        <router-outlet />
+      </main>
+
+      <footer class="shell__footer" role="contentinfo">
+        <div class="shell__footer-inner">
+          <div class="shell__footer-col">
+            <strong>Quantam Analytics</strong>
+            <p>A multi-tenant staffing operating system — sourcing through placement, on one tenant-safe platform.</p>
+          </div>
+          <div class="shell__footer-col">
+            <strong>Product</strong>
+            <a routerLink="/jobs">Public jobs</a>
+            <a routerLink="/services">Services</a>
+            <a routerLink="/about">About</a>
+          </div>
+          <div class="shell__footer-col">
+            <strong>For your team</strong>
+            <a routerLink="/recruiter">Recruiter portal</a>
+            <a routerLink="/client">Client portal</a>
             <a routerLink="/candidate">Candidate dashboard</a>
             <a routerLink="/contractor">Contractor portal</a>
-            <a routerLink="/recruiter">Recruiter workspace</a>
-            <a routerLink="/interviews">Interview planning</a>
-          }
-          <a routerLink="/contact">Talk to us</a>
-          <span>Azure-hosted · Auth0-secured · SaaS-ready</span>
+          </div>
+          <div class="shell__footer-col">
+            <strong>Resources</strong>
+            <a routerLink="/contact">Contact</a>
+            <a routerLink="/accessibility">Accessibility</a>
+            <a href="https://github.com/mshanawaz114/quantamanalitics" target="_blank" rel="noopener">GitHub</a>
+          </div>
+        </div>
+        <div class="shell__footer-bottom">
+          <span>© {{ year }} Quantam Analytics. All rights reserved.</span>
+          <span>Azure-hosted · Auth0-secured · WCAG 2.1 AA</span>
         </div>
       </footer>
     </div>
@@ -55,160 +232,431 @@ import { AuthService } from './core/auth/auth.service';
     :host {
       display: block;
       min-height: 100vh;
+      background: var(--color-canvas);
     }
 
-    .site-shell {
-      position: relative;
-      min-height: 100vh;
-      padding: 1.5rem;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at top left, rgb(251 191 36 / 0.24), transparent 24rem),
-        radial-gradient(circle at top right, rgb(14 165 233 / 0.20), transparent 22rem),
-        linear-gradient(180deg, #f8f4eb 0%, #fffdf9 42%, #f5efe1 100%);
-      color: #1f1d1a;
-    }
-
-    .ambient {
-      position: absolute;
-      border-radius: 999px;
-      filter: blur(48px);
-      opacity: 0.6;
-      pointer-events: none;
-    }
-
-    .ambient-left {
-      inset: 5rem auto auto -5rem;
-      width: 14rem;
-      height: 14rem;
-      background: rgb(180 83 9 / 0.16);
-    }
-
-    .ambient-right {
-      inset: 18rem -4rem auto auto;
-      width: 18rem;
-      height: 18rem;
-      background: rgb(3 105 161 / 0.14);
-    }
-
-    .site-header,
-    .site-footer,
-    router-outlet {
-      position: relative;
-      z-index: 1;
-    }
-
-    .site-header,
-    .site-footer {
-      width: min(1120px, 100%);
-      margin: 0 auto;
-    }
-
-    .site-header {
+    .shell {
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────── */
+
+    .shell__header {
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .shell__header-inner {
+      max-width: var(--container-max);
+      margin: 0 auto;
+      padding: var(--space-3) var(--space-5);
+      display: flex;
       align-items: center;
-      gap: 1rem;
-      padding: 0.5rem 0 1.75rem;
+      gap: var(--space-5);
     }
 
     .brand {
       display: inline-flex;
-      gap: 0.9rem;
       align-items: center;
+      gap: var(--space-3);
       text-decoration: none;
-      color: inherit;
+      color: var(--color-ink-strong);
+      flex-shrink: 0;
     }
 
-    .brand-mark {
-      display: inline-grid;
-      place-items: center;
-      width: 2.85rem;
-      height: 2.85rem;
-      border-radius: 0.9rem;
-      background: linear-gradient(145deg, #111827, #9a3412);
-      color: #fff7ed;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-    }
-
-    .brand-copy {
+    .brand__mark {
       display: grid;
-      gap: 0.15rem;
+      place-items: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      background: var(--color-primary);
+      color: var(--color-ink-onblue);
+      font-weight: var(--font-weight-bold);
+      border-radius: var(--radius-md);
+      letter-spacing: 0.04em;
     }
 
-    .brand-copy strong {
-      font-size: 1rem;
-    }
-
-    .brand-copy span:last-child {
-      color: #6b6255;
-      font-size: 0.92rem;
-    }
-
-    .site-nav {
+    .brand__copy {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      padding: 0.35rem;
-      border: 1px solid rgb(111 100 84 / 0.18);
-      border-radius: 999px;
-      background: rgb(255 253 249 / 0.78);
-      backdrop-filter: blur(12px);
+      flex-direction: column;
+      line-height: 1.1;
+    }
+    .brand__copy strong {
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-bold);
+    }
+    .brand__copy span {
+      font-size: var(--font-size-xs);
+      color: var(--color-ink-muted);
     }
 
-    .site-nav a {
-      padding: 0.7rem 1rem;
-      border-radius: 999px;
-      color: #554b3d;
+    /* Primary nav (top row, marketing pages) */
+    .shell__nav--primary {
+      display: flex;
+      gap: var(--space-1);
+      flex: 1;
+      justify-content: center;
+    }
+
+    .shell__nav--primary a {
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-md);
+      color: var(--color-ink);
       text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 600;
-      transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+      font-weight: var(--font-weight-medium);
+      font-size: var(--font-size-sm);
+      transition: background-color 160ms ease, color 160ms ease;
     }
 
-    .site-nav a:hover,
-    .site-nav a.active {
-      background: #1f2937;
-      color: #fff8ee;
-      transform: translateY(-1px);
+    .shell__nav--primary a:hover {
+      background: var(--color-primary-soft);
+      color: var(--color-primary-hover);
     }
 
-    .site-footer {
+    .shell__nav--primary a.active {
+      background: var(--color-primary);
+      color: var(--color-ink-onblue);
+    }
+
+    /* Header right cluster */
+    .shell__header-right {
       display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 2.25rem 0 1rem;
-      color: #6b6255;
-      font-size: 0.94rem;
+      align-items: center;
+      gap: var(--space-3);
+      position: relative;
     }
 
-    .site-footer div {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+    .search input {
+      width: 18rem;
+      max-width: 100%;
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      font: inherit;
+      font-size: var(--font-size-sm);
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .search input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-ring);
     }
 
-    .site-footer a {
-      color: #9a3412;
-      font-weight: 700;
+    .cta {
+      padding: var(--space-2) var(--space-4);
+      background: var(--color-primary);
+      color: var(--color-ink-onblue);
+      border-radius: var(--radius-md);
       text-decoration: none;
+      font-weight: var(--font-weight-semi);
+      font-size: var(--font-size-sm);
+      transition: background-color 160ms ease;
+    }
+    .cta:hover { background: var(--color-primary-hover); color: var(--color-ink-onblue); }
+
+    /* User menu */
+    .user-menu {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-1) var(--space-2);
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      color: var(--color-ink);
+      cursor: pointer;
+      font: inherit;
+    }
+    .user-menu:hover { background: var(--color-surface-alt); }
+    .user-menu__avatar {
+      width: 1.75rem; height: 1.75rem;
+      display: grid; place-items: center;
+      background: var(--color-primary);
+      color: var(--color-ink-onblue);
+      border-radius: var(--radius-pill);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-bold);
+    }
+    .user-menu__caret { font-size: var(--font-size-xs); }
+
+    .user-menu__panel {
+      position: absolute;
+      top: calc(100% + var(--space-2));
+      right: 0;
+      min-width: 14rem;
+      padding: var(--space-2);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 60;
+    }
+    .user-menu__panel a, .user-menu__panel button {
+      display: block;
+      padding: var(--space-2) var(--space-3);
+      background: transparent;
+      border: 0;
+      border-radius: var(--radius-sm);
+      color: var(--color-ink);
+      font: inherit;
+      text-decoration: none;
+      text-align: left;
+      cursor: pointer;
+    }
+    .user-menu__panel a:hover, .user-menu__panel button:hover {
+      background: var(--color-primary-soft);
+    }
+    .user-menu__email {
+      margin: 0;
+      padding: var(--space-2) var(--space-3);
+      color: var(--color-ink-muted);
+      font-size: var(--font-size-xs);
+      border-bottom: 1px solid var(--color-border);
     }
 
-    @media (max-width: 900px) {
-      .site-header,
-      .site-footer {
-        flex-direction: column;
-        align-items: flex-start;
-      }
+    .mobile-toggle {
+      display: none;
+      width: 2.5rem; height: 2.5rem;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-lg);
+      cursor: pointer;
+    }
 
-      .site-footer div {
-        justify-content: flex-start;
-      }
+    /* Portal nav (second row) */
+    .shell__nav--portal {
+      background: var(--color-surface-alt);
+      border-top: 1px solid var(--color-border);
+    }
+    .shell__nav-inner {
+      max-width: var(--container-max);
+      margin: 0 auto;
+      padding: var(--space-2) var(--space-5);
+      display: flex;
+      gap: var(--space-2);
+      overflow-x: auto;
+    }
+    .shell__nav--portal a {
+      padding: var(--space-2) var(--space-3);
+      color: var(--color-ink-muted);
+      text-decoration: none;
+      font-weight: var(--font-weight-medium);
+      font-size: var(--font-size-sm);
+      border-radius: var(--radius-md);
+      white-space: nowrap;
+      transition: color 160ms ease, background-color 160ms ease;
+    }
+    .shell__nav--portal a:hover { color: var(--color-primary); }
+    .shell__nav--portal a.active {
+      color: var(--color-primary);
+      background: var(--color-surface);
+      box-shadow: inset 0 -2px 0 var(--color-primary);
+    }
+
+    /* Mobile sliding menu */
+    .shell__mobile-nav {
+      display: none;
+      flex-direction: column;
+      padding: var(--space-2) var(--space-5);
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+    }
+    .shell__mobile-nav a {
+      padding: var(--space-3) var(--space-2);
+      color: var(--color-ink);
+      text-decoration: none;
+      font-weight: var(--font-weight-medium);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .shell__mobile-nav a:last-child { border-bottom: 0; }
+    .shell__mobile-nav hr {
+      margin: var(--space-2) 0;
+      border: 0;
+      border-top: 1px solid var(--color-border-strong);
+    }
+
+    /* ── Breadcrumbs ─────────────────────────────────────────────── */
+
+    .breadcrumbs {
+      background: var(--color-canvas);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .breadcrumbs__inner {
+      max-width: var(--container-max);
+      margin: 0 auto;
+      padding: var(--space-2) var(--space-5);
+    }
+    .breadcrumbs ol {
+      list-style: none;
+      margin: 0; padding: 0;
+      display: flex; flex-wrap: wrap;
+      gap: var(--space-1);
+      font-size: var(--font-size-xs);
+      color: var(--color-ink-muted);
+    }
+    .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--space-1); }
+    .breadcrumbs a { color: var(--color-primary); text-decoration: none; }
+    .breadcrumbs a:hover { text-decoration: underline; }
+    .breadcrumbs__sep { color: var(--color-border-strong); }
+    .breadcrumbs [aria-current='page'] {
+      color: var(--color-ink);
+      font-weight: var(--font-weight-semi);
+    }
+
+    /* ── Main ────────────────────────────────────────────────────── */
+
+    .shell__main {
+      flex: 1;
+      max-width: var(--container-max);
+      width: 100%;
+      margin: 0 auto;
+      padding: var(--space-5);
+    }
+    .shell__main:focus { outline: none; }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+
+    .shell__footer {
+      background: var(--color-ink-strong);
+      color: var(--color-ink-onblue);
+    }
+    .shell__footer-inner {
+      max-width: var(--container-max);
+      margin: 0 auto;
+      padding: var(--space-7) var(--space-5) var(--space-5);
+      display: grid;
+      gap: var(--space-5);
+      grid-template-columns: 1.4fr repeat(3, 1fr);
+    }
+    .shell__footer-col { display: flex; flex-direction: column; gap: var(--space-2); }
+    .shell__footer-col strong {
+      font-size: var(--font-size-sm);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-ink-onblue);
+      margin-bottom: var(--space-1);
+    }
+    .shell__footer-col a {
+      color: rgba(255 255 255 / 0.78);
+      text-decoration: none;
+      font-size: var(--font-size-sm);
+    }
+    .shell__footer-col a:hover { color: var(--color-ink-onblue); text-decoration: underline; }
+    .shell__footer-col p {
+      color: rgba(255 255 255 / 0.78);
+      font-size: var(--font-size-sm);
+      margin: 0;
+    }
+    .shell__footer-bottom {
+      max-width: var(--container-max);
+      margin: 0 auto;
+      padding: var(--space-3) var(--space-5);
+      display: flex; justify-content: space-between; flex-wrap: wrap;
+      gap: var(--space-2);
+      border-top: 1px solid rgba(255 255 255 / 0.16);
+      color: rgba(255 255 255 / 0.62);
+      font-size: var(--font-size-xs);
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+
+    @media (max-width: 1024px) {
+      .search input { width: 12rem; }
+      .shell__footer-inner { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .shell__nav--primary,
+      .shell__nav--portal,
+      .search,
+      .user-menu,
+      .cta { display: none; }
+      .mobile-toggle { display: inline-grid; place-items: center; }
+      .shell__mobile-nav { display: flex; }
+      .shell__footer-inner { grid-template-columns: 1fr; }
+      .shell__footer-bottom { flex-direction: column; }
     }
   `,
 })
 export class MarketingShellComponent {
   protected auth = inject(AuthService);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
+  protected readonly primaryNav = PRIMARY_NAV;
+  protected readonly portalNav = PORTAL_NAV;
+  protected readonly year = new Date().getFullYear();
+
+  protected readonly searchQuery = signal('');
+  protected readonly mobileNavOpen = signal(false);
+  protected readonly userMenuOpen = signal(false);
+
+  protected readonly currentUrl = signal(this.router.url);
+  protected readonly crumbs = computed<Crumb[]>(() => this.buildCrumbs(this.currentUrl()));
+
+  protected readonly initials = computed(() => {
+    const email = this.auth.email() ?? '';
+    return email.length > 0 ? email[0].toUpperCase() : '·';
+  });
+
+  constructor() {
+    this.router.events
+      .pipe(filter(e => e instanceof NavigationEnd))
+      .subscribe((e: any) => {
+        this.currentUrl.set(e.urlAfterRedirects);
+        this.mobileNavOpen.set(false);
+        this.userMenuOpen.set(false);
+      });
+  }
+
+  protected onSearchInput(event: Event) {
+    this.searchQuery.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onSearchSubmit(event: Event) {
+    event.preventDefault();
+    // Phase 6 ships UI only — wiring to a real cross-entity search
+    // endpoint lives in Phase 7. For now the form just blurs the input.
+    (event.target as HTMLFormElement).blur();
+  }
+
+  protected toggleMobileNav() { this.mobileNavOpen.update(v => !v); }
+  protected closeMobileNav() { this.mobileNavOpen.set(false); }
+
+  protected toggleUserMenu() { this.userMenuOpen.update(v => !v); }
+  protected closeUserMenu() { this.userMenuOpen.set(false); }
+
+  protected signOut() {
+    this.closeUserMenu();
+    this.auth.logout();
+  }
+
+  private buildCrumbs(url: string): Crumb[] {
+    const clean = url.split('?')[0].split('#')[0];
+    const parts = clean.split('/').filter(p => p.length > 0);
+    const crumbs: Crumb[] = [{ label: 'Home', href: '/' }];
+
+    let acc = '';
+    for (const part of parts) {
+      acc += '/' + part;
+      const label = ROUTE_LABELS[part] ?? this.titleCase(decodeURIComponent(part));
+      crumbs.push({ label, href: acc });
+    }
+    return crumbs;
+  }
+
+  private titleCase(s: string): string {
+    return s.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
 }
