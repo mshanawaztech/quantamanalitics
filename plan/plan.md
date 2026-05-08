@@ -85,6 +85,32 @@ Phase 6 was pulled ahead of the remaining Phase 5 work because the platform had
 the right engineering foundation but not a demo-ready product surface. That UX
 catch-up is now complete; see [`phase-6-deliverables.md`](./phase-6-deliverables.md).
 
+### Phase 7 — Recruiting Operations Maturity
+- Candidate timelines, activity feeds, internal collaboration, and recruiter notes
+- Drag-and-drop pipeline movement, stage SLAs, and bulk workflow actions
+- Resume parsing, advanced search, tags, templates, and portal transparency
+- Notification center, recruiter analytics, and polished loading/empty/error states
+
+Phase 7 converts the current product from "well-engineered demo" into a daily
+recruiter operating surface. See [`phase-7-deliverables.md`](./phase-7-deliverables.md).
+
+### Phase 8 — Enterprise Control Plane
+- Granular RBAC and tenant-safe permission matrices
+- Audit log UI, access reviews, soft delete, and record recovery
+- Signed file delivery, MFA, session management, and stronger auth controls
+- Trust-center pages, observability, backup/restore runbooks, feature flags
+
+Phase 8 is the trust and governance layer enterprise buyers will expect once
+the recruiter workflows are mature. See [`phase-8-deliverables.md`](./phase-8-deliverables.md).
+
+### Phase 9 — Intelligence, Integrations & Monetization
+- AI candidate matching and recruiter copilot experiences
+- Interview scheduling automation and provider-backed self-booking
+- Offer generation, customer-facing APIs, outbound webhooks, and billing UX
+
+Phase 9 is the leverage phase: make the product harder to copy, easier to
+integrate, and more monetizable. See [`phase-9-deliverables.md`](./phase-9-deliverables.md).
+
 ---
 
 ## Compliance baseline (built in from day 1)
