@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Npgsql;
 using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Tenancy;
@@ -39,6 +41,24 @@ namespace QuantamAnalytics.Infrastructure.Data;
 /// </remarks>
 public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
 {
+    // Lazy probe of whether the audit_log_entries table exists in the
+    // target database. Process-wide cache (interceptor is scoped, but the
+    // table state is global). Three values: 0 = unknown, 1 = available,
+    // 2 = unavailable. Volatile reads are enough — racing two probes is
+    // harmless, both will return the same answer.
+    private static int _auditTableState;
+
+    private const int StateUnknown = 0;
+    private const int StateAvailable = 1;
+    private const int StateUnavailable = 2;
+
+    /// <summary>
+    /// Postgres SQLSTATE for "undefined table" — what the server returns
+    /// when a SELECT references a relation that doesn't exist. Treat this
+    /// specifically; any other DB error should propagate.
+    /// </summary>
+    private const string PostgresUndefinedTableSqlState = "42P01";
+
     private readonly ICurrentTenant _currentTenant;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -84,6 +104,15 @@ public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
             return;
         }
 
+        if (!IsAuditTableAvailable(context))
+        {
+            // Migration hasn't been applied yet. Don't insert audit rows
+            // we know will fail — the original SaveChanges would otherwise
+            // roll back, taking the source mutation with it. Audit
+            // logging gracefully degrades to off until the table exists.
+            return;
+        }
+
         var tenantId = _currentTenant.TenantId.Value;
         var subject = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -120,6 +149,62 @@ public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
                 entityType: entityType,
                 entityId: entityId,
                 metadataJson: BuildMetadataJson(entry, action.Value)));
+        }
+    }
+
+    /// <summary>
+    /// Probes the database once per process to confirm the
+    /// <c>audit_log_entries</c> table exists. Caches the result so every
+    /// subsequent SaveChanges hits the cache, not the network.
+    /// </summary>
+    /// <remarks>
+    /// Why probe at all: in the window between a deploy that ships
+    /// <see cref="AuditLogEntry"/> code and the migration that creates
+    /// the table, every tenant-scoped write would otherwise fail because
+    /// the interceptor's INSERT references a table that doesn't exist.
+    /// Better to silently skip audit capture (with a one-time warning
+    /// log) than to take all writes down with us.
+    ///
+    /// Once <c>AuditLogBaseline</c> is applied to the target database,
+    /// the probe sees the table on its first call and audit capture
+    /// switches on for the rest of the process lifetime.
+    /// </remarks>
+    private bool IsAuditTableAvailable(AppDbContext context)
+    {
+        var current = Volatile.Read(ref _auditTableState);
+        if (current == StateAvailable)
+        {
+            return true;
+        }
+        if (current == StateUnavailable)
+        {
+            return false;
+        }
+
+        try
+        {
+            // LIMIT 0 = no row work, just a parse + plan. Cheap probe.
+            context.Database.ExecuteSqlRaw("SELECT 1 FROM audit_log_entries LIMIT 0");
+            Volatile.Write(ref _auditTableState, StateAvailable);
+            return true;
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresUndefinedTableSqlState)
+        {
+            Volatile.Write(ref _auditTableState, StateUnavailable);
+            _logger.LogWarning(
+                "audit_log_entries table not found — audit logging is disabled. " +
+                "Apply the AuditLogBaseline migration to enable it.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            // Any other error (connection blip, permissions) — leave the
+            // state unknown so the next call retries. Don't poison-pill
+            // the process on a transient failure.
+            _logger.LogWarning(
+                ex,
+                "Audit log availability probe failed; will retry on the next SaveChanges.");
+            return false;
         }
     }
 
