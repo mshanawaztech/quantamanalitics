@@ -93,6 +93,17 @@ jobs:
           path: client/dist/
           retention-days: 7
 
+      # Phase 6 / Story 49 — accessibility gate, opt-in.
+      # Runs only when the caller has set up a11y tooling. Drop a file at
+      # client/scripts/run-axe.mjs (driving puppeteer + @axe-core/puppeteer
+      # against the built dist/) plus an `a11y:ci` script in package.json
+      # to flip this from skipped to enforcing. Doing both is its own
+      # follow-up PR — keeping the wiring here means the future PR is a
+      # one-file change rather than a workflow edit too.
+      - name: Accessibility audit (opt-in)
+        if: ${{ hashFiles('client/scripts/run-axe.mjs') != '' }}
+        run: npm run a11y:ci
+
   infra:
     name: Infra · bicep lint
     runs-on: ubuntu-24.04
