@@ -7,6 +7,7 @@ using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Esign;
 using QuantamAnalytics.Infrastructure.Interviews;
+using QuantamAnalytics.Infrastructure.JobBoards;
 using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
@@ -48,6 +49,13 @@ public static class DependencyInjection
         services.AddSingleton<IMeetingLinkGenerator, MeetingLinkGenerator>();
         services.AddSingleton<ICheckrClient, StubCheckrClient>();
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
+        services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
+
+        // Audit-log interceptor needs the request's auth subject — pull it
+        // from HttpContextAccessor. Idempotent: AddHttpContextAccessor is a
+        // no-op if the host already registered it.
+        services.AddHttpContextAccessor();
+        services.AddScoped<AuditLogSaveChangesInterceptor>();
 
         // Audit-log interceptor — scoped so it sees the per-request tenant
         // and auth subject. Resolved into the DbContext options below via
@@ -64,6 +72,9 @@ public static class DependencyInjection
             .UseNpgsql(connectionString, npgsql => npgsql
                 .MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
             .UseSnakeCaseNamingConvention()
+            // Interceptor is scoped, same as DbContext — resolve from the
+            // current request's service provider so it sees the per-request
+            // tenant + auth subject rather than a stale snapshot.
             .AddInterceptors(sp.GetRequiredService<AuditLogSaveChangesInterceptor>()));
 
         // /ready endpoint pings this. Returns Healthy only when EF can open
