@@ -12,6 +12,7 @@ import { ContractorDashboardComponent } from './contractor-dashboard.component';
 import { HomeComponent } from './home.component';
 import { InterviewSchedulingComponent } from './interview-scheduling.component';
 import { ServicesComponent } from './services.component';
+import { StyleGuideComponent } from './style-guide.component';
 import { LoginComponent } from './core/auth/login.component';
 
 export const routes: Routes = [
@@ -62,6 +63,10 @@ export const routes: Routes = [
       {
         path: 'interviews',
         component: InterviewSchedulingComponent,
+      },
+      {
+        path: 'style-guide',
+        component: StyleGuideComponent,
       },
       {
         path: '**',
