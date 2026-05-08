@@ -1,5 +1,11 @@
 # Phase 6 — Product Polish & UX MVP
 
+**Status: COMPLETE.** All 5 stories shipped to `main`. Phase 6 pulled the
+product presentation up to the level of the underlying engineering work:
+shared tokens, a global shell, redesigned portals, missing employee workflow
+surfaces, and an accessibility pass all landed before the repo returns to the
+remaining Phase 5 real-integration backlog.
+
 > **Why this phase exists.** Phases 1–5 built correctness underneath:
 > multi-tenant data, auth, EF migrations, real-deploy pipeline, audit log,
 > and the API surface that all four portals call. The *visible* product
@@ -18,11 +24,11 @@ One epic, five stories. Same `qa001-` branch convention.
 
 | #   | Branch                                   | Scope                                                                  | Status  |
 | --- | ---------------------------------------- | ---------------------------------------------------------------------- | ------- |
-| 45  | `qa001-design-system`                    | Color palette, type, spacing, accessible component primitives          | pending |
-| 46  | `qa001-global-shell`                     | Logo, header nav, breadcrumbs, search, footer, skip-link, mobile menu  | pending |
-| 47  | `qa001-portal-redesigns`                 | Apply design system to every portal + seed meaningful demo data        | pending |
-| 48  | `qa001-employee-capabilities`            | Contractor invoice submission, working details, client invoice queue   | pending |
-| 49  | `qa001-accessibility-audit`              | WCAG 2.1 AA pass, axe / Lighthouse in CI, mobile responsiveness        | pending |
+| 45  | `qa001-design-system`                    | Color palette, type, spacing, accessible component primitives          | merged  |
+| 46  | `qa001-global-shell`                     | Logo, header nav, breadcrumbs, search, footer, skip-link, mobile menu | merged  |
+| 47  | `qa001-portal-redesigns`                 | Apply design system to every portal + seed meaningful demo data        | merged  |
+| 48  | `qa001-employee-capabilities`            | Contractor invoice submission, working details, client invoice queue   | merged  |
+| 49  | `qa001-accessibility-audit`              | WCAG 2.1 AA pass, axe / Lighthouse in CI, mobile responsiveness        | merged  |
 
 > Order matters. Story 45 ships the tokens every later story depends on.
 > Story 46 (shell) depends on 45. Story 47 (portal redesigns) and 48

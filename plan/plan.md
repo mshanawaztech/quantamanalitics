@@ -69,6 +69,48 @@ Outcome: **end-to-end placement — sourced → screened → interviewed → bac
 - SOC 2 Type II preparation (audit logs, access reviews, encryption attestations)
 - Marketing site for the SaaS (separate from any one tenant's site)
 
+Phase 5 is partially complete today: the plan handoff and SOC 2 baseline landed,
+but the real provider integrations, production hardening, self-serve tenant
+signup, and subscription billing remain open in
+[`phase-5-deliverables.md`](./phase-5-deliverables.md).
+
+### Phase 6 — Product Polish & UX MVP (pulled forward)
+- Shared design system, typography, and accessible component primitives
+- Global shell with role-aware navigation, footer, skip-link, and mobile menu
+- Redesigned recruiter / client / candidate / contractor portals with meaningful demo data
+- Missing employee workflow surfaces (invoice submission, working details, invoice queues)
+- Accessibility audit and CI enforcement
+
+Phase 6 was pulled ahead of the remaining Phase 5 work because the platform had
+the right engineering foundation but not a demo-ready product surface. That UX
+catch-up is now complete; see [`phase-6-deliverables.md`](./phase-6-deliverables.md).
+
+### Phase 7 — Recruiting Operations Maturity
+- Candidate timelines, activity feeds, internal collaboration, and recruiter notes
+- Drag-and-drop pipeline movement, stage SLAs, and bulk workflow actions
+- Resume parsing, advanced search, tags, templates, and portal transparency
+- Notification center, recruiter analytics, and polished loading/empty/error states
+
+Phase 7 converts the current product from "well-engineered demo" into a daily
+recruiter operating surface. See [`phase-7-deliverables.md`](./phase-7-deliverables.md).
+
+### Phase 8 — Enterprise Control Plane
+- Granular RBAC and tenant-safe permission matrices
+- Audit log UI, access reviews, soft delete, and record recovery
+- Signed file delivery, MFA, session management, and stronger auth controls
+- Trust-center pages, observability, backup/restore runbooks, feature flags
+
+Phase 8 is the trust and governance layer enterprise buyers will expect once
+the recruiter workflows are mature. See [`phase-8-deliverables.md`](./phase-8-deliverables.md).
+
+### Phase 9 — Intelligence, Integrations & Monetization
+- AI candidate matching and recruiter copilot experiences
+- Interview scheduling automation and provider-backed self-booking
+- Offer generation, customer-facing APIs, outbound webhooks, and billing UX
+
+Phase 9 is the leverage phase: make the product harder to copy, easier to
+integrate, and more monetizable. See [`phase-9-deliverables.md`](./phase-9-deliverables.md).
+
 ---
 
 ## Compliance baseline (built in from day 1)

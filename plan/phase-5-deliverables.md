@@ -1,5 +1,12 @@
 # Phase 5 — SaaS Productization & Real Integrations · 8 Deliverables
 
+**Status: IN PROGRESS.** Phase 5 was intentionally split in two: the long-tail
+real integrations and SaaS productization work remain open, while the
+foundational governance/safety slice already landed and the UX polish catch-up
+was pulled forward as Phase 6. The active queue after Phase 6 is to return here
+and finish the remaining provider, production-hardening, and self-serve tenant
+work.
+
 Phase 5 swaps the Phase 3 / 4 stub providers for real partner-API calls,
 hardens the deployment for a paying-customer baseline, and adds the
 self-serve productization layer that turns the platform into something
@@ -10,14 +17,14 @@ scoped deliverable. Branch prefix stays `qa001-`.
 
 | #   | Branch                                 | Scope                                                                  | Status  |
 | --- | -------------------------------------- | ---------------------------------------------------------------------- | ------- |
-| 37  | `qa001-phase5-plan`                    | Phase 5 deliverables board + repo state handoff from Phase 4           | pending |
+| 37  | `qa001-phase5-plan`                    | Phase 5 deliverables board + repo state handoff from Phase 4           | merged  |
 | 38  | `qa001-checkr-real`                    | Replace StubCheckrClient with real Checkr partner-API + signed webhooks | pending |
 | 39  | `qa001-docuseal-real`                  | Replace StubDocuSealClient with real DocuSeal API + signed webhooks    | pending |
 | 40  | `qa001-meeting-link-real`              | Real Zoom + Microsoft Teams meeting-link generation                    | pending |
 | 41  | `qa001-prod-hardening`                 | Private GHCR + managed-identity pull, Auth0 prod tenant, custom domain | pending |
 | 42  | `qa001-tenant-signup`                  | Self-serve tenant signup flow + first-recruiter invite                 | pending |
 | 43  | `qa001-stripe-subscriptions`           | Stripe subscription billing for tenant-level seats                     | pending |
-| 44  | `qa001-soc2-baseline`                  | Audit logs, access reviews, encryption attestations for SOC 2 prep    | pending |
+| 44  | `qa001-soc2-baseline`                  | Audit logs, access reviews, encryption attestations for SOC 2 prep    | merged  |
 
 > Order is a guideline. PR-37 (the plan) and PR-41 (prod hardening) should
 > land **before** PR-42 / 43 / 44 — there's no point onboarding paying
