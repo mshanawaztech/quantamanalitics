@@ -11,5 +11,6 @@ public static class AuthorizationPolicies
     public const string RequireRecruiter = nameof(RequireRecruiter);
     public const string RequireRecruitingAccess = nameof(RequireRecruitingAccess);
     public const string RequireTimeApprovalAccess = nameof(RequireTimeApprovalAccess);
+    public const string RequireClientPortalAccess = nameof(RequireClientPortalAccess);
     public const string RequireCandidate = nameof(RequireCandidate);
 }

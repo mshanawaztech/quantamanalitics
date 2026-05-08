@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -21,7 +23,7 @@ namespace QuantamAnalytics.Infrastructure.Data;
 /// - Every <see cref="ITenantScoped"/> entity in Added / Modified /
 ///   Deleted state at SaveChanges time.
 /// - The current tenant id (from <see cref="ICurrentTenant"/>) and the
-///   acting auth subject (from <see cref="ICurrentUser"/>).
+///   acting auth subject (from <see cref="IHttpContextAccessor"/>).
 /// - For Modified entries, a JSON object of changed property names →
 ///   from/to values. Original/current values are flattened to strings
 ///   to keep the column type simple (jsonb of strings).
@@ -34,26 +36,18 @@ namespace QuantamAnalytics.Infrastructure.Data;
 /// - Changes made when no current tenant is resolved (background jobs
 ///   that explicitly haven't entered a tenant scope). These are rare and
 ///   should not generate orphan audit rows.
-///
-/// Why ICurrentUser instead of IHttpContextAccessor:
-/// Infrastructure is a class library that targets net10.0, not the
-/// ASP.NET Core shared framework. Pulling in IHttpContextAccessor would
-/// force a FrameworkReference on Microsoft.AspNetCore.App into a layer
-/// that has no business knowing about HTTP. ICurrentUser mirrors
-/// ICurrentTenant — populated by middleware in the API project, consumed
-/// by infrastructure services without coupling the two layers.
 /// </remarks>
 public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
 {
     private readonly ICurrentTenant _currentTenant;
-    private readonly ICurrentUser _currentUser;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AuditLogSaveChangesInterceptor(
         ICurrentTenant currentTenant,
-        ICurrentUser currentUser)
+        IHttpContextAccessor httpContextAccessor)
     {
         _currentTenant = currentTenant;
-        _currentUser = currentUser;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
@@ -91,7 +85,7 @@ public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
         }
 
         var tenantId = _currentTenant.TenantId.Value;
-        var subject = _currentUser.AuthSubject;
+        var subject = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
 
         // Snapshot the candidate entries first — Add() during enumeration
         // would otherwise pull our own audit rows back into the loop.

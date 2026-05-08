@@ -162,6 +162,10 @@ module containerApp 'modules/container-app.bicep' = {
     r2AccessKeyId: r2AccessKeyId
     r2SecretAccessKey: r2SecretAccessKey
     r2Bucket: r2Bucket
+    // Same SWA hostname the CORS allow-list uses — surfaces to the API as
+    // PublicWeb:BaseUrl so anonymous feeds (Indeed today, others later)
+    // emit per-job URLs that point at the SPA host instead of the API host.
+    publicWebBaseUrl: 'https://${staticWebApp.outputs.defaultHostname}'
     demoDataSeedOnStartup: demoDataSeedOnStartup
   }
 }
