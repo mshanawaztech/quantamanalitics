@@ -69,6 +69,22 @@ Outcome: **end-to-end placement — sourced → screened → interviewed → bac
 - SOC 2 Type II preparation (audit logs, access reviews, encryption attestations)
 - Marketing site for the SaaS (separate from any one tenant's site)
 
+Phase 5 is partially complete today: the plan handoff and SOC 2 baseline landed,
+but the real provider integrations, production hardening, self-serve tenant
+signup, and subscription billing remain open in
+[`phase-5-deliverables.md`](./phase-5-deliverables.md).
+
+### Phase 6 — Product Polish & UX MVP (pulled forward)
+- Shared design system, typography, and accessible component primitives
+- Global shell with role-aware navigation, footer, skip-link, and mobile menu
+- Redesigned recruiter / client / candidate / contractor portals with meaningful demo data
+- Missing employee workflow surfaces (invoice submission, working details, invoice queues)
+- Accessibility audit and CI enforcement
+
+Phase 6 was pulled ahead of the remaining Phase 5 work because the platform had
+the right engineering foundation but not a demo-ready product surface. That UX
+catch-up is now complete; see [`phase-6-deliverables.md`](./phase-6-deliverables.md).
+
 ---
 
 ## Compliance baseline (built in from day 1)

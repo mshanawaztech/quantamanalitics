@@ -2,7 +2,12 @@
 
 A multi-tenant staffing platform — applicant tracking, interview management, onboarding, timesheets, invoicing, and outbound job-board posting. Built first for one staffing firm, designed to be sold as SaaS.
 
-**Status:** Phases 1 + 2 + 3 + 4 are merged and live in the shared dev environment. Phase 5 (real provider integrations + prod hardening + SaaS productization) is queued in [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md). See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
+**Status:** Phases 1 + 2 + 3 + 4 are merged and live in the shared dev
+environment. Phase 5 is in progress (plan handoff + SOC 2 baseline merged;
+real provider integrations, prod hardening, and self-serve tenant work still
+open). Phase 6 product polish is also merged and live. The active next queue is
+the remaining Phase 5 backlog in [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md).
+See [`plan/plan.md`](./plan/plan.md) for the full roadmap.
 
 ## Stack
 
@@ -118,15 +123,19 @@ The shared dev environment now demonstrates:
 - auto-applied EF migrations on every dev deploy (no more laptop-bound `dotnet ef database update`)
 - startup-seeded demo tenants / jobs / applications for repeatable previews
 - SPA `404` handling and client-routed deep-link deploy smoke checks
+- shared design tokens, style guide, and global shell across the SPA
+- redesigned recruiter / client / candidate / contractor portals with live seeded demo data
+- contractor invoice submission, working details, and client-side invoice approval surfaces
+- accessibility statement page plus opt-in CI accessibility checks
 
 This is still a dev preview, not a production-ready operations closeout:
 
 - candidate resume upload still depends on the environment R2 secrets being present
-- QuickBooks, Stripe, Checkr, DocuSeal, Zoom, Teams, and Dice are all baseline handoff surfaces today, not live external integrations (Phase 5)
-- production hardening (private GHCR + managed-identity pull, prod Auth0 tenant, custom domain) is Phase 5
-- self-serve tenant signup and Stripe subscription billing are Phase 5
+- QuickBooks, Stripe, Checkr, DocuSeal, Zoom, Teams, and Dice are still baseline handoff surfaces today, not live external integrations
+- production hardening (private GHCR + managed-identity pull, prod Auth0 tenant, custom domain) remains open in Phase 5
+- self-serve tenant signup and Stripe subscription billing remain open in Phase 5
 
-See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the completed Time & Money phase, [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md) for the completed Hiring Workflow Depth phase, [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md) for the completed Distribution & Client Visibility phase, [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md) for the active next queue, and [`plan/plan.md`](./plan/plan.md) for later phases.
+See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the completed Time & Money phase, [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md) for the completed Hiring Workflow Depth phase, [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md) for the completed Distribution & Client Visibility phase, [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md) for the active remaining SaaS/integration queue, [`plan/phase-6-deliverables.md`](./plan/phase-6-deliverables.md) for the completed UX MVP catch-up, and [`plan/plan.md`](./plan/plan.md) for the full roadmap.
 
 ## License
 
