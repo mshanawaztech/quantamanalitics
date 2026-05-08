@@ -40,6 +40,7 @@ public class AppDbContext : DbContext
     public DbSet<OnboardingChecklistItem> OnboardingChecklistItems => Set<OnboardingChecklistItem>();
     public DbSet<Timesheet> Timesheets => Set<Timesheet>();
     public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

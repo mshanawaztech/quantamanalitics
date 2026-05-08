@@ -89,6 +89,7 @@ if (authEnabled)
     app.MapCandidateProfileEndpoints();
     app.MapRecruiterPortalEndpoints();
     app.MapReportingEndpoints();
+    app.MapInvoiceEndpoints();
 }
 
 app.Run();
