@@ -37,8 +37,25 @@ namespace QuantamAnalytics.Infrastructure.Data;
 ///   that explicitly haven't entered a tenant scope). These are rare and
 ///   should not generate orphan audit rows.
 /// </remarks>
-public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
+public sealed partial class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
 {
+    // Source-generated log helpers. Required to satisfy CA1848 (the
+    // analyzer wants pre-allocated LoggerMessage delegates, not the
+    // params-array-allocating LogWarning extension methods). Both calls
+    // are cold paths — startup probe + one-off retry on transient
+    // failure — so the perf gain is tiny but the analyzer is global.
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "audit_log_entries table not found — audit logging is disabled. Apply the AuditLogBaseline migration to enable it.")]
+    private static partial void LogAuditTableMissing(ILogger logger);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Warning,
+        Message = "Audit log availability probe failed; will retry on the next SaveChanges.")]
+    private static partial void LogAuditProbeFailed(ILogger logger, Exception ex);
+
     // Lazy probe of whether the audit_log_entries table exists in the
     // target database. Process-wide cache (interceptor is scoped, but the
     // table state is global). Three values: 0 = unknown, 1 = available,
@@ -192,9 +209,7 @@ public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
         catch (PostgresException ex) when (ex.SqlState == PostgresUndefinedTableSqlState)
         {
             Volatile.Write(ref _auditTableState, StateUnavailable);
-            _logger.LogWarning(
-                "audit_log_entries table not found — audit logging is disabled. " +
-                "Apply the AuditLogBaseline migration to enable it.");
+            LogAuditTableMissing(_logger);
             return false;
         }
         catch (Exception ex)
@@ -202,9 +217,7 @@ public sealed class AuditLogSaveChangesInterceptor : SaveChangesInterceptor
             // Any other error (connection blip, permissions) — leave the
             // state unknown so the next call retries. Don't poison-pill
             // the process on a transient failure.
-            _logger.LogWarning(
-                ex,
-                "Audit log availability probe failed; will retry on the next SaveChanges.");
+            LogAuditProbeFailed(_logger, ex);
             return false;
         }
     }
