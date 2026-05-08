@@ -42,6 +42,9 @@ public static class DependencyInjection
         services.AddScoped<CurrentTenant>();
         services.AddScoped<ICurrentTenant>(sp => sp.GetRequiredService<CurrentTenant>());
         services.AddScoped<ICurrentTenantSetter>(sp => sp.GetRequiredService<CurrentTenant>());
+        services.AddScoped<CurrentUser>();
+        services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+        services.AddScoped<ICurrentUserSetter>(sp => sp.GetRequiredService<CurrentUser>());
         services.AddSingleton<IInterviewCalendarProviderCatalog, InterviewCalendarProviderCatalog>();
         services.AddSingleton<IMeetingLinkGenerator, MeetingLinkGenerator>();
         services.AddSingleton<ICheckrClient, StubCheckrClient>();
@@ -52,6 +55,11 @@ public static class DependencyInjection
         // from HttpContextAccessor. Idempotent: AddHttpContextAccessor is a
         // no-op if the host already registered it.
         services.AddHttpContextAccessor();
+        services.AddScoped<AuditLogSaveChangesInterceptor>();
+
+        // Audit-log interceptor — scoped so it sees the per-request tenant
+        // and auth subject. Resolved into the DbContext options below via
+        // the (sp, options) overload of AddDbContext.
         services.AddScoped<AuditLogSaveChangesInterceptor>();
 
         RegisterResumeStorage(services, configuration);
