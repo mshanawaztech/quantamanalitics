@@ -15,8 +15,18 @@
       CA1707 forbids underscores in member names — a public-API rule that
       breaks the xUnit convention `Method_describes_what_it_tests`. Test
       methods aren't a public surface, so the rule has no consumer.
+
+      CA1001 fires on test classes that hold an IDisposable field but don't
+      themselves implement IDisposable. The xUnit IAsyncLifetime contract
+      already provides DisposeAsync as the disposal hook, but the analyzer
+      doesn't recognize it. Our integration tests use that pattern.
+
+      CA1711 forbids type names ending in "Collection". xUnit's
+      [CollectionDefinition] convention names the marker class with that
+      suffix on purpose so the [Collection(nameof(...))] attribute reads
+      naturally. The analyzer is wrong-shaped for this idiom.
     -->
-    <NoWarn>$(NoWarn);CA1707</NoWarn>
+    <NoWarn>$(NoWarn);CA1707;CA1001;CA1711</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
