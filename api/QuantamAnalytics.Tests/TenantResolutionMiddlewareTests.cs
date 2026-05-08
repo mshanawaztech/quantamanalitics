@@ -21,9 +21,10 @@ public sealed class TenantResolutionMiddlewareTests
         };
 
         var currentTenant = new TestCurrentTenant();
+        var currentUser = new TestCurrentUser();
         var middleware = new TenantResolutionMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(httpContext, currentTenant);
+        await middleware.InvokeAsync(httpContext, currentTenant, currentUser);
 
         currentTenant.TenantId.Should().Be(tenantId);
     }
@@ -47,9 +48,10 @@ public sealed class TenantResolutionMiddlewareTests
         };
 
         var currentTenant = new TestCurrentTenant();
+        var currentUser = new TestCurrentUser();
         var middleware = new TenantResolutionMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(httpContext, currentTenant);
+        await middleware.InvokeAsync(httpContext, currentTenant, currentUser);
 
         currentTenant.TenantId.Should().BeNull();
     }
@@ -61,6 +63,16 @@ public sealed class TenantResolutionMiddlewareTests
         public void SetTenantId(Guid? tenantId)
         {
             TenantId = tenantId;
+        }
+    }
+
+    private sealed class TestCurrentUser : ICurrentUserSetter, ICurrentUser
+    {
+        public string? AuthSubject { get; private set; }
+
+        public void SetAuthSubject(string? authSubject)
+        {
+            AuthSubject = authSubject;
         }
     }
 }
