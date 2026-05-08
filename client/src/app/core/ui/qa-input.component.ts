@@ -25,7 +25,7 @@ let nextId = 0;
       <input
         [id]="inputId"
         [type]="type"
-        [name]="name"
+        [attr.name]="name || null"
         [placeholder]="placeholder"
         [disabled]="disabled"
         [required]="required"
