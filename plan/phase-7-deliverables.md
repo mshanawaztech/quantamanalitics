@@ -1,6 +1,6 @@
 # Phase 7 — Recruiting Operations Maturity · 8 Deliverables
 
-**Status: QUEUED.** This phase turns the current portals from a strong demo into
+**Status: IN PROGRESS.** This phase turns the current portals from a strong demo into
 an everyday recruiter operating surface. It is derived from the SaaS product
 audit and focuses on the highest-velocity workflow improvements first:
 candidate visibility, collaboration, search, pipeline management, and clearer
@@ -13,7 +13,7 @@ before or alongside the pieces that depend on them.
 | #   | Branch                              | Scope                                                                    | Status |
 | --- | ----------------------------------- | ------------------------------------------------------------------------ | ------ |
 | 50  | `qa001-phase7-plan`                 | Phase 7 deliverables board + repo handoff after Phase 6                  | queued |
-| 51  | `qa001-candidate-timeline`          | Candidate activity feed, timeline events, comments, mentions, audit join | queued |
+| 51  | `qa001-candidate-timeline`          | Candidate activity feed, timeline events, comments, mentions, audit join | open   |
 | 52  | `qa001-pipeline-dnd`                | Drag-and-drop recruiter pipeline, bulk moves, stuck-stage SLA surfacing  | queued |
 | 53  | `qa001-resume-parsing`              | Resume upload parsing into candidate profile fields + recruiter review    | queued |
 | 54  | `qa001-email-templates`             | Reusable template system for invites, rejects, onboarding, offers        | queued |

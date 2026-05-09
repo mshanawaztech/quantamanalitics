@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,9 @@ public static class RecruiterPortalEndpoint
         group.MapPut("/jobs/{jobId:guid}", UpdateJobAsync);
 
         group.MapGet("/applications", GetApplicationsAsync);
+        group.MapGet("/applications/{applicationId:guid}/timeline", GetApplicationTimelineAsync);
+        group.MapPost("/applications/{applicationId:guid}/timeline/comments", AddApplicationTimelineCommentAsync);
+        group.MapGet("/candidates/activity", GetCandidateActivityAsync);
         group.MapGet("/invoice-ready", GetInvoiceReadyAsync);
         group.MapGet("/invoice-handoff", GetInvoiceHandoffAsync);
         group.MapGet("/invoice-handoff/quickbooks.csv", DownloadQuickBooksCsvAsync);
@@ -163,6 +167,156 @@ public static class RecruiterPortalEndpoint
         return TypedResults.Ok(new RecruiterApplicationsBoardResponse(items));
     }
 
+    private static async Task<Results<Ok<RecruiterCandidateActivityResponse>, ProblemHttpResult>> GetCandidateActivityAsync(
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var items = await db.ApplicationTimelineEvents
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .Join(
+                db.Applications,
+                timeline => timeline.ApplicationId,
+                application => application.Id,
+                (timeline, application) => new { Timeline = timeline, Application = application })
+            .Join(
+                db.Jobs,
+                joined => joined.Application.JobId,
+                job => job.Id,
+                (joined, job) => new RecruiterCandidateActivityItemResponse(
+                    joined.Timeline.Id,
+                    joined.Application.CandidateName,
+                    joined.Application.CandidateEmail,
+                    joined.Application.Id,
+                    job.Id,
+                    job.Title,
+                    job.Slug,
+                    joined.Timeline.EventType.ToString(),
+                    joined.Timeline.Title,
+                    joined.Timeline.Description,
+                    joined.Timeline.ActorLabel,
+                    joined.Application.Status.ToString(),
+                    joined.Timeline.OccurredAtUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return TypedResults.Ok(new RecruiterCandidateActivityResponse(items));
+    }
+
+    private static async Task<Results<Ok<ApplicationTimelineResponse>, NotFound, ProblemHttpResult>> GetApplicationTimelineAsync(
+        Guid applicationId,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var application = await db.Applications
+            .Where(x => x.Id == applicationId)
+            .Join(
+                db.Jobs,
+                app => app.JobId,
+                job => job.Id,
+                (app, job) => new
+                {
+                    Application = app,
+                    JobTitle = job.Title,
+                })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (application is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var events = await db.ApplicationTimelineEvents
+            .Where(x => x.ApplicationId == applicationId)
+            .OrderBy(x => x.OccurredAtUtc)
+            .Select(x => new TimelineEventResponse(
+                x.Id,
+                x.EventType.ToString(),
+                x.Audience.ToString(),
+                x.Title,
+                x.Description,
+                x.ActorLabel,
+                x.OccurredAtUtc))
+            .ToArrayAsync(cancellationToken);
+
+        return TypedResults.Ok(new ApplicationTimelineResponse(
+            application.Application.Id,
+            application.Application.CandidateProfileId,
+            application.Application.CandidateName,
+            application.Application.CandidateEmail,
+            application.JobTitle,
+            application.Application.Status.ToString(),
+            events));
+    }
+
+    private static async Task<Results<Ok<TimelineEventResponse>, NotFound, ProblemHttpResult>> AddApplicationTimelineCommentAsync(
+        Guid applicationId,
+        AddApplicationTimelineCommentRequest request,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Comment))
+        {
+            return TypedResults.Problem(
+                title: "Comment required",
+                detail: "Add a note before posting to the timeline.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var application = await db.Applications
+            .SingleOrDefaultAsync(x => x.Id == applicationId, cancellationToken);
+        if (application is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var actorLabel =
+            user.FindFirstValue("name") ??
+            user.FindFirstValue(ClaimTypes.Email) ??
+            "Recruiter operations";
+
+        var timelineEvent = new ApplicationTimelineEvent(
+            currentTenant.TenantId.Value,
+            application.Id,
+            application.CandidateProfileId,
+            ApplicationTimelineEventType.NoteAdded,
+            request.VisibleToCandidate
+                ? ApplicationTimelineAudience.CandidateAndRecruiter
+                : ApplicationTimelineAudience.RecruiterOnly,
+            request.VisibleToCandidate ? "Recruiter update" : "Internal recruiter note",
+            request.Comment,
+            actorLabel);
+
+        db.ApplicationTimelineEvents.Add(timelineEvent);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(new TimelineEventResponse(
+            timelineEvent.Id,
+            timelineEvent.EventType.ToString(),
+            timelineEvent.Audience.ToString(),
+            timelineEvent.Title,
+            timelineEvent.Description,
+            timelineEvent.ActorLabel,
+            timelineEvent.OccurredAtUtc));
+    }
+
     private static async Task<Results<Ok<RecruiterInvoiceReadyResponse>, ProblemHttpResult>> GetInvoiceReadyAsync(
         AppDbContext db,
         ICurrentTenant currentTenant,
@@ -262,6 +416,7 @@ public static class RecruiterPortalEndpoint
     private static async Task<Results<Ok<RecruiterApplicationResponse>, NotFound, ProblemHttpResult>> UpdateApplicationStatusAsync(
         Guid applicationId,
         UpdateApplicationStatusRequest request,
+        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
@@ -299,6 +454,25 @@ public static class RecruiterPortalEndpoint
                     statusCode: StatusCodes.Status400BadRequest);
         }
 
+        await db.SaveChangesAsync(cancellationToken);
+
+        var actorLabel =
+            user.FindFirstValue("name") ??
+            user.FindFirstValue(ClaimTypes.Email) ??
+            "Recruiter operations";
+
+        var timelineEvent = new ApplicationTimelineEvent(
+            currentTenant.TenantId.Value,
+            application.Id,
+            application.CandidateProfileId,
+            ApplicationTimelineEventType.StageChanged,
+            ApplicationTimelineAudience.CandidateAndRecruiter,
+            BuildStageTimelineTitle(application.Status),
+            BuildStageTimelineDetail(application.Status),
+            actorLabel,
+            application.UpdatedAtUtc);
+
+        db.ApplicationTimelineEvents.Add(timelineEvent);
         await db.SaveChangesAsync(cancellationToken);
 
         var job = await db.Jobs.SingleAsync(x => x.Id == application.JobId, cancellationToken);
@@ -340,6 +514,26 @@ public static class RecruiterPortalEndpoint
             title: "Tenant assignment required",
             detail: "Recruiter workflow requires a tenant_id claim in the authenticated session.",
             statusCode: StatusCodes.Status412PreconditionFailed);
+
+    private static string BuildStageTimelineTitle(ApplicationStatus status) =>
+        status switch
+        {
+            ApplicationStatus.Interviewing => "Moved to interviewing",
+            ApplicationStatus.OfferSent => "Offer prepared",
+            ApplicationStatus.Hired => "Marked hired",
+            ApplicationStatus.Rejected => "Application closed",
+            _ => "Application updated",
+        };
+
+    private static string BuildStageTimelineDetail(ApplicationStatus status) =>
+        status switch
+        {
+            ApplicationStatus.Interviewing => "The application progressed from screening into the interview stage.",
+            ApplicationStatus.OfferSent => "The recruiting team prepared and delivered the offer package.",
+            ApplicationStatus.Hired => "The candidate accepted and was moved into the hired stage.",
+            ApplicationStatus.Rejected => "The recruiting team closed the application after review.",
+            _ => "The application timeline was updated.",
+        };
 
     private static string Slugify(string value)
     {

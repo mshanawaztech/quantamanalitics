@@ -93,13 +93,25 @@ public static class PublicJobsEndpoint
 
             if (!duplicate)
             {
-                db.Applications.Add(new Application(
+                var application = new Application(
                     job.TenantId,
                     job.Id,
                     existing.Id,
                     normalizedEmail,
                     request.FullName,
-                    request.Note));
+                    request.Note);
+
+                db.Applications.Add(application);
+                db.ApplicationTimelineEvents.Add(new ApplicationTimelineEvent(
+                    job.TenantId,
+                    application.Id,
+                    existing.Id,
+                    ApplicationTimelineEventType.Applied,
+                    ApplicationTimelineAudience.CandidateAndRecruiter,
+                    "Application received",
+                    "The candidate completed the public application flow.",
+                    request.FullName,
+                    application.AppliedAtUtc));
                 await db.SaveChangesAsync(cancellationToken);
             }
 

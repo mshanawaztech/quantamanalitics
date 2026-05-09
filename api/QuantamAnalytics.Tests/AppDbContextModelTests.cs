@@ -123,6 +123,17 @@ public sealed class AppDbContextModelTests
     }
 
     [Fact]
+    public void Model_includes_ApplicationTimelineEvent_entity()
+    {
+        using var ctx = NewContext();
+
+        var entity = ctx.Model.FindEntityType(typeof(ApplicationTimelineEvent));
+
+        entity.Should().NotBeNull();
+        entity!.GetTableName().Should().Be("application_timeline_events");
+    }
+
+    [Fact]
     public void Model_includes_Submission_entity()
     {
         using var ctx = NewContext();

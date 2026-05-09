@@ -51,6 +51,7 @@ public sealed class DemoDataSeeder
         await EnsureApplicationsAsync(quantam.Id, quantamJobs, quantamProfiles, cancellationToken);
         await EnsureSubmissionsAsync(quantam.Id, cancellationToken);
         await EnsureInterviewEventsAsync(quantam.Id, cancellationToken);
+        await EnsureApplicationTimelineAsync(quantam.Id, cancellationToken);
     }
 
     private async Task<Tenant> EnsureTenantAsync(
@@ -255,6 +256,151 @@ public sealed class DemoDataSeeder
 
             interview.AttachProviderReference($"{provider.ToString().ToLowerInvariant()}-{submission.Id:N}"[..36]);
             _db.InterviewEvents.Add(interview);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureApplicationTimelineAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var applications = await _db.Applications
+            .IgnoreQueryFilters()
+            .Where(x => x.TenantId == tenantId)
+            .OrderBy(x => x.AppliedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        foreach (var application in applications)
+        {
+            if (await _db.ApplicationTimelineEvents.IgnoreQueryFilters().AnyAsync(
+                x => x.TenantId == tenantId && x.ApplicationId == application.Id,
+                cancellationToken))
+            {
+                continue;
+            }
+
+            var events = new List<ApplicationTimelineEvent>
+            {
+                new(
+                    tenantId,
+                    application.Id,
+                    application.CandidateProfileId,
+                    ApplicationTimelineEventType.Applied,
+                    ApplicationTimelineAudience.CandidateAndRecruiter,
+                    "Application received",
+                    "The candidate completed the public application flow.",
+                    application.CandidateName,
+                    application.AppliedAtUtc),
+                new(
+                    tenantId,
+                    application.Id,
+                    application.CandidateProfileId,
+                    ApplicationTimelineEventType.RecruiterReviewed,
+                    ApplicationTimelineAudience.CandidateAndRecruiter,
+                    "Recruiter reviewed profile",
+                    "The recruiting team reviewed the profile and aligned on the next action.",
+                    "Recruiter operations",
+                    application.AppliedAtUtc.AddHours(6))
+            };
+
+            if (!string.IsNullOrWhiteSpace(application.Note))
+            {
+                events.Add(new ApplicationTimelineEvent(
+                    tenantId,
+                    application.Id,
+                    application.CandidateProfileId,
+                    ApplicationTimelineEventType.NoteAdded,
+                    ApplicationTimelineAudience.RecruiterOnly,
+                    "Internal recruiter note",
+                    application.Note,
+                    "Recruiter operations",
+                    application.AppliedAtUtc.AddHours(8)));
+            }
+
+            switch (application.Status)
+            {
+                case ApplicationStatus.Interviewing:
+                    events.Add(new ApplicationTimelineEvent(
+                        tenantId,
+                        application.Id,
+                        application.CandidateProfileId,
+                        ApplicationTimelineEventType.StageChanged,
+                        ApplicationTimelineAudience.CandidateAndRecruiter,
+                        "Moved to interviewing",
+                        "The application progressed from screening into the interview stage.",
+                        "Recruiter operations",
+                        application.UpdatedAtUtc));
+                    break;
+                case ApplicationStatus.OfferSent:
+                    events.Add(new ApplicationTimelineEvent(
+                        tenantId,
+                        application.Id,
+                        application.CandidateProfileId,
+                        ApplicationTimelineEventType.StageChanged,
+                        ApplicationTimelineAudience.CandidateAndRecruiter,
+                        "Moved to interviewing",
+                        "The application progressed from screening into the interview stage.",
+                        "Recruiter operations",
+                        application.AppliedAtUtc.AddHours(18)));
+                    events.Add(new ApplicationTimelineEvent(
+                        tenantId,
+                        application.Id,
+                        application.CandidateProfileId,
+                        ApplicationTimelineEventType.OfferPrepared,
+                        ApplicationTimelineAudience.CandidateAndRecruiter,
+                        "Offer prepared",
+                        "The recruiting team is preparing final offer details.",
+                        "Recruiter operations",
+                        application.UpdatedAtUtc));
+                    break;
+                case ApplicationStatus.Hired:
+                    events.Add(new ApplicationTimelineEvent(
+                        tenantId,
+                        application.Id,
+                        application.CandidateProfileId,
+                        ApplicationTimelineEventType.StageChanged,
+                        ApplicationTimelineAudience.CandidateAndRecruiter,
+                        "Moved to interviewing",
+                        "The application progressed from screening into the interview stage.",
+                        "Recruiter operations",
+                        application.AppliedAtUtc.AddHours(18)));
+                    events.Add(new ApplicationTimelineEvent(
+                        tenantId,
+                        application.Id,
+                        application.CandidateProfileId,
+                        ApplicationTimelineEventType.OfferPrepared,
+                        ApplicationTimelineAudience.CandidateAndRecruiter,
+                        "Offer prepared",
+                        "The team prepared and delivered the final offer package.",
+                        "Recruiter operations",
+                        application.AppliedAtUtc.AddHours(30)));
+                    events.Add(new ApplicationTimelineEvent(
+                        tenantId,
+                        application.Id,
+                        application.CandidateProfileId,
+                        ApplicationTimelineEventType.StageChanged,
+                        ApplicationTimelineAudience.CandidateAndRecruiter,
+                        "Marked hired",
+                        "The candidate accepted the offer and was moved to hired.",
+                        "Recruiter operations",
+                        application.UpdatedAtUtc));
+                    break;
+                case ApplicationStatus.Rejected:
+                    events.Add(new ApplicationTimelineEvent(
+                        tenantId,
+                        application.Id,
+                        application.CandidateProfileId,
+                        ApplicationTimelineEventType.StageChanged,
+                        ApplicationTimelineAudience.CandidateAndRecruiter,
+                        "Application closed",
+                        "The recruiting team closed this application after review.",
+                        "Recruiter operations",
+                        application.UpdatedAtUtc));
+                    break;
+            }
+
+            _db.ApplicationTimelineEvents.AddRange(events);
         }
 
         await _db.SaveChangesAsync(cancellationToken);

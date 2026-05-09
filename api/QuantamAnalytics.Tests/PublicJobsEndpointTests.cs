@@ -80,6 +80,7 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.CandidateProfiles.IgnoreQueryFilters().Should().ContainSingle(x => x.Email == "jane@example.com");
         db.Applications.IgnoreQueryFilters().Should().ContainSingle(x => x.CandidateEmail == "jane@example.com");
+        db.ApplicationTimelineEvents.IgnoreQueryFilters().Should().ContainSingle(x => x.Title == "Application received");
     }
 
     private HttpClient CreateClientWithInitializedSchema()
@@ -140,6 +141,26 @@ public sealed class PublicJobsEndpointTests : IClassFixture<WebApplicationFactor
               is_published boolean not null default true
             );
             create unique index if not exists ix_jobs_tenant_id_slug on jobs (tenant_id, slug);
+            
+            create table if not exists application_timeline_events (
+              id uuid primary key,
+              tenant_id uuid not null references tenants(id) on delete cascade,
+              application_id uuid not null references applications(id) on delete cascade,
+              candidate_profile_id uuid not null references candidate_profiles(id) on delete cascade,
+              event_type character varying(48) not null,
+              audience character varying(32) not null,
+              title character varying(160) not null,
+              description character varying(2000),
+              actor_label character varying(160) not null,
+              occurred_at_utc timestamp with time zone not null,
+              created_at_utc timestamp with time zone not null
+            );
+            create index if not exists ix_application_timeline_events_tenant_id_application_id_occurred_at_utc
+              on application_timeline_events (tenant_id, application_id, occurred_at_utc);
+            create index if not exists ix_application_timeline_events_tenant_id_candidate_profile_id_occurred_at_utc
+              on application_timeline_events (tenant_id, candidate_profile_id, occurred_at_utc);
+
+            delete from application_timeline_events;
             delete from applications;
             delete from candidate_profiles;
             delete from jobs;
