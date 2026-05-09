@@ -30,6 +30,26 @@ export interface RecruiterApplicationsBoard {
   items: RecruiterApplication[];
 }
 
+export interface RecruiterCandidateActivityItem {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  applicationId: string | null;
+  jobId: string | null;
+  jobTitle: string | null;
+  jobSlug: string | null;
+  eventType: string;
+  title: string;
+  detail: string | null;
+  actorLabel: string | null;
+  status: string | null;
+  occurredAtUtc: string;
+}
+
+export interface RecruiterCandidateActivityResponse {
+  items: RecruiterCandidateActivityItem[];
+}
+
 export interface RecruiterInvoiceReadyItem {
   timesheetId: string;
   contractorEmail: string;
@@ -89,6 +109,12 @@ export class RecruiterPortalService {
 
   applications() {
     return this.http.get<RecruiterApplicationsBoard>(`${environment.apiBase}/api/v1/recruiter/applications`);
+  }
+
+  candidateActivity() {
+    return this.http.get<RecruiterCandidateActivityResponse>(
+      `${environment.apiBase}/api/v1/recruiter/candidates/activity`,
+    );
   }
 
   invoiceReady() {

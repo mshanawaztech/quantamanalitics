@@ -45,6 +45,30 @@ public sealed class RecruiterApplicationTimelineEndpointTests : IClassFixture<We
             "Moved to interviewing");
     }
 
+    [Fact]
+    public async Task Recruiter_candidate_activity_endpoint_returns_flat_feed_in_reverse_chronological_order()
+    {
+        var seed = SeedRecruiterTimeline(_factory.Services);
+
+        var client = _factory.WithAuthenticatedUser(
+            seed.TenantId,
+            "auth0|recruiter-1",
+            "recruiter@example.com",
+            "PlatformAdmin")
+            .CreateClient();
+
+        var response = await client.GetAsync("/api/v1/recruiter/candidates/activity");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+
+        var payload = await response.Content.ReadFromJsonAsync<RecruiterCandidateActivityResponse>();
+        payload.Should().NotBeNull();
+        payload!.Items.Should().HaveCount(3);
+        payload.Items[0].Title.Should().Be("Moved to interviewing");
+        payload.Items.Select(x => x.Title).Should().Contain("Internal recruiter note");
+    }
+
     private static (Guid TenantId, Guid ApplicationId) SeedRecruiterTimeline(IServiceProvider services)
     {
         using var scope = services.CreateScope();

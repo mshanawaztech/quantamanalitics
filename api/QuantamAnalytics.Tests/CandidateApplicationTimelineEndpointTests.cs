@@ -60,6 +60,32 @@ public sealed class CandidateApplicationTimelineEndpointTests : IClassFixture<We
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Candidate_feed_endpoint_returns_visible_events_in_reverse_chronological_order()
+    {
+        var seed = SeedApplicationTimeline(_factory.Services);
+
+        var client = _factory.WithAuthenticatedUser(
+            seed.TenantId,
+            "auth0|candidate-1",
+            "jane@example.com",
+            "Candidate")
+            .CreateClient();
+
+        var response = await client.GetAsync("/api/v1/candidate/profile/timeline");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+
+        var payload = await response.Content.ReadFromJsonAsync<CandidateTimelineFeedResponse>();
+        payload.Should().NotBeNull();
+        payload!.Items.Should().HaveCount(2);
+        payload.Items.Select(x => x.Title).Should().ContainInOrder(
+            "Moved to interviewing",
+            "Application received");
+        payload.Items.Should().OnlyContain(x => x.JobSlug == "technical-recruiter-cloud-and-data");
+    }
+
     private static (Guid TenantId, Guid ApplicationId) SeedApplicationTimeline(IServiceProvider services)
     {
         using var scope = services.CreateScope();

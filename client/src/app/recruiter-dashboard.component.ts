@@ -6,6 +6,7 @@ import { MeService } from './core/auth/me.service';
 import {
   RecruiterApplication,
   RecruiterApplicationsBoard,
+  RecruiterCandidateActivityItem,
   RecruiterInvoiceHandoffResponse,
   RecruiterInvoiceReadyItem,
   RecruiterJob,
@@ -150,6 +151,60 @@ import {
           </article>
         </section>
 
+        <section class="activity-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Candidate activity</p>
+              <h2>See the newest movement without opening each profile.</h2>
+            </div>
+            @if (loadingActivity()) {
+              <span class="pill">Loading</span>
+            }
+          </div>
+
+          @if (activityError()) {
+            <p class="error">{{ activityError() }}</p>
+          } @else {
+            <div class="activity-list">
+              @for (item of candidateActivity(); track item.id) {
+                <article class="activity-item">
+                  <div class="activity-top">
+                    <div>
+                      <strong>{{ item.candidateName }}</strong>
+                      <p>{{ item.candidateEmail }}</p>
+                    </div>
+                    <span class="timeline-date">{{ formatUtc(item.occurredAtUtc) }}</span>
+                  </div>
+                  <div class="activity-event">
+                    <span class="timeline-marker" [attr.data-kind]="timelineKind(item.eventType)"></span>
+                    <div>
+                      <strong>{{ item.title }}</strong>
+                      <p>
+                        {{ item.jobTitle || 'Candidate workflow' }}
+                        @if (item.status) {
+                          · {{ item.status }}
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  @if (item.detail) {
+                    <p class="activity-detail">{{ item.detail }}</p>
+                  }
+                </article>
+              } @empty {
+                <article class="activity-empty">
+                  <h3>No timeline activity yet</h3>
+                  <p>
+                    New applications, recruiter notes, interview changes, and
+                    candidate progress updates will surface here once the
+                    timeline feed starts recording events.
+                  </p>
+                </article>
+              }
+            </div>
+          }
+        </section>
+
         <section class="invoice-card">
           <div class="section-head">
             <div>
@@ -242,13 +297,13 @@ import {
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.15fr 0.85fr; margin-bottom: 1.5rem; }
     .workspace { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); align-items: start; }
-    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card, .column, .application-card, .invoice-item, .handoff-item, .handoff-stat {
+    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card, .activity-card, .column, .application-card, .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty {
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
       border: 1px solid rgb(87 70 42 / 0.14);
       box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
     }
-    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card { padding: 1.6rem; }
+    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card, .activity-card { padding: 1.6rem; }
     .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
     h2, h3 { margin: 0; }
@@ -294,8 +349,10 @@ import {
     .handoff-actions, .handoff-summary, .handoff-preview { display: grid; gap: 0.9rem; }
     .handoff-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); margin-bottom: 1rem; }
     .handoff-summary, .handoff-preview { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+    .activity-card { margin-top: 1.25rem; }
+    .activity-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.9rem; }
     .job-item, .application-card { padding: 1rem; }
-    .invoice-item, .handoff-item, .handoff-stat { padding: 1rem; background: #fffdf9; }
+    .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty { padding: 1rem; background: #fffdf9; }
     .job-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem); align-items: start; gap: 1rem; border-radius: 1.1rem; background: #fffdf9; border: 1px solid #eadcc8; }
     .job-item strong, .application-card strong { display: block; margin-bottom: 0.45rem; }
     .slug { font-family: monospace; color: #8b5e34; overflow-wrap: anywhere; text-align: right; }
@@ -325,12 +382,43 @@ import {
     }
     .application-card p { margin: 0; overflow-wrap: anywhere; }
     .application-card select { min-width: 0; }
+    .activity-item { display: grid; gap: 0.85rem; }
+    .activity-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .activity-top strong, .activity-event strong { display: block; margin-bottom: 0.35rem; }
+    .activity-top p, .activity-event p, .activity-detail { margin: 0; }
+    .activity-event {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.8rem;
+      align-items: start;
+    }
+    .activity-detail { color: #6b6255; }
+    .timeline-date { color: #8b5e34; font-size: 0.92rem; white-space: nowrap; }
+    .timeline-marker {
+      width: 0.9rem;
+      height: 0.9rem;
+      border-radius: 999px;
+      margin-top: 0.3rem;
+      background: #9ca3af;
+      box-shadow: 0 0 0 0.25rem rgb(156 163 175 / 0.18);
+    }
+    .timeline-marker[data-kind='applied'] { background: #2563eb; box-shadow: 0 0 0 0.25rem rgb(37 99 235 / 0.15); }
+    .timeline-marker[data-kind='interview'] { background: #7c3aed; box-shadow: 0 0 0 0.25rem rgb(124 58 237 / 0.15); }
+    .timeline-marker[data-kind='offer'] { background: #d97706; box-shadow: 0 0 0 0.25rem rgb(217 119 6 / 0.15); }
+    .timeline-marker[data-kind='hired'] { background: #16a34a; box-shadow: 0 0 0 0.25rem rgb(22 163 74 / 0.15); }
+    .timeline-marker[data-kind='rejected'] { background: #dc2626; box-shadow: 0 0 0 0.25rem rgb(220 38 38 / 0.15); }
     .empty { color: #7c6f5e; }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 980px) {
       .hero, .workspace, .job-form { grid-template-columns: 1fr; }
       .job-item { grid-template-columns: 1fr; }
       .slug { text-align: left; }
+      .activity-top { flex-direction: column; }
     }
   `,
 })
@@ -343,16 +431,19 @@ export class RecruiterDashboardComponent {
 
   protected jobs = signal<RecruiterJob[]>([]);
   protected applications = signal<RecruiterApplication[]>([]);
+  protected candidateActivity = signal<RecruiterCandidateActivityItem[]>([]);
   protected invoiceReady = signal<RecruiterInvoiceReadyItem[]>([]);
   protected invoiceHandoff = signal<RecruiterInvoiceHandoffResponse | null>(null);
   protected loadingJobs = signal(false);
   protected loadingApplications = signal(false);
+  protected loadingActivity = signal(false);
   protected loadingInvoiceReady = signal(false);
   protected loadingHandoff = signal(false);
   protected creatingJob = signal(false);
   protected downloadingQuickBooks = signal(false);
   protected jobsError = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
+  protected activityError = signal<string | null>(null);
   protected invoiceReadyError = signal<string | null>(null);
   protected handoffError = signal<string | null>(null);
 
@@ -370,6 +461,7 @@ export class RecruiterDashboardComponent {
 
       this.fetchJobs();
       this.fetchApplications();
+      this.fetchCandidateActivity();
       this.fetchInvoiceReady();
       this.fetchInvoiceHandoff();
     });
@@ -398,6 +490,36 @@ export class RecruiterDashboardComponent {
 
   protected stripeFallbackItems(): RecruiterStripeFallbackItem[] {
     return this.invoiceHandoff()?.stripeFallback.items ?? [];
+  }
+
+  protected formatUtc(value: string): string {
+    return new Date(value).toLocaleString();
+  }
+
+  protected timelineKind(eventType: string): string {
+    const normalized = eventType.toLowerCase();
+
+    if (normalized.includes('applied')) {
+      return 'applied';
+    }
+
+    if (normalized.includes('interview')) {
+      return 'interview';
+    }
+
+    if (normalized.includes('offer')) {
+      return 'offer';
+    }
+
+    if (normalized.includes('hire')) {
+      return 'hired';
+    }
+
+    if (normalized.includes('reject')) {
+      return 'rejected';
+    }
+
+    return 'neutral';
   }
 
   protected createJob(): void {
@@ -513,6 +635,23 @@ export class RecruiterDashboardComponent {
       error: (error: unknown) => {
         this.loadingInvoiceReady.set(false);
         this.invoiceReadyError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private fetchCandidateActivity(): void {
+    this.loadingActivity.set(true);
+    this.activityError.set(null);
+
+    this.recruiter.candidateActivity().subscribe({
+      next: (response) => {
+        this.candidateActivity.set(response.items);
+        this.loadingActivity.set(false);
+      },
+      error: (error: unknown) => {
+        this.candidateActivity.set([]);
+        this.loadingActivity.set(false);
+        this.activityError.set(this.toErrorMessage(error));
       },
     });
   }

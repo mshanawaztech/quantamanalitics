@@ -28,6 +28,20 @@ export interface CandidateApplication {
   updatedAtUtc: string;
 }
 
+export interface CandidateTimelineItem {
+  id: string;
+  applicationId: string | null;
+  jobId: string | null;
+  jobTitle: string | null;
+  jobSlug: string | null;
+  eventType: string;
+  title: string;
+  detail: string | null;
+  actorLabel: string | null;
+  status: string | null;
+  occurredAtUtc: string;
+}
+
 export interface UpdateCandidateProfileRequest {
   email: string;
   fullName: string | null;
@@ -66,6 +80,12 @@ export class CandidateProfileService {
   applications() {
     return this.http.get<{ items: CandidateApplication[] }>(
       `${environment.apiBase}/api/v1/candidate/profile/applications`,
+    );
+  }
+
+  timeline() {
+    return this.http.get<{ items: CandidateTimelineItem[] }>(
+      `${environment.apiBase}/api/v1/candidate/profile/timeline`,
     );
   }
 }

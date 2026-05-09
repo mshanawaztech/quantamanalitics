@@ -8,6 +8,7 @@ import {
   CandidateApplication,
   CandidateProfile,
   CandidateProfileService,
+  CandidateTimelineItem,
 } from './core/candidate/candidate-profile.service';
 
 @Component({
@@ -199,6 +200,63 @@ import {
             </div>
           }
         </section>
+
+        <section class="timeline-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Application progress</p>
+              <h2>Follow every step after you apply.</h2>
+            </div>
+            @if (timelineLoading()) {
+              <span class="pill">Loading</span>
+            }
+          </div>
+
+          @if (timelineError()) {
+            <p class="error">{{ timelineError() }}</p>
+          } @else {
+            <div class="timeline-list">
+              @for (item of timeline(); track item.id) {
+                <article class="timeline-item">
+                  <div class="timeline-marker" [attr.data-kind]="timelineKind(item.eventType)"></div>
+                  <div class="timeline-body">
+                    <div class="timeline-top">
+                      <div>
+                        <strong>{{ item.title }}</strong>
+                        <p>
+                          {{ item.jobTitle || 'Candidate workflow' }}
+                          @if (item.status) {
+                            · {{ item.status }}
+                          }
+                        </p>
+                      </div>
+                      <span class="timeline-date">{{ formatUtc(item.occurredAtUtc) }}</span>
+                    </div>
+                    @if (item.detail) {
+                      <p class="timeline-detail">{{ item.detail }}</p>
+                    }
+                    <div class="timeline-meta">
+                      @if (item.actorLabel) {
+                        <span>{{ item.actorLabel }}</span>
+                      }
+                      @if (item.jobSlug) {
+                        <a [routerLink]="['/jobs', item.jobSlug]">View role</a>
+                      }
+                    </div>
+                  </div>
+                </article>
+              } @empty {
+                <article class="history-empty">
+                  <h3>No application activity yet</h3>
+                  <p>
+                    Once applications move through review, interviews, and
+                    decisions, the full activity trail will appear here.
+                  </p>
+                </article>
+              }
+            </div>
+          }
+        </section>
       }
     </main>
   `,
@@ -206,7 +264,7 @@ import {
     .page { width: min(1120px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.2fr 0.8fr; margin-bottom: 1.5rem; }
-    .hero-card, .gate-card, .profile-card, .resume-card, .history-card, .history-item, .history-empty {
+    .hero-card, .gate-card, .profile-card, .resume-card, .history-card, .history-item, .history-empty, .timeline-card, .timeline-item {
       padding: 1.6rem;
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
@@ -250,9 +308,9 @@ import {
     .meta-list dt { font-weight: 700; color: #3f372c; }
     .meta-list dd { margin: 0; color: #554d41; word-break: break-word; }
     .upload-field { margin-bottom: 1rem; }
-    .history-card { margin-top: 1.25rem; }
+    .history-card, .timeline-card { margin-top: 1.25rem; }
     .history-list { display: grid; gap: 0.9rem; }
-    .history-item, .history-empty { background: #fffdf9; border: 1px solid #eadcc8; }
+    .history-item, .history-empty, .timeline-item { background: #fffdf9; border: 1px solid #eadcc8; }
     .history-top { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
     .history-top strong { display: block; margin-bottom: 0.35rem; font-size: 1.05rem; }
     .history-top p, .history-meta, .history-note { margin: 0; }
@@ -268,11 +326,50 @@ import {
       white-space: nowrap;
     }
     .history-empty h3 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+    .timeline-list { display: grid; gap: 0.9rem; }
+    .timeline-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.9rem;
+      align-items: start;
+    }
+    .timeline-marker {
+      width: 0.9rem;
+      height: 0.9rem;
+      border-radius: 999px;
+      margin-top: 0.3rem;
+      background: #9ca3af;
+      box-shadow: 0 0 0 0.25rem rgb(156 163 175 / 0.18);
+    }
+    .timeline-marker[data-kind='applied'] { background: #2563eb; box-shadow: 0 0 0 0.25rem rgb(37 99 235 / 0.15); }
+    .timeline-marker[data-kind='interview'] { background: #7c3aed; box-shadow: 0 0 0 0.25rem rgb(124 58 237 / 0.15); }
+    .timeline-marker[data-kind='offer'] { background: #d97706; box-shadow: 0 0 0 0.25rem rgb(217 119 6 / 0.15); }
+    .timeline-marker[data-kind='hired'] { background: #16a34a; box-shadow: 0 0 0 0.25rem rgb(22 163 74 / 0.15); }
+    .timeline-marker[data-kind='rejected'] { background: #dc2626; box-shadow: 0 0 0 0.25rem rgb(220 38 38 / 0.15); }
+    .timeline-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .timeline-top strong { display: block; margin-bottom: 0.35rem; }
+    .timeline-top p, .timeline-detail { margin: 0; }
+    .timeline-date { color: #8b5e34; font-size: 0.92rem; white-space: nowrap; }
+    .timeline-detail { margin-top: 0.6rem; }
+    .timeline-meta {
+      margin-top: 0.7rem;
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      color: #6b6255;
+      font-size: 0.94rem;
+    }
     .success { color: #166534; font-weight: 600; }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 900px) {
       .hero, .workspace, .profile-form { grid-template-columns: 1fr; }
       .history-top { flex-direction: column; }
+      .timeline-top { flex-direction: column; }
     }
   `,
 })
@@ -283,12 +380,15 @@ export class CandidateDashboardComponent {
 
   protected profile = signal<CandidateProfile | null>(null);
   protected applications = signal<CandidateApplication[]>([]);
+  protected timeline = signal<CandidateTimelineItem[]>([]);
   protected loading = signal(false);
   protected applicationsLoading = signal(false);
+  protected timelineLoading = signal(false);
   protected saving = signal(false);
   protected uploading = signal(false);
   protected error = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
+  protected timelineError = signal<string | null>(null);
   protected savedMessage = signal<string | null>(null);
   protected uploadMessage = signal<string | null>(null);
   protected selectedFile = signal<File | null>(null);
@@ -304,9 +404,11 @@ export class CandidateDashboardComponent {
       if (!this.auth.isAuthenticated()) {
         this.profile.set(null);
         this.applications.set([]);
+        this.timeline.set([]);
         this.selectedFile.set(null);
         this.error.set(null);
         this.applicationsError.set(null);
+        this.timelineError.set(null);
         return;
       }
 
@@ -330,7 +432,38 @@ export class CandidateDashboardComponent {
 
       this.fetchProfile();
       this.fetchApplications();
+      this.fetchTimeline();
     });
+  }
+
+  protected formatUtc(value: string): string {
+    return new Date(value).toLocaleString();
+  }
+
+  protected timelineKind(eventType: string): string {
+    const normalized = eventType.toLowerCase();
+
+    if (normalized.includes('applied')) {
+      return 'applied';
+    }
+
+    if (normalized.includes('interview')) {
+      return 'interview';
+    }
+
+    if (normalized.includes('offer')) {
+      return 'offer';
+    }
+
+    if (normalized.includes('hire')) {
+      return 'hired';
+    }
+
+    if (normalized.includes('reject')) {
+      return 'rejected';
+    }
+
+    return 'neutral';
   }
 
   protected onFileSelected(event: Event): void {
@@ -418,6 +551,23 @@ export class CandidateDashboardComponent {
         this.applications.set([]);
         this.applicationsLoading.set(false);
         this.applicationsError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private fetchTimeline(): void {
+    this.timelineLoading.set(true);
+    this.timelineError.set(null);
+
+    this.candidateProfile.timeline().subscribe({
+      next: (response) => {
+        this.timeline.set(response.items);
+        this.timelineLoading.set(false);
+      },
+      error: (error: unknown) => {
+        this.timeline.set([]);
+        this.timelineLoading.set(false);
+        this.timelineError.set(this.toErrorMessage(error));
       },
     });
   }
