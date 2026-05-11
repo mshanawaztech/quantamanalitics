@@ -9,6 +9,7 @@ import {
 } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { AuthService } from './core/auth/auth.service';
+import { NotificationsBellComponent } from './core/notifications/notifications-bell.component';
 
 interface Crumb {
   label: string;
@@ -71,7 +72,7 @@ const ROUTE_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-marketing-shell',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [NotificationsBellComponent, RouterLink, RouterLinkActive, RouterOutlet],
   template: `
     <a class="skip-link" href="#main">Skip to main content</a>
 
@@ -110,6 +111,7 @@ const ROUTE_LABELS: Record<string, string> = {
             </form>
 
             @if (auth.isAuthenticated()) {
+              <app-notifications-bell />
               <button
                 type="button"
                 class="user-menu"
