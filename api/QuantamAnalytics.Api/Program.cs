@@ -90,6 +90,7 @@ if (authEnabled)
     app.MapRecruiterPortalEndpoints();
     app.MapReportingEndpoints();
     app.MapInvoiceEndpoints();
+    app.MapEmailTemplateEndpoints();
 }
 
 app.Run();
