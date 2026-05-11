@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { AboutComponent } from './about.component';
 import { ContactComponent } from './contact.component';
 import { CandidateDashboardComponent } from './candidate-dashboard.component';
+import { CandidatePortalComponent } from './candidate-portal.component';
 import { ClientDashboardComponent } from './client-dashboard.component';
 import { JobDetailComponent } from './job-detail.component';
 import { JobsListComponent } from './jobs-list.component';
@@ -52,6 +53,10 @@ export const routes: Routes = [
       {
         path: 'candidate',
         component: CandidateDashboardComponent,
+      },
+      {
+        path: 'candidate/portal',
+        component: CandidatePortalComponent,
       },
       {
         path: 'contractor',
