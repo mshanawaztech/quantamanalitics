@@ -38,6 +38,8 @@ function makeApplication(
     note: null,
     appliedAtUtc: '2026-04-30T00:00:00Z',
     updatedAtUtc: '2026-05-01T00:00:00Z',
+    daysInStage: 1,
+    isStuck: false,
     ...partial,
   };
 }

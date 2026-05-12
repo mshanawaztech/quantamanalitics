@@ -6,6 +6,7 @@ import { MeService } from './core/auth/me.service';
 import {
   RecruiterApplication,
   RecruiterApplicationsBoard,
+  RecruiterBulkStatusMoveResponse,
   RecruiterCandidateActivityItem,
   RecruiterInvoiceHandoffResponse,
   RecruiterInvoiceReadyItem,
@@ -111,10 +112,43 @@ import {
               <div>
                 <p class="eyebrow">Applications board</p>
                 <h2>Move candidate intake across the funnel</h2>
+                <p class="board-copy">
+                  Drag cards between stages, or select multiple candidates for a bulk move.
+                </p>
               </div>
               @if (loadingApplications()) {
                 <span class="pill">Loading</span>
               }
+            </div>
+
+            <div class="board-toolbar">
+              <div class="toolbar-stat">
+                <span class="label">Selected</span>
+                <strong>{{ selectedCount() }}</strong>
+              </div>
+              <div class="toolbar-stat">
+                <span class="label">Stuck &gt; 7d</span>
+                <strong>{{ totalStuckCount() }}</strong>
+              </div>
+              <label class="bulk-control">
+                Bulk move to
+                <select [ngModel]="bulkMoveStatus" (ngModelChange)="bulkMoveStatus = $event">
+                  @for (status of movableStatuses; track status) {
+                    <option [ngValue]="status">{{ status }}</option>
+                  }
+                </select>
+              </label>
+              <button
+                type="button"
+                class="secondary"
+                (click)="bulkMoveSelected()"
+                [disabled]="selectedCount() === 0 || movingApplications()"
+              >
+                {{ movingApplications() ? 'Moving…' : 'Move selected' }}
+              </button>
+              <button type="button" class="secondary" (click)="clearSelection()" [disabled]="selectedCount() === 0">
+                Clear selection
+              </button>
             </div>
 
             @if (applicationsError()) {
@@ -123,13 +157,47 @@ import {
 
             <div class="board">
               @for (column of columns; track column) {
-                <section class="column">
-                  <h3>{{ column }}</h3>
+                <section
+                  class="column"
+                  [attr.data-active-drop]="draggedApplicationId() ? 'true' : null"
+                  (dragover)="allowDrop($event)"
+                  (drop)="dropOnColumn(column)"
+                >
+                  <div class="column-head">
+                    <div>
+                      <h3>{{ column }}</h3>
+                      <p>{{ applicationsByStatus(column).length }} candidates</p>
+                    </div>
+                    @if (stuckCount(column) > 0) {
+                      <span class="stuck-pill">{{ stuckCount(column) }} stuck</span>
+                    }
+                  </div>
                   @for (application of applicationsByStatus(column); track application.id) {
-                    <article class="application-card">
+                    <article
+                      class="application-card"
+                      draggable="true"
+                      [attr.data-dragging]="draggedApplicationId() === application.id ? 'true' : null"
+                      [attr.data-selected]="isSelected(application.id) ? 'true' : null"
+                      (dragstart)="dragStart(application.id)"
+                      (dragend)="dragEnd()"
+                    >
+                      <label class="card-select">
+                        <input
+                          type="checkbox"
+                          [checked]="isSelected(application.id)"
+                          (change)="toggleSelection(application.id, $any($event.target).checked)"
+                        />
+                        <span>Select</span>
+                      </label>
                       <strong>{{ application.candidateName }}</strong>
                       <p>{{ application.jobTitle }}</p>
                       <p>{{ application.candidateEmail }}</p>
+                      <div class="card-meta">
+                        <span>{{ application.daysInStage }} day{{ application.daysInStage === 1 ? '' : 's' }} in stage</span>
+                        @if (application.isStuck) {
+                          <span class="stuck-tag">Needs attention</span>
+                        }
+                      </div>
                       @if (application.note) {
                         <p>{{ application.note }}</p>
                       }
@@ -311,6 +379,7 @@ import {
     .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9a3412; font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+    .board-copy { margin: 0.45rem 0 0; max-width: 36rem; }
     .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: #e7e5e4; color: #44403c; font-size: 0.85rem; font-weight: 700; }
     .job-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; margin-bottom: 1.25rem; }
     label { display: grid; gap: 0.35rem; color: #3f372c; font-weight: 600; }
@@ -344,6 +413,24 @@ import {
       font-weight: 700;
       cursor: pointer;
     }
+    .primary[disabled], .secondary[disabled] { opacity: 0.65; cursor: wait; }
+    .board-toolbar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(9rem, max-content));
+      gap: 0.85rem;
+      align-items: end;
+      margin-bottom: 1rem;
+    }
+    .toolbar-stat {
+      display: grid;
+      gap: 0.2rem;
+      padding: 0.85rem 1rem;
+      border-radius: 1rem;
+      background: #fffdf9;
+      border: 1px solid #eadcc8;
+    }
+    .toolbar-stat strong { font-size: 1.1rem; }
+    .bulk-control { min-width: 11rem; }
     .jobs-list { display: grid; gap: 0.8rem; }
     .invoice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
     .handoff-actions, .handoff-summary, .handoff-preview { display: grid; gap: 0.9rem; }
@@ -372,6 +459,26 @@ import {
       align-content: start;
       min-height: 20rem;
       min-width: 15rem;
+      transition: background-color 120ms ease, border-color 120ms ease;
+    }
+    .column[data-active-drop='true'] { background: rgb(249 245 237 / 0.9); border-color: rgb(154 52 18 / 0.18); }
+    .column-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.8rem;
+      align-items: flex-start;
+    }
+    .column-head p { margin: 0.35rem 0 0; color: #8b5e34; font-size: 0.92rem; }
+    .stuck-pill, .stuck-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      background: rgb(217 119 6 / 0.12);
+      color: #9a3412;
+      font-size: 0.8rem;
+      font-weight: 700;
+      white-space: nowrap;
     }
     .application-card {
       background: #fffdf9;
@@ -379,9 +486,33 @@ import {
       display: grid;
       gap: 0.75rem;
       min-width: 0;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+    .application-card[data-dragging='true'] { opacity: 0.72; transform: rotate(1deg); }
+    .application-card[data-selected='true'] {
+      border-color: rgb(124 58 237 / 0.35);
+      box-shadow: 0 0 0 0.18rem rgb(124 58 237 / 0.12);
     }
     .application-card p { margin: 0; overflow-wrap: anywhere; }
     .application-card select { min-width: 0; }
+    .card-select {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      justify-self: start;
+      font-size: 0.88rem;
+      color: #6b6255;
+      font-weight: 700;
+    }
+    .card-select input { width: auto; }
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      align-items: center;
+      color: #6b6255;
+      font-size: 0.9rem;
+    }
     .activity-item { display: grid; gap: 0.85rem; }
     .activity-top {
       display: flex;
@@ -428,6 +559,7 @@ export class RecruiterDashboardComponent {
   private recruiter = inject(RecruiterPortalService);
 
   protected readonly columns = ['Applied', 'Interviewing', 'OfferSent', 'Hired', 'Rejected'];
+  protected readonly movableStatuses = ['Interviewing', 'OfferSent', 'Hired', 'Rejected'];
 
   protected jobs = signal<RecruiterJob[]>([]);
   protected applications = signal<RecruiterApplication[]>([]);
@@ -440,6 +572,7 @@ export class RecruiterDashboardComponent {
   protected loadingInvoiceReady = signal(false);
   protected loadingHandoff = signal(false);
   protected creatingJob = signal(false);
+  protected movingApplications = signal(false);
   protected downloadingQuickBooks = signal(false);
   protected jobsError = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
@@ -452,6 +585,9 @@ export class RecruiterDashboardComponent {
   protected jobSummary = '';
   protected jobDescription = '';
   protected jobPublished = true;
+  protected bulkMoveStatus = 'Interviewing';
+  protected selectedApplicationIds = signal<string[]>([]);
+  protected draggedApplicationId = signal<string | null>(null);
 
   constructor() {
     effect(() => {
@@ -488,8 +624,68 @@ export class RecruiterDashboardComponent {
     return this.applications().filter((application) => application.status === status);
   }
 
+  protected selectedCount(): number {
+    return this.selectedApplicationIds().length;
+  }
+
+  protected totalStuckCount(): number {
+    return this.applications().filter((application) => application.isStuck).length;
+  }
+
+  protected stuckCount(status: string): number {
+    return this.applicationsByStatus(status).filter((application) => application.isStuck).length;
+  }
+
+  protected isSelected(applicationId: string): boolean {
+    return this.selectedApplicationIds().includes(applicationId);
+  }
+
   protected stripeFallbackItems(): RecruiterStripeFallbackItem[] {
     return this.invoiceHandoff()?.stripeFallback.items ?? [];
+  }
+
+  protected toggleSelection(applicationId: string, selected: boolean): void {
+    this.selectedApplicationIds.update((current) => {
+      const next = new Set(current);
+      if (selected) {
+        next.add(applicationId);
+      } else {
+        next.delete(applicationId);
+      }
+
+      return [...next];
+    });
+  }
+
+  protected clearSelection(): void {
+    this.selectedApplicationIds.set([]);
+  }
+
+  protected dragStart(applicationId: string): void {
+    this.draggedApplicationId.set(applicationId);
+    if (!this.isSelected(applicationId)) {
+      this.selectedApplicationIds.set([applicationId]);
+    }
+  }
+
+  protected dragEnd(): void {
+    this.draggedApplicationId.set(null);
+  }
+
+  protected allowDrop(event: DragEvent): void {
+    event.preventDefault();
+  }
+
+  protected dropOnColumn(status: string): void {
+    const draggedId = this.draggedApplicationId();
+    if (!draggedId) {
+      return;
+    }
+
+    const selectedIds = this.selectedApplicationIds();
+    const idsToMove = selectedIds.includes(draggedId) ? selectedIds : [draggedId];
+    this.draggedApplicationId.set(null);
+    this.moveMany(idsToMove, status);
   }
 
   protected formatUtc(value: string): string {
@@ -567,6 +763,10 @@ export class RecruiterDashboardComponent {
     });
   }
 
+  protected bulkMoveSelected(): void {
+    this.moveMany(this.selectedApplicationIds(), this.bulkMoveStatus);
+  }
+
   protected downloadQuickBooksCsv(): void {
     this.downloadingQuickBooks.set(true);
     this.handoffError.set(null);
@@ -620,6 +820,43 @@ export class RecruiterDashboardComponent {
       },
       error: (error: unknown) => {
         this.loadingApplications.set(false);
+        this.applicationsError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private moveMany(applicationIds: string[], status: string): void {
+    const selectedIds = [...new Set(applicationIds)];
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    const movableIds = selectedIds.filter((id) => {
+      const application = this.applications().find((item) => item.id === id);
+      return application && application.status !== status;
+    });
+
+    if (movableIds.length === 0) {
+      return;
+    }
+
+    this.movingApplications.set(true);
+    this.applicationsError.set(null);
+
+    this.recruiter.bulkMoveApplications({
+      applicationIds: movableIds,
+      status,
+    }).subscribe({
+      next: (response: RecruiterBulkStatusMoveResponse) => {
+        const updatedMap = new Map(response.items.map((item) => [item.id, item]));
+        this.applications.update((items) =>
+          items.map((item) => updatedMap.get(item.id) ?? item),
+        );
+        this.movingApplications.set(false);
+        this.selectedApplicationIds.set([]);
+      },
+      error: (error: unknown) => {
+        this.movingApplications.set(false);
         this.applicationsError.set(this.toErrorMessage(error));
       },
     });

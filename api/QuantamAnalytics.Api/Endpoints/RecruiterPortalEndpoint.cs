@@ -12,6 +12,8 @@ namespace QuantamAnalytics.Api.Endpoints;
 
 public static class RecruiterPortalEndpoint
 {
+    private static readonly TimeSpan StuckThreshold = TimeSpan.FromDays(7);
+
     public static IEndpointRouteBuilder MapRecruiterPortalEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/recruiter")
@@ -23,6 +25,7 @@ public static class RecruiterPortalEndpoint
         group.MapPut("/jobs/{jobId:guid}", UpdateJobAsync);
 
         group.MapGet("/applications", GetApplicationsAsync);
+        group.MapPost("/applications/bulk-status", BulkUpdateApplicationStatusAsync);
         group.MapGet("/applications/{applicationId:guid}/timeline", GetApplicationTimelineAsync);
         group.MapPost("/applications/{applicationId:guid}/timeline/comments", AddApplicationTimelineCommentAsync);
         group.MapGet("/candidates/activity", GetCandidateActivityAsync);
@@ -146,25 +149,97 @@ public static class RecruiterPortalEndpoint
             return TenantRequired();
         }
 
+        var nowUtc = DateTimeOffset.UtcNow;
+
         var items = await db.Applications
             .OrderByDescending(x => x.AppliedAtUtc)
             .Join(
                 db.Jobs,
                 application => application.JobId,
                 job => job.Id,
-                (application, job) => new RecruiterApplicationResponse(
-                    application.Id,
-                    job.Id,
-                    job.Title,
-                    application.CandidateName,
-                    application.CandidateEmail,
-                    application.Note,
-                    application.Status.ToString(),
-                    application.AppliedAtUtc,
-                    application.UpdatedAtUtc))
+                (application, job) => ToRecruiterApplicationResponse(application, job.Id, job.Title, nowUtc))
             .ToArrayAsync(cancellationToken);
 
         return TypedResults.Ok(new RecruiterApplicationsBoardResponse(items));
+    }
+
+    private static async Task<Results<Ok<RecruiterBulkStatusMoveResponse>, ProblemHttpResult>> BulkUpdateApplicationStatusAsync(
+        BulkUpdateApplicationStatusRequest request,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var applicationIds = request.ApplicationIds
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        if (applicationIds.Length == 0)
+        {
+            return TypedResults.Problem(
+                title: "Applications required",
+                detail: "Select at least one candidate card before running a bulk move.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (!IsSupportedStatus(request.Status))
+        {
+            return TypedResults.Problem(
+                title: "Unsupported application status",
+                detail: "Use Interviewing, OfferSent, Hired, or Rejected.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var applications = await db.Applications
+            .Where(x => applicationIds.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        var movedCount = 0;
+        var actorLabel = ResolveActorLabel(user);
+        foreach (var application in applications)
+        {
+            if (application.Status.ToString() == request.Status)
+            {
+                continue;
+            }
+
+            ApplyStatusTransition(application, request.Status);
+            movedCount++;
+            db.ApplicationTimelineEvents.Add(CreateStageTimelineEvent(
+                currentTenant.TenantId.Value,
+                application,
+                actorLabel));
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        var jobIds = applications
+            .Select(x => x.JobId)
+            .Distinct()
+            .ToArray();
+
+        var jobTitles = await db.Jobs
+            .Where(x => jobIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Title, cancellationToken);
+
+        var items = applications
+            .Where(x => jobTitles.ContainsKey(x.JobId))
+            .Select(x => ToRecruiterApplicationResponse(x, x.JobId, jobTitles[x.JobId], nowUtc))
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .ToArray();
+
+        return TypedResults.Ok(new RecruiterBulkStatusMoveResponse(
+            applicationIds.Length,
+            movedCount,
+            request.Status,
+            items));
     }
 
     private static async Task<Results<Ok<RecruiterCandidateActivityResponse>, ProblemHttpResult>> GetCandidateActivityAsync(
@@ -433,63 +508,53 @@ public static class RecruiterPortalEndpoint
             return TypedResults.NotFound();
         }
 
-        switch (request.Status)
+        if (!IsSupportedStatus(request.Status))
         {
-            case "Interviewing":
-                application.TransitionToInterviewing();
-                break;
-            case "OfferSent":
-                application.TransitionToOfferSent();
-                break;
-            case "Hired":
-                application.TransitionToHired();
-                break;
-            case "Rejected":
-                application.TransitionToRejected();
-                break;
-            default:
-                return TypedResults.Problem(
-                    title: "Unsupported application status",
-                    detail: "Use Interviewing, OfferSent, Hired, or Rejected.",
-                    statusCode: StatusCodes.Status400BadRequest);
+            return TypedResults.Problem(
+                title: "Unsupported application status",
+                detail: "Use Interviewing, OfferSent, Hired, or Rejected.",
+                statusCode: StatusCodes.Status400BadRequest);
         }
 
-        await db.SaveChangesAsync(cancellationToken);
-
-        var actorLabel =
-            user.FindFirstValue("name") ??
-            user.FindFirstValue(ClaimTypes.Email) ??
-            "Recruiter operations";
-
-        var timelineEvent = new ApplicationTimelineEvent(
+        ApplyStatusTransition(application, request.Status);
+        db.ApplicationTimelineEvents.Add(CreateStageTimelineEvent(
             currentTenant.TenantId.Value,
-            application.Id,
-            application.CandidateProfileId,
-            ApplicationTimelineEventType.StageChanged,
-            ApplicationTimelineAudience.CandidateAndRecruiter,
-            BuildStageTimelineTitle(application.Status),
-            BuildStageTimelineDetail(application.Status),
-            actorLabel,
-            application.UpdatedAtUtc);
-
-        db.ApplicationTimelineEvents.Add(timelineEvent);
+            application,
+            ResolveActorLabel(user)));
         await db.SaveChangesAsync(cancellationToken);
 
         var job = await db.Jobs.SingleAsync(x => x.Id == application.JobId, cancellationToken);
-        return TypedResults.Ok(new RecruiterApplicationResponse(
-            application.Id,
+        return TypedResults.Ok(ToRecruiterApplicationResponse(
+            application,
             job.Id,
             job.Title,
+            DateTimeOffset.UtcNow));
+    }
+
+    private static RecruiterJobResponse ToJobResponse(Job job) =>
+        new(job.Id, job.Title, job.Slug, job.Location, job.Summary, job.Description, job.PostedOnUtc, job.IsPublished);
+
+    private static RecruiterApplicationResponse ToRecruiterApplicationResponse(
+        Application application,
+        Guid jobId,
+        string jobTitle,
+        DateTimeOffset nowUtc)
+    {
+        var daysInStage = Math.Max(0, (int)Math.Floor((nowUtc - application.UpdatedAtUtc).TotalDays));
+
+        return new RecruiterApplicationResponse(
+            application.Id,
+            jobId,
+            jobTitle,
             application.CandidateName,
             application.CandidateEmail,
             application.Note,
             application.Status.ToString(),
             application.AppliedAtUtc,
-            application.UpdatedAtUtc));
+            application.UpdatedAtUtc,
+            daysInStage,
+            daysInStage >= StuckThreshold.TotalDays);
     }
-
-    private static RecruiterJobResponse ToJobResponse(Job job) =>
-        new(job.Id, job.Title, job.Slug, job.Location, job.Summary, job.Description, job.PostedOnUtc, job.IsPublished);
 
     private static RecruiterInvoiceReadyItemResponse[] ToInvoiceReadyItems(IEnumerable<Timesheet> timesheets) =>
         timesheets.Select(x =>
@@ -514,6 +579,48 @@ public static class RecruiterPortalEndpoint
             title: "Tenant assignment required",
             detail: "Recruiter workflow requires a tenant_id claim in the authenticated session.",
             statusCode: StatusCodes.Status412PreconditionFailed);
+
+    private static bool IsSupportedStatus(string status) =>
+        status is "Interviewing" or "OfferSent" or "Hired" or "Rejected";
+
+    private static void ApplyStatusTransition(Application application, string status)
+    {
+        switch (status)
+        {
+            case "Interviewing":
+                application.TransitionToInterviewing();
+                break;
+            case "OfferSent":
+                application.TransitionToOfferSent();
+                break;
+            case "Hired":
+                application.TransitionToHired();
+                break;
+            case "Rejected":
+                application.TransitionToRejected();
+                break;
+        }
+    }
+
+    private static string ResolveActorLabel(ClaimsPrincipal user) =>
+        user.FindFirstValue("name") ??
+        user.FindFirstValue(ClaimTypes.Email) ??
+        "Recruiter operations";
+
+    private static ApplicationTimelineEvent CreateStageTimelineEvent(
+        Guid tenantId,
+        Application application,
+        string actorLabel) =>
+        new(
+            tenantId,
+            application.Id,
+            application.CandidateProfileId,
+            ApplicationTimelineEventType.StageChanged,
+            ApplicationTimelineAudience.CandidateAndRecruiter,
+            BuildStageTimelineTitle(application.Status),
+            BuildStageTimelineDetail(application.Status),
+            actorLabel,
+            application.UpdatedAtUtc);
 
     private static string BuildStageTimelineTitle(ApplicationStatus status) =>
         status switch
@@ -566,6 +673,10 @@ public sealed record UpsertRecruiterJobRequest(
 
 public sealed record UpdateApplicationStatusRequest(string Status);
 
+public sealed record BulkUpdateApplicationStatusRequest(
+    Guid[] ApplicationIds,
+    string Status);
+
 public sealed record RecruiterJobResponse(
     Guid Id,
     string Title,
@@ -585,9 +696,17 @@ public sealed record RecruiterApplicationResponse(
     string? Note,
     string Status,
     DateTimeOffset AppliedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    int DaysInStage,
+    bool IsStuck);
 
 public sealed record RecruiterApplicationsBoardResponse(RecruiterApplicationResponse[] Items);
+
+public sealed record RecruiterBulkStatusMoveResponse(
+    int RequestedCount,
+    int UpdatedCount,
+    string Status,
+    RecruiterApplicationResponse[] Items);
 
 public sealed record RecruiterInvoiceReadyResponse(RecruiterInvoiceReadyItemResponse[] Items);
 
