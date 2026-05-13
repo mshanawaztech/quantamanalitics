@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { HttpParams } from '@angular/common/http';
 
 import { environment } from '../../../environments/environment';
 import { ParsedResumeResult } from '../resume/resume-parse.models';
@@ -27,10 +28,14 @@ export interface RecruiterApplication {
   updatedAtUtc: string;
   daysInStage: number;
   isStuck: boolean;
+  tags: string[];
 }
 
 export interface RecruiterApplicationsBoard {
   items: RecruiterApplication[];
+  availableTags: string[];
+  availableLocations: string[];
+  savedFilters: RecruiterApplicationFilterPreset[];
 }
 
 export interface RecruiterBulkStatusMoveRequest {
@@ -43,6 +48,49 @@ export interface RecruiterBulkStatusMoveResponse {
   updatedCount: number;
   status: string;
   items: RecruiterApplication[];
+}
+
+export interface RecruiterBulkTagUpdateRequest {
+  applicationIds: string[];
+  tags: string[];
+  operation: 'Add' | 'Remove';
+}
+
+export interface RecruiterBulkTagUpdateResponse {
+  requestedCount: number;
+  operation: string;
+  tags: string[];
+  items: RecruiterApplication[];
+}
+
+export interface RecruiterApplicationFilterPreset {
+  id: string;
+  name: string;
+  search: string | null;
+  status: string | null;
+  tag: string | null;
+  location: string | null;
+  stuckOnly: boolean;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface RecruiterApplicationsQuery {
+  search?: string | null;
+  status?: string | null;
+  tag?: string | null;
+  location?: string | null;
+  stuckOnly?: boolean;
+}
+
+export interface SaveRecruiterApplicationFilterPresetRequest {
+  presetId?: string | null;
+  name: string;
+  search?: string | null;
+  status?: string | null;
+  tag?: string | null;
+  location?: string | null;
+  stuckOnly: boolean;
 }
 
 export interface RecruiterCandidateActivityItem {
@@ -176,8 +224,33 @@ export class RecruiterPortalService {
     return this.http.post<RecruiterJob>(`${environment.apiBase}/api/v1/recruiter/jobs`, request);
   }
 
-  applications() {
-    return this.http.get<RecruiterApplicationsBoard>(`${environment.apiBase}/api/v1/recruiter/applications`);
+  applications(query?: RecruiterApplicationsQuery) {
+    let params = new HttpParams();
+
+    if (query?.search?.trim()) {
+      params = params.set('search', query.search.trim());
+    }
+
+    if (query?.status?.trim()) {
+      params = params.set('status', query.status.trim());
+    }
+
+    if (query?.tag?.trim()) {
+      params = params.set('tag', query.tag.trim());
+    }
+
+    if (query?.location?.trim()) {
+      params = params.set('location', query.location.trim());
+    }
+
+    if (query?.stuckOnly) {
+      params = params.set('stuckOnly', 'true');
+    }
+
+    return this.http.get<RecruiterApplicationsBoard>(
+      `${environment.apiBase}/api/v1/recruiter/applications`,
+      { params },
+    );
   }
 
   candidateActivity() {
@@ -216,6 +289,26 @@ export class RecruiterPortalService {
     return this.http.post<RecruiterBulkStatusMoveResponse>(
       `${environment.apiBase}/api/v1/recruiter/applications/bulk-status`,
       request,
+    );
+  }
+
+  bulkUpdateApplicationTags(request: RecruiterBulkTagUpdateRequest) {
+    return this.http.post<RecruiterBulkTagUpdateResponse>(
+      `${environment.apiBase}/api/v1/recruiter/applications/bulk-tags`,
+      request,
+    );
+  }
+
+  saveApplicationFilterPreset(request: SaveRecruiterApplicationFilterPresetRequest) {
+    return this.http.post<RecruiterApplicationFilterPreset>(
+      `${environment.apiBase}/api/v1/recruiter/applications/filters`,
+      request,
+    );
+  }
+
+  deleteApplicationFilterPreset(presetId: string) {
+    return this.http.delete(
+      `${environment.apiBase}/api/v1/recruiter/applications/filters/${presetId}`,
     );
   }
 

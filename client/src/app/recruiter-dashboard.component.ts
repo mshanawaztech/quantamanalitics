@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
@@ -21,7 +22,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
 
 @Component({
   selector: 'app-recruiter-dashboard',
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
     <main class="page">
       <section class="hero">
@@ -37,6 +38,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
           <p class="label">Access</p>
           <strong>{{ accessLabel() }}</strong>
           <span>{{ roleLabel() }}</span>
+          <a routerLink="/recruiter/pipeline">Open search pipeline</a>
         </div>
       </section>
 
@@ -644,7 +646,6 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9a3412; font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
-    .section-head.compact { margin-bottom: 0.7rem; }
     .board-copy { margin: 0.45rem 0 0; max-width: 36rem; }
     .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: #e7e5e4; color: #44403c; font-size: 0.85rem; font-weight: 700; }
     .job-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; margin-bottom: 1.25rem; }
@@ -696,7 +697,6 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       border: 1px solid #eadcc8;
     }
     .toolbar-stat strong { font-size: 1.1rem; }
-    .bulk-control { min-width: 11rem; }
     .jobs-list { display: grid; gap: 0.8rem; }
     .resume-review-card, .template-card { margin-top: 1.25rem; }
     .resume-review-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: 1rem; align-items: start; }
