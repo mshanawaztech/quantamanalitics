@@ -110,6 +110,60 @@ export interface UpsertRecruiterJobRequest {
   postedOnUtc: string | null;
 }
 
+export interface EmailTemplatePreset {
+  slug: string;
+  name: string;
+  description: string;
+  subject: string;
+  bodyMarkdown: string;
+  mergeFields: string[];
+}
+
+export interface EmailTemplateCatalog {
+  presets: EmailTemplatePreset[];
+  supportedMergeFields: string[];
+}
+
+export interface RecruiterEmailTemplate {
+  id: string;
+  slug: string;
+  name: string;
+  subject: string;
+  bodyMarkdown: string;
+  createdByAuthSubject: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface RecruiterEmailTemplateList {
+  items: RecruiterEmailTemplate[];
+}
+
+export interface CreateRecruiterEmailTemplateRequest {
+  slug: string;
+  name: string;
+  subject: string;
+  bodyMarkdown: string;
+}
+
+export interface UpdateRecruiterEmailTemplateRequest {
+  name?: string | null;
+  subject?: string | null;
+  bodyMarkdown?: string | null;
+}
+
+export interface EmailTemplatePreviewRequest {
+  subject: string;
+  bodyMarkdown: string;
+  mergeFields: Record<string, string | null>;
+}
+
+export interface EmailTemplatePreviewResponse {
+  subject: string;
+  bodyMarkdown: string;
+  mergeFields: Record<string, string>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RecruiterPortalService {
   private http = inject(HttpClient);
@@ -172,6 +226,45 @@ export class RecruiterPortalService {
     return this.http.post<ParsedResumeResult>(
       `${environment.apiBase}/api/v1/recruiter/resume/parse`,
       body,
+    );
+  }
+
+  emailTemplateCatalog() {
+    return this.http.get<EmailTemplateCatalog>(
+      `${environment.apiBase}/api/v1/recruiter/email-templates/catalog`,
+    );
+  }
+
+  emailTemplates() {
+    return this.http.get<RecruiterEmailTemplateList>(
+      `${environment.apiBase}/api/v1/recruiter/email-templates`,
+    );
+  }
+
+  createEmailTemplate(request: CreateRecruiterEmailTemplateRequest) {
+    return this.http.post<RecruiterEmailTemplate>(
+      `${environment.apiBase}/api/v1/recruiter/email-templates`,
+      request,
+    );
+  }
+
+  updateEmailTemplate(templateId: string, request: UpdateRecruiterEmailTemplateRequest) {
+    return this.http.patch<RecruiterEmailTemplate>(
+      `${environment.apiBase}/api/v1/recruiter/email-templates/${templateId}`,
+      request,
+    );
+  }
+
+  deleteEmailTemplate(templateId: string) {
+    return this.http.delete(
+      `${environment.apiBase}/api/v1/recruiter/email-templates/${templateId}`,
+    );
+  }
+
+  previewEmailTemplate(request: EmailTemplatePreviewRequest) {
+    return this.http.post<EmailTemplatePreviewResponse>(
+      `${environment.apiBase}/api/v1/recruiter/email-templates/preview`,
+      request,
     );
   }
 }
