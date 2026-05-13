@@ -52,11 +52,15 @@ export const routes: Routes = [
       },
       {
         path: 'candidate',
-        component: CandidateDashboardComponent,
+        component: CandidatePortalComponent,
       },
       {
         path: 'candidate/portal',
         component: CandidatePortalComponent,
+      },
+      {
+        path: 'candidate/dashboard',
+        component: CandidateDashboardComponent,
       },
       {
         path: 'contractor',

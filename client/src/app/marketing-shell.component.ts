@@ -213,7 +213,7 @@ const ROUTE_LABELS: Record<string, string> = {
             <strong>For your team</strong>
             <a routerLink="/recruiter">Recruiter portal</a>
             <a routerLink="/client">Client portal</a>
-            <a routerLink="/candidate">Candidate dashboard</a>
+            <a routerLink="/candidate">Candidate portal</a>
             <a routerLink="/contractor">Contractor portal</a>
           </div>
           <div class="shell__footer-col">

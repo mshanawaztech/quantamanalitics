@@ -17,8 +17,8 @@ before or alongside the pieces that depend on them.
 | 52  | `qa001-pipeline-dnd`                | Drag-and-drop recruiter pipeline, bulk moves, stuck-stage SLA surfacing  | merged |
 | 53  | `qa001-resume-parsing`              | Resume upload parsing into candidate profile fields + recruiter review    | merged |
 | 54  | `qa001-email-templates`             | Reusable template system for invites, rejects, onboarding, offers        | merged |
-| 55  | `qa001-search-tags-bulk`            | Advanced search, saved filters, candidate tags, and bulk actions         | open   |
-| 56  | `qa001-candidate-portal-v2`         | Candidate-side timeline, application tracking, docs/tasks progress        | queued |
+| 55  | `qa001-search-tags-bulk`            | Advanced search, saved filters, candidate tags, and bulk actions         | merged |
+| 56  | `qa001-candidate-portal-v2`         | Candidate-side timeline, application tracking, docs/tasks progress        | open   |
 | 57  | `qa001-notifications-analytics`     | Notification center, recruiter dashboards, loading/empty/error polish    | queued |
 
 > Order is a guideline. PR-51 (timeline) and PR-53 (resume parsing) should land

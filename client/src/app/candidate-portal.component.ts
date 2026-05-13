@@ -216,7 +216,7 @@ const EMPTY_FORM: ProfileFormState = {
               label="Email"
               type="email"
               name="email"
-              required
+              [required]="true"
               [value]="form().email"
               (valueChange)="updateForm('email', $event)"
             ></qa-input>
@@ -586,7 +586,7 @@ export class CandidatePortalComponent {
   protected me = inject(MeService);
 
   protected readonly skeletonRows = [0, 1, 2] as const;
-  protected readonly timelineAllRoute = '/candidate';
+  protected readonly timelineAllRoute = '/candidate/dashboard';
 
   private profileSectionRef = viewChild<ElementRef<HTMLElement>>('profileSection');
 
