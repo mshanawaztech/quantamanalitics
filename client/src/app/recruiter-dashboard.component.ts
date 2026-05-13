@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
+  EmailTemplateCatalog,
+  EmailTemplatePreviewResponse,
+  RecruiterEmailTemplate,
   RecruiterApplication,
   RecruiterApplicationsBoard,
   RecruiterBulkStatusMoveResponse,
@@ -308,6 +311,179 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
           </div>
         </section>
 
+        <section class="template-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Email templates</p>
+              <h2>Reuse outreach instead of rewriting every invite and update.</h2>
+              <p class="board-copy">
+                Start from recruiter-friendly presets, customize the copy, and preview the merge fields before a workflow uses it.
+              </p>
+            </div>
+            @if (loadingEmailTemplates()) {
+              <span class="pill">Loading</span>
+            }
+          </div>
+
+          <div class="template-grid">
+            <article class="template-editor">
+              <div class="template-toolbar">
+                <label>
+                  Starter preset
+                  <select [ngModel]="templatePresetSlug" (ngModelChange)="loadTemplatePreset($event)">
+                    @for (preset of emailTemplateCatalog()?.presets ?? []; track preset.slug) {
+                      <option [ngValue]="preset.slug">{{ preset.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                @if (currentTemplate()) {
+                  <span class="pill">Editing saved template</span>
+                }
+              </div>
+
+              <form class="template-form" (ngSubmit)="saveEmailTemplate()">
+                <label>
+                  Slug
+                  <input
+                    type="text"
+                    name="templateSlug"
+                    [(ngModel)]="templateSlug"
+                    [disabled]="!!currentTemplate()"
+                    required
+                  />
+                </label>
+                <label>
+                  Name
+                  <input type="text" name="templateName" [(ngModel)]="templateName" required />
+                </label>
+                @if (currentTemplate()) {
+                  <p class="template-hint full-width">
+                    Slug stays fixed after creation so recruiter workflows keep a stable reference.
+                  </p>
+                }
+                <label class="full-width">
+                  Subject
+                  <input type="text" name="templateSubject" [(ngModel)]="templateSubject" required />
+                </label>
+                <label class="full-width">
+                  Body
+                  <textarea rows="10" name="templateBodyMarkdown" [(ngModel)]="templateBodyMarkdown" required></textarea>
+                </label>
+                <div class="actions full-width">
+                  <button type="submit" class="primary" [disabled]="savingEmailTemplate()">
+                    {{ savingEmailTemplate() ? 'Saving…' : (currentTemplate() ? 'Update template' : 'Create template') }}
+                  </button>
+                  <button type="button" class="secondary" (click)="previewCurrentEmailTemplate()" [disabled]="previewingEmailTemplate()">
+                    {{ previewingEmailTemplate() ? 'Rendering…' : 'Preview merge fields' }}
+                  </button>
+                  @if (currentTemplate()) {
+                    <button type="button" class="secondary" (click)="deleteCurrentEmailTemplate()">
+                      Delete template
+                    </button>
+                  }
+                </div>
+              </form>
+
+              @if (emailTemplateMessage()) {
+                <p class="success">{{ emailTemplateMessage() }}</p>
+              }
+
+              @if (emailTemplateError()) {
+                <p class="error">{{ emailTemplateError() }}</p>
+              }
+
+              <div class="merge-field-panel">
+                <p class="label">Supported merge fields</p>
+                <div class="chip-list">
+                  @for (field of availableTemplateFields(); track field) {
+                    <span class="chip">{{ field }}</span>
+                  }
+                </div>
+              </div>
+            </article>
+
+            <article class="template-preview">
+              <div class="section-head compact">
+                <div>
+                  <p class="eyebrow">Preview</p>
+                  <h3>Sample recruiter output</h3>
+                </div>
+              </div>
+
+              <div class="template-preview-fields">
+                <label>
+                  Candidate
+                  <input type="text" name="previewCandidateName" [(ngModel)]="previewCandidateName" />
+                </label>
+                <label>
+                  Candidate email
+                  <input type="text" name="previewCandidateEmail" [(ngModel)]="previewCandidateEmail" />
+                </label>
+                <label>
+                  Company
+                  <input type="text" name="previewCompany" [(ngModel)]="previewCompany" />
+                </label>
+                <label>
+                  Job title
+                  <input type="text" name="previewJobTitle" [(ngModel)]="previewJobTitle" />
+                </label>
+                <label>
+                  Interview date
+                  <input type="text" name="previewInterviewDate" [(ngModel)]="previewInterviewDate" />
+                </label>
+                <label>
+                  Recruiter
+                  <input type="text" name="previewRecruiterName" [(ngModel)]="previewRecruiterName" />
+                </label>
+                <label>
+                  Portal link
+                  <input type="text" name="previewPortalLink" [(ngModel)]="previewPortalLink" />
+                </label>
+                <label>
+                  Offer amount
+                  <input type="text" name="previewOfferAmount" [(ngModel)]="previewOfferAmount" />
+                </label>
+                <label>
+                  Onboarding due
+                  <input type="text" name="previewOnboardingDueDate" [(ngModel)]="previewOnboardingDueDate" />
+                </label>
+              </div>
+
+              @if (emailTemplatePreview()) {
+                <div class="rendered-preview">
+                  <p class="label">Subject</p>
+                  <strong>{{ emailTemplatePreview()!.subject }}</strong>
+                  <p class="label">Body</p>
+                  <pre>{{ emailTemplatePreview()!.bodyMarkdown }}</pre>
+                </div>
+              } @else {
+                <article class="activity-empty">
+                  <h3>No preview rendered yet</h3>
+                  <p>Use Preview merge fields to render the current subject and body with recruiter-safe sample values.</p>
+                </article>
+              }
+            </article>
+          </div>
+
+          <div class="saved-template-list">
+            @for (template of emailTemplates(); track template.id) {
+              <article class="saved-template-item">
+                <div>
+                  <strong>{{ template.name }}</strong>
+                  <p>{{ template.slug }}</p>
+                  <span>Updated {{ formatUtc(template.updatedAtUtc) }}</span>
+                </div>
+                <button type="button" class="secondary" (click)="editEmailTemplate(template.id)">
+                  Edit
+                </button>
+              </article>
+            } @empty {
+              <p class="empty">No tenant templates saved yet. Start from a preset and save your first recruiter-ready template.</p>
+            }
+          </div>
+        </section>
+
         <section class="activity-card">
           <div class="section-head">
             <div>
@@ -468,6 +644,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9a3412; font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+    .section-head.compact { margin-bottom: 0.7rem; }
     .board-copy { margin: 0.45rem 0 0; max-width: 36rem; }
     .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: #e7e5e4; color: #44403c; font-size: 0.85rem; font-weight: 700; }
     .job-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; margin-bottom: 1.25rem; }
@@ -521,9 +698,33 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .toolbar-stat strong { font-size: 1.1rem; }
     .bulk-control { min-width: 11rem; }
     .jobs-list { display: grid; gap: 0.8rem; }
-    .resume-review-card { margin-top: 1.25rem; }
+    .resume-review-card, .template-card { margin-top: 1.25rem; }
     .resume-review-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: 1rem; align-items: start; }
     .resume-upload-panel, .resume-preview-panel { display: grid; gap: 0.9rem; }
+    .template-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr); gap: 1rem; align-items: start; }
+    .template-editor, .template-preview { display: grid; gap: 0.9rem; }
+    .template-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; }
+    .template-hint { margin: -0.2rem 0 0; color: #7c6f5e; font-size: 0.92rem; }
+    .merge-field-panel { display: grid; }
+    .template-preview-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
+    .rendered-preview { display: grid; gap: 0.6rem; padding: 1rem; border-radius: 1rem; }
+    .rendered-preview pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font: inherit;
+      color: #554d41;
+    }
+    .saved-template-list { display: grid; gap: 0.8rem; margin-top: 1rem; }
+    .saved-template-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem;
+      border-radius: 1rem;
+      background: #fffdf9;
+      border: 1px solid #eadcc8;
+    }
+    .saved-template-item p, .saved-template-item span { margin: 0; color: #6b6255; }
     .invoice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
     .handoff-actions, .handoff-summary, .handoff-preview { display: grid; gap: 0.9rem; }
     .handoff-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); margin-bottom: 1rem; }
@@ -661,10 +862,11 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .empty { color: #7c6f5e; }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 980px) {
-      .hero, .workspace, .job-form, .resume-review-grid { grid-template-columns: 1fr; }
+      .hero, .workspace, .job-form, .resume-review-grid, .template-grid, .template-form, .template-preview-fields { grid-template-columns: 1fr; }
       .job-item { grid-template-columns: 1fr; }
       .slug { text-align: left; }
       .activity-top { flex-direction: column; }
+      .saved-template-item { align-items: start; flex-direction: column; }
     }
   `,
 })
@@ -679,20 +881,29 @@ export class RecruiterDashboardComponent {
   protected jobs = signal<RecruiterJob[]>([]);
   protected applications = signal<RecruiterApplication[]>([]);
   protected candidateActivity = signal<RecruiterCandidateActivityItem[]>([]);
+  protected emailTemplateCatalog = signal<EmailTemplateCatalog | null>(null);
+  protected emailTemplates = signal<RecruiterEmailTemplate[]>([]);
+  protected selectedEmailTemplateId = signal<string | null>(null);
+  protected emailTemplatePreview = signal<EmailTemplatePreviewResponse | null>(null);
   protected invoiceReady = signal<RecruiterInvoiceReadyItem[]>([]);
   protected invoiceHandoff = signal<RecruiterInvoiceHandoffResponse | null>(null);
   protected loadingJobs = signal(false);
   protected loadingApplications = signal(false);
   protected loadingActivity = signal(false);
+  protected loadingEmailTemplates = signal(false);
   protected loadingInvoiceReady = signal(false);
   protected loadingHandoff = signal(false);
   protected creatingJob = signal(false);
+  protected savingEmailTemplate = signal(false);
+  protected previewingEmailTemplate = signal(false);
   protected movingApplications = signal(false);
   protected parsingResume = signal(false);
   protected downloadingQuickBooks = signal(false);
   protected jobsError = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
   protected activityError = signal<string | null>(null);
+  protected emailTemplateError = signal<string | null>(null);
+  protected emailTemplateMessage = signal<string | null>(null);
   protected invoiceReadyError = signal<string | null>(null);
   protected handoffError = signal<string | null>(null);
   protected resumeParseError = signal<string | null>(null);
@@ -703,6 +914,27 @@ export class RecruiterDashboardComponent {
   protected jobSummary = '';
   protected jobDescription = '';
   protected jobPublished = true;
+  protected templatePresetSlug = 'interview-invite';
+  protected templateSlug = 'interview-invite';
+  protected templateName = 'Interview Invite';
+  protected templateSubject = 'Interview invite for {{job_title}}';
+  protected templateBodyMarkdown = `Hi {{candidate_name}},
+
+Thanks again for your interest in {{job_title}} at {{company}}.
+
+We'd like to invite you to a recruiter screen on {{interview_date}}.
+
+Best,
+{{recruiter_name}}`;
+  protected previewCandidateName = 'Jane Candidate';
+  protected previewCandidateEmail = 'jane@example.com';
+  protected previewCompany = 'Quantam Analytics';
+  protected previewJobTitle = 'Technical Recruiter - Cloud & Data';
+  protected previewInterviewDate = 'May 20, 2026 10:00 AM PT';
+  protected previewRecruiterName = 'Riley Recruiter';
+  protected previewPortalLink = 'https://quantamanalitics.com/jobs/technical-recruiter-cloud-and-data';
+  protected previewOfferAmount = '$145,000 base';
+  protected previewOnboardingDueDate = 'May 29, 2026';
   protected bulkMoveStatus = 'Interviewing';
   protected selectedApplicationIds = signal<string[]>([]);
   protected draggedApplicationId = signal<string | null>(null);
@@ -718,6 +950,8 @@ export class RecruiterDashboardComponent {
       this.fetchJobs();
       this.fetchApplications();
       this.fetchCandidateActivity();
+      this.fetchEmailTemplateCatalog();
+      this.fetchEmailTemplates();
       this.fetchInvoiceReady();
       this.fetchInvoiceHandoff();
     });
@@ -762,6 +996,19 @@ export class RecruiterDashboardComponent {
 
   protected stripeFallbackItems(): RecruiterStripeFallbackItem[] {
     return this.invoiceHandoff()?.stripeFallback.items ?? [];
+  }
+
+  protected availableTemplateFields(): string[] {
+    return this.emailTemplateCatalog()?.supportedMergeFields ?? [];
+  }
+
+  protected currentTemplate(): RecruiterEmailTemplate | null {
+    const selectedId = this.selectedEmailTemplateId();
+    if (!selectedId) {
+      return null;
+    }
+
+    return this.emailTemplates().find((template) => template.id === selectedId) ?? null;
   }
 
   protected toggleSelection(applicationId: string, selected: boolean): void {
@@ -927,6 +1174,121 @@ export class RecruiterDashboardComponent {
     });
   }
 
+  protected loadTemplatePreset(slug: string): void {
+    this.templatePresetSlug = slug;
+    const preset = this.emailTemplateCatalog()?.presets.find((item) => item.slug === slug);
+    if (!preset) {
+      return;
+    }
+
+    this.selectedEmailTemplateId.set(null);
+    this.templateSlug = preset.slug;
+    this.templateName = preset.name;
+    this.templateSubject = preset.subject;
+    this.templateBodyMarkdown = preset.bodyMarkdown;
+    this.emailTemplatePreview.set(null);
+    this.emailTemplateMessage.set(`Loaded starter template: ${preset.name}.`);
+  }
+
+  protected editEmailTemplate(templateId: string): void {
+    const template = this.emailTemplates().find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    this.selectedEmailTemplateId.set(template.id);
+    this.templateSlug = template.slug;
+    this.templateName = template.name;
+    this.templateSubject = template.subject;
+    this.templateBodyMarkdown = template.bodyMarkdown;
+    this.emailTemplateMessage.set(`Editing template: ${template.name}.`);
+  }
+
+  protected saveEmailTemplate(): void {
+    this.savingEmailTemplate.set(true);
+    this.emailTemplateError.set(null);
+    this.emailTemplateMessage.set(null);
+
+    const selectedId = this.selectedEmailTemplateId();
+    const request = {
+      slug: this.templateSlug,
+      name: this.templateName,
+      subject: this.templateSubject,
+      bodyMarkdown: this.templateBodyMarkdown,
+    };
+
+    const operation = selectedId
+      ? this.recruiter.updateEmailTemplate(selectedId, request)
+      : this.recruiter.createEmailTemplate(request);
+
+    operation.subscribe({
+      next: (template) => {
+        this.savingEmailTemplate.set(false);
+        this.selectedEmailTemplateId.set(template.id);
+        this.emailTemplates.update((items) => {
+          const existing = items.findIndex((item) => item.id === template.id);
+          if (existing >= 0) {
+            const next = [...items];
+            next[existing] = template;
+            return next.sort((a, b) => a.name.localeCompare(b.name));
+          }
+
+          return [template, ...items].sort((a, b) => a.name.localeCompare(b.name));
+        });
+        this.emailTemplateMessage.set(selectedId ? 'Template updated.' : 'Template created.');
+      },
+      error: (error: unknown) => {
+        this.savingEmailTemplate.set(false);
+        this.emailTemplateError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected deleteCurrentEmailTemplate(): void {
+    const template = this.currentTemplate();
+    if (!template) {
+      return;
+    }
+
+    this.emailTemplateError.set(null);
+    this.emailTemplateMessage.set(null);
+
+    this.recruiter.deleteEmailTemplate(template.id).subscribe({
+      next: () => {
+        this.emailTemplates.update((items) => items.filter((item) => item.id !== template.id));
+        this.selectedEmailTemplateId.set(null);
+        this.emailTemplatePreview.set(null);
+        this.loadTemplatePreset(this.templatePresetSlug);
+        this.emailTemplateMessage.set(`Deleted template: ${template.name}.`);
+      },
+      error: (error: unknown) => {
+        this.emailTemplateError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected previewCurrentEmailTemplate(): void {
+    this.previewingEmailTemplate.set(true);
+    this.emailTemplateError.set(null);
+    this.emailTemplateMessage.set(null);
+
+    this.recruiter.previewEmailTemplate({
+      subject: this.templateSubject,
+      bodyMarkdown: this.templateBodyMarkdown,
+      mergeFields: this.previewMergeFields(),
+    }).subscribe({
+      next: (preview) => {
+        this.previewingEmailTemplate.set(false);
+        this.emailTemplatePreview.set(preview);
+        this.emailTemplateMessage.set('Preview refreshed with current merge fields.');
+      },
+      error: (error: unknown) => {
+        this.previewingEmailTemplate.set(false);
+        this.emailTemplateError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
   protected downloadQuickBooksCsv(): void {
     this.downloadingQuickBooks.set(true);
     this.handoffError.set(null);
@@ -1034,6 +1396,55 @@ export class RecruiterDashboardComponent {
         this.invoiceReadyError.set(this.toErrorMessage(error));
       },
     });
+  }
+
+  private fetchEmailTemplateCatalog(): void {
+    this.recruiter.emailTemplateCatalog().subscribe({
+      next: (catalog) => {
+        this.emailTemplateCatalog.set(catalog);
+        const preset = catalog.presets.find((item) => item.slug === this.templatePresetSlug) ?? catalog.presets[0];
+        if (preset && !this.selectedEmailTemplateId()) {
+          this.templatePresetSlug = preset.slug;
+          this.templateSlug = preset.slug;
+          this.templateName = preset.name;
+          this.templateSubject = preset.subject;
+          this.templateBodyMarkdown = preset.bodyMarkdown;
+        }
+      },
+      error: (error: unknown) => {
+        this.emailTemplateError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private fetchEmailTemplates(): void {
+    this.loadingEmailTemplates.set(true);
+    this.emailTemplateError.set(null);
+
+    this.recruiter.emailTemplates().subscribe({
+      next: (response) => {
+        this.emailTemplates.set(response.items);
+        this.loadingEmailTemplates.set(false);
+      },
+      error: (error: unknown) => {
+        this.loadingEmailTemplates.set(false);
+        this.emailTemplateError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private previewMergeFields(): Record<string, string | null> {
+    return {
+      candidate_name: this.previewCandidateName,
+      candidate_email: this.previewCandidateEmail,
+      company: this.previewCompany,
+      job_title: this.previewJobTitle,
+      interview_date: this.previewInterviewDate,
+      recruiter_name: this.previewRecruiterName,
+      portal_link: this.previewPortalLink,
+      offer_amount: this.previewOfferAmount,
+      onboarding_due_date: this.previewOnboardingDueDate,
+    };
   }
 
   private fetchCandidateActivity(): void {

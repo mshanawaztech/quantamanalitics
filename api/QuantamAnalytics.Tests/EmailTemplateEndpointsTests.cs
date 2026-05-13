@@ -35,7 +35,7 @@ public sealed class EmailTemplateEndpointsTests : IAsyncLifetime
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.EnsureDeletedAsync();
-        await db.Database.MigrateAsync();
+        await db.Database.EnsureCreatedAsync();
     }
 
     public async Task DisposeAsync()
@@ -70,6 +70,57 @@ public sealed class EmailTemplateEndpointsTests : IAsyncLifetime
         body.Items[0].Slug.Should().Be("interview-invite");
         body.Items[0].Name.Should().Be("Interview Invite");
         body.Items[0].CreatedByAuthSubject.Should().Be("auth0|recruiter-1");
+    }
+
+    [Fact]
+    public async Task Catalog_returns_starter_templates_and_supported_merge_fields()
+    {
+        var tenantId = await SeedTenantAsync("acme", "Acme Staffing");
+        var recruiter = RecruiterFor(tenantId, "auth0|recruiter-1", "r@a.example");
+
+        var response = await recruiter.GetAsync("/api/v1/recruiter/email-templates/catalog");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<EmailTemplateCatalogResponse>();
+        body.Should().NotBeNull();
+        body!.Presets.Should().Contain(x => x.Slug == "interview-invite");
+        body.Presets.Should().Contain(x => x.Slug == "rejection-note");
+        body.SupportedMergeFields.Should().Contain("candidate_name");
+        body.SupportedMergeFields.Should().Contain("job_title");
+    }
+
+    [Fact]
+    public async Task Preview_renders_merge_fields_without_persisting_anything()
+    {
+        var tenantId = await SeedTenantAsync("acme", "Acme Staffing");
+        var recruiter = RecruiterFor(tenantId, "auth0|recruiter-1", "r@a.example");
+
+        var response = await recruiter.PostAsJsonAsync("/api/v1/recruiter/email-templates/preview", new
+        {
+            subject = "Interview invite for {{job_title}}",
+            bodyMarkdown = "Hi {{candidate_name}}, meet {{recruiter_name}} at {{company}}.",
+            mergeFields = new Dictionary<string, string?>
+            {
+                ["candidate_name"] = "Jane Candidate",
+                ["recruiter_name"] = "Riley Recruiter",
+                ["company"] = "Acme Staffing",
+                ["job_title"] = "Cloud Recruiter"
+            }
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<EmailTemplatePreviewResponse>();
+        body.Should().NotBeNull();
+        body!.Subject.Should().Be("Interview invite for Cloud Recruiter");
+        body.BodyMarkdown.Should().Contain("Hi Jane Candidate");
+        body.BodyMarkdown.Should().Contain("Riley Recruiter");
+        body.BodyMarkdown.Should().Contain("Acme Staffing");
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.EmailTemplates.CountAsync()).Should().Be(0, "preview is stateless and must not create template rows");
     }
 
     [Fact]
