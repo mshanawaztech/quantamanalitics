@@ -1,27 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
   RecruiterApplication,
+  RecruiterApplicationFilterPreset,
   RecruiterApplicationsBoard,
+  RecruiterApplicationsQuery,
   RecruiterPortalService,
 } from './core/recruiter/recruiter-portal.service';
 import { QaAlertComponent, QaEmptyStateComponent } from './core/ui';
-
-/**
- * PR-52 — recruiter pipeline kanban (`/recruiter/pipeline`).
- *
- * Five-column board (Applied → Interviewing → OfferSent → Hired → Rejected)
- * with HTML5 native drag-and-drop and a keyboard-accessible "Move…" menu.
- * Status changes are optimistic: the card moves locally first, then we
- * PATCH the API and roll back on failure with an inline alert. There is
- * no shared toast service yet, so the alert role + aria-live live on the
- * existing qa-alert primitive — TODO once core/ui ships a toast.
- *
- * Status enum values match the API's enum exactly, so the column id is
- * also the request payload value.
- */
 
 type PipelineStatus =
   | 'Applied'
@@ -29,6 +18,8 @@ type PipelineStatus =
   | 'OfferSent'
   | 'Hired'
   | 'Rejected';
+
+type PipelineFilterStatus = PipelineStatus | 'All';
 
 interface PipelineColumn {
   id: PipelineStatus;
@@ -55,16 +46,15 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
 @Component({
   selector: 'app-recruiter-pipeline',
   standalone: true,
-  imports: [QaAlertComponent, QaEmptyStateComponent],
+  imports: [FormsModule, QaAlertComponent, QaEmptyStateComponent],
   template: `
     <main class="page">
       <header class="head">
         <p class="eyebrow">Recruiter portal</p>
         <h1>Pipeline</h1>
         <p class="lede">
-          Drag cards between stages — or use each card's “Move…” menu — to
-          update an application's status. Changes save automatically and
-          undo if the server rejects them.
+          Search the board, save recruiter-specific views, tag candidate cards,
+          and run bulk actions without leaving the live pipeline.
         </p>
       </header>
 
@@ -81,17 +71,221 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
         </section>
       } @else {
         @if (errorMessage()) {
-          <qa-alert tone="danger" title="We couldn't move that card">
+          <qa-alert tone="danger" title="Recruiter pipeline action failed">
             {{ errorMessage() }}
           </qa-alert>
         }
+
+        <section class="controls">
+          <form class="filters" (ngSubmit)="applyFilters()">
+            <div class="controls__head">
+              <div>
+                <p class="eyebrow">Search and filter</p>
+                <h2>Focus the board without losing the pipeline context</h2>
+              </div>
+              @if (loading()) {
+                <span class="pill">Loading</span>
+              }
+            </div>
+
+            <label>
+              Search
+              <input
+                type="text"
+                [ngModel]="searchTerm()"
+                (ngModelChange)="searchTerm.set($event)"
+                name="search"
+                placeholder="Name, email, role, location, skills, or tags"
+              />
+            </label>
+
+            <label>
+              Stage
+              <select
+                [ngModel]="statusFilter()"
+                (ngModelChange)="statusFilter.set($event)"
+                name="status"
+              >
+                <option value="All">All stages</option>
+                @for (column of columns; track column.id) {
+                  <option [value]="column.id">{{ column.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              Tag
+              <select
+                [ngModel]="tagFilter()"
+                (ngModelChange)="tagFilter.set($event)"
+                name="tag"
+              >
+                <option value="">All tags</option>
+                @for (tag of availableTags(); track tag) {
+                  <option [value]="tag">{{ tag }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              Location
+              <select
+                [ngModel]="locationFilter()"
+                (ngModelChange)="locationFilter.set($event)"
+                name="location"
+              >
+                <option value="">All locations</option>
+                @for (location of availableLocations(); track location) {
+                  <option [value]="location">{{ location }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="checkbox">
+              <input
+                type="checkbox"
+                [ngModel]="stuckOnly()"
+                (ngModelChange)="stuckOnly.set($event)"
+                name="stuckOnly"
+              />
+              Only show candidates stuck longer than 7 days
+            </label>
+
+            <div class="actions full-width">
+              <button type="submit" class="primary" [disabled]="loading()">
+                {{ loading() ? 'Refreshing…' : 'Apply filters' }}
+              </button>
+              <button type="button" class="secondary" (click)="resetFilters()" [disabled]="loading()">
+                Reset
+              </button>
+              <span class="hint">{{ applications().length }} cards in current view</span>
+            </div>
+          </form>
+
+          <section class="saved">
+            <div class="controls__head">
+              <div>
+                <p class="eyebrow">Saved views</p>
+                <h2>Reuse common recruiter board presets</h2>
+              </div>
+            </div>
+
+            <label>
+              Saved filter
+              <select
+                [ngModel]="activePresetId()"
+                (ngModelChange)="applySavedFilter($event)"
+                name="savedPreset"
+              >
+                <option value="">Choose a saved view</option>
+                @for (preset of savedFilters(); track preset.id) {
+                  <option [value]="preset.id">{{ preset.name }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              Save current filters as
+              <input
+                type="text"
+                [ngModel]="presetName()"
+                (ngModelChange)="presetName.set($event)"
+                name="presetName"
+                placeholder="Urgent cloud intake"
+              />
+            </label>
+
+            <div class="actions">
+              <button type="button" class="primary" (click)="savePreset()" [disabled]="savingPreset()">
+                {{ savingPreset() ? 'Saving…' : 'Save preset' }}
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                (click)="deletePreset()"
+                [disabled]="!activePresetId() || savingPreset()"
+              >
+                Delete preset
+              </button>
+            </div>
+          </section>
+        </section>
+
+        <section class="bulk">
+          <div class="bulk__head">
+            <div>
+              <p class="eyebrow">Bulk actions</p>
+              <h2>Move or retag the cards you've selected</h2>
+            </div>
+            <span class="pill">{{ selectedCount() }} selected</span>
+          </div>
+
+          <div class="bulk__controls">
+            <button type="button" class="secondary" (click)="selectVisible()" [disabled]="applications().length === 0">
+              Select visible
+            </button>
+            <button type="button" class="secondary" (click)="clearSelection()" [disabled]="selectedCount() === 0">
+              Clear selection
+            </button>
+
+            <label>
+              Bulk stage
+              <select
+                [ngModel]="bulkMoveStatus()"
+                (ngModelChange)="bulkMoveStatus.set($event)"
+                name="bulkMoveStatus"
+              >
+                @for (column of columns; track column.id) {
+                  <option [value]="column.id">{{ column.label }}</option>
+                }
+              </select>
+            </label>
+
+            <button
+              type="button"
+              class="primary"
+              (click)="bulkMoveSelected()"
+              [disabled]="selectedCount() === 0 || bulkActionPending()"
+            >
+              {{ bulkActionPending() ? 'Working…' : 'Move selected' }}
+            </button>
+
+            <label class="bulk__tag">
+              Tags
+              <input
+                type="text"
+                [ngModel]="bulkTagText()"
+                (ngModelChange)="bulkTagText.set($event)"
+                name="bulkTagText"
+                placeholder="urgent, referred, backend"
+              />
+            </label>
+
+            <button
+              type="button"
+              class="secondary"
+              (click)="bulkTagSelected('Add')"
+              [disabled]="selectedCount() === 0 || bulkActionPending()"
+            >
+              Add tags
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              (click)="bulkTagSelected('Remove')"
+              [disabled]="selectedCount() === 0 || bulkActionPending()"
+            >
+              Remove tags
+            </button>
+          </div>
+        </section>
 
         @if (loading()) {
           <p class="loading" role="status">Loading pipeline…</p>
         }
 
         <section class="board" aria-label="Application pipeline">
-          @for (column of columns; track column.id) {
+          @for (column of visibleColumns(); track column.id) {
             <section
               class="column"
               [class.column--target]="dragTarget() === column.id"
@@ -111,19 +305,26 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
 
               <p class="column__desc">{{ column.description }}</p>
 
-              <div
-                class="column__list"
-                [attr.aria-label]="column.label + ' applications'"
-              >
+              <div class="column__list" [attr.aria-label]="column.label + ' applications'">
                 @for (application of applicationsByStatus(column.id); track application.id) {
                   <article
                     class="card"
                     draggable="true"
                     [attr.aria-grabbed]="draggingId() === application.id || null"
                     [attr.data-application-id]="application.id"
+                    [attr.data-selected]="isSelected(application.id) ? 'true' : null"
                     (dragstart)="onDragStart($event, application)"
                     (dragend)="onDragEnd()"
                   >
+                    <label class="card__select">
+                      <input
+                        type="checkbox"
+                        [checked]="isSelected(application.id)"
+                        (change)="toggleSelection(application.id, $any($event.target).checked)"
+                      />
+                      <span>Selected</span>
+                    </label>
+
                     <div class="card__top">
                       <strong class="card__name">{{ application.candidateName }}</strong>
                       <span class="dot dot--sm" [attr.data-kind]="dotKind(asStatus(application.status))" aria-hidden="true"></span>
@@ -131,7 +332,23 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
                     <p class="card__job">{{ application.jobTitle }}</p>
                     <p class="card__meta">
                       <span>{{ daysInStageLabel(application) }}</span>
+                      @if (application.isStuck) {
+                        <span class="stuck-chip">Stuck &gt; 7d</span>
+                      }
                     </p>
+
+                    @if (application.tags.length > 0) {
+                      <div class="tags" aria-label="Application tags">
+                        @for (tag of application.tags; track tag) {
+                          <span class="tag">{{ tag }}</span>
+                        }
+                      </div>
+                    }
+
+                    @if (application.note) {
+                      <p class="card__note">{{ application.note }}</p>
+                    }
+
                     <div class="card__actions">
                       <button
                         type="button"
@@ -188,7 +405,8 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
       font-size: var(--font-size-xs); font-weight: var(--font-weight-bold);
     }
     h1 { margin: 0; font-size: var(--font-size-3xl); color: var(--color-ink-strong); }
-    .lede { margin: 0; color: var(--color-ink-muted); max-width: 60ch; line-height: var(--line-height-base); }
+    h2 { margin: 0; color: var(--color-ink-strong); }
+    .lede { margin: 0; color: var(--color-ink-muted); max-width: 62ch; line-height: var(--line-height-base); }
     .gate {
       background: var(--color-surface); border: 1px solid var(--color-border);
       border-radius: var(--radius-lg); padding: var(--space-6);
@@ -196,13 +414,127 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
     }
     .gate h2 { margin: 0; color: var(--color-ink-strong); }
     .gate p { margin: 0; color: var(--color-ink-muted); }
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(20rem, 1fr);
+      gap: var(--space-4);
+    }
+    .filters,
+    .saved,
+    .bulk {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      box-shadow: var(--shadow-sm);
+      display: grid;
+      gap: var(--space-3);
+    }
+    .filters {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: end;
+    }
+    .controls__head,
+    .bulk__head {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-3);
+      align-items: start;
+      grid-column: 1 / -1;
+    }
+    .controls__head h2,
+    .bulk__head h2 {
+      font-size: var(--font-size-lg);
+    }
+    .pill {
+      border: 1px solid var(--color-border);
+      background: var(--color-surface-alt);
+      color: var(--color-ink-muted);
+      border-radius: var(--radius-pill);
+      padding: var(--space-1) var(--space-2);
+      font-size: var(--font-size-xs);
+      white-space: nowrap;
+    }
+    .filters label,
+    .saved label,
+    .bulk label {
+      display: grid;
+      gap: var(--space-1);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semi);
+      color: var(--color-ink-strong);
+    }
+    .full-width { grid-column: 1 / -1; }
+    input[type='text'],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-2) var(--space-3);
+      background: var(--color-surface);
+      color: var(--color-ink-strong);
+      font: inherit;
+    }
+    input[type='text']:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--color-primary-ring);
+      border-color: var(--color-primary);
+    }
+    .checkbox {
+      display: flex !important;
+      align-items: center;
+      gap: var(--space-2);
+      font-weight: var(--font-weight-regular) !important;
+      color: var(--color-ink);
+    }
+    .checkbox input {
+      width: auto;
+      accent-color: var(--color-primary);
+    }
+    .actions,
+    .bulk__controls {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .hint {
+      color: var(--color-ink-muted);
+      font-size: var(--font-size-xs);
+    }
+    .primary,
+    .secondary,
+    .card__move {
+      border-radius: var(--radius-pill);
+      font: inherit;
+      font-weight: var(--font-weight-semi);
+      cursor: pointer;
+      padding: var(--space-2) var(--space-4);
+    }
     .primary {
-      justify-self: start; padding: var(--space-2) var(--space-4);
-      background: var(--color-primary); color: var(--color-ink-onblue);
-      border: 0; border-radius: var(--radius-md); font: inherit;
-      font-weight: var(--font-weight-semi); cursor: pointer;
+      background: var(--color-primary);
+      color: var(--color-ink-onblue);
+      border: 0;
     }
     .primary:hover { background: var(--color-primary-hover); }
+    .secondary,
+    .card__move {
+      background: var(--color-surface-alt);
+      color: var(--color-ink-strong);
+      border: 1px solid var(--color-border);
+    }
+    .secondary:hover,
+    .card__move:hover {
+      background: var(--color-primary-soft);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+    .bulk__tag { min-width: 16rem; flex: 1; }
+    .saved { align-content: start; }
+    .bulk { display: grid; gap: var(--space-3); }
     .loading { margin: 0; color: var(--color-ink-muted); font-size: var(--font-size-sm); }
     .board {
       display: grid; grid-template-columns: repeat(5, minmax(15rem, 1fr));
@@ -240,22 +572,47 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
     .card:hover { box-shadow: var(--shadow-md); border-color: var(--color-border-strong); transform: translateY(-1px); }
     .card:active { cursor: grabbing; }
     .card[aria-grabbed='true'] { opacity: 0.55; }
+    .card[data-selected='true'] {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px var(--color-primary-ring);
+    }
+    .card__select {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--font-size-xs);
+      color: var(--color-ink-muted);
+    }
+    .card__select input { accent-color: var(--color-primary); }
     .card__top { display: flex; align-items: center; gap: var(--space-2); }
     .card__name {
       flex: 1; color: var(--color-ink-strong); font-size: var(--font-size-sm);
       font-weight: var(--font-weight-semi); overflow-wrap: anywhere;
     }
-    .card__job { margin: 0; color: var(--color-ink); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
-    .card__meta { margin: 0; color: var(--color-ink-muted); font-size: var(--font-size-xs); }
-    .card__actions { position: relative; }
-    .card__move {
-      padding: var(--space-1) var(--space-3); background: var(--color-surface-alt);
-      color: var(--color-ink-strong); border: 1px solid var(--color-border);
-      border-radius: var(--radius-pill); font: inherit;
-      font-size: var(--font-size-xs); font-weight: var(--font-weight-semi); cursor: pointer;
+    .card__job,
+    .card__note { margin: 0; color: var(--color-ink); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+    .card__meta { margin: 0; color: var(--color-ink-muted); font-size: var(--font-size-xs); display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .stuck-chip {
+      border-radius: var(--radius-pill);
+      background: rgba(185, 28, 28, 0.12);
+      color: var(--color-danger);
+      padding: 2px var(--space-2);
+      font-weight: var(--font-weight-semi);
     }
-    .card__move:hover { background: var(--color-primary-soft); border-color: var(--color-primary); color: var(--color-primary); }
-    .card__move:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-primary-ring); }
+    .tags {
+      display: flex;
+      gap: var(--space-1);
+      flex-wrap: wrap;
+    }
+    .tag {
+      border-radius: var(--radius-pill);
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      padding: 2px var(--space-2);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semi);
+    }
+    .card__actions { position: relative; }
     .card__menu {
       list-style: none; margin: var(--space-1) 0 0; padding: var(--space-1);
       background: var(--color-surface); border: 1px solid var(--color-border);
@@ -283,8 +640,14 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
     .dot[data-kind='offer']     { background: #d97706; }
     .dot[data-kind='hired']     { background: var(--color-success); }
     .dot[data-kind='rejected']  { background: var(--color-danger); }
-    @media (max-width: 1100px) { .board { grid-template-columns: repeat(3, minmax(15rem, 1fr)); } }
-    @media (max-width: 720px) { .board { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) {
+      .controls { grid-template-columns: 1fr; }
+      .board { grid-template-columns: repeat(3, minmax(15rem, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .filters { grid-template-columns: 1fr; }
+      .board { grid-template-columns: 1fr; }
+    }
   `,
 })
 export class RecruiterPipelineComponent {
@@ -295,23 +658,42 @@ export class RecruiterPipelineComponent {
   protected readonly columns = COLUMNS;
 
   protected readonly applications = signal<RecruiterApplication[]>([]);
+  protected readonly availableTags = signal<string[]>([]);
+  protected readonly availableLocations = signal<string[]>([]);
+  protected readonly savedFilters = signal<RecruiterApplicationFilterPreset[]>([]);
+
   protected readonly loading = signal(false);
+  protected readonly bulkActionPending = signal(false);
+  protected readonly savingPreset = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
-  /** The application currently being dragged, or null. */
   protected readonly draggingId = signal<string | null>(null);
-  /** The column the cursor is currently hovering during a drag. */
   protected readonly dragTarget = signal<PipelineStatus | null>(null);
-  /** Which card has its "Move…" menu open. */
   protected readonly openMenuId = signal<string | null>(null);
+  protected readonly selectedIds = signal<string[]>([]);
 
-  protected readonly hasData = computed(() => this.applications().length > 0);
+  protected readonly searchTerm = signal('');
+  protected readonly statusFilter = signal<PipelineFilterStatus>('All');
+  protected readonly tagFilter = signal('');
+  protected readonly locationFilter = signal('');
+  protected readonly stuckOnly = signal(false);
+  protected readonly activePresetId = signal('');
+  protected readonly presetName = signal('');
+  protected readonly bulkMoveStatus = signal<PipelineStatus>('Interviewing');
+  protected readonly bulkTagText = signal('');
+
+  protected readonly selectedCount = computed(() => this.selectedIds().length);
+  protected readonly visibleColumns = computed(() => {
+    const filter = this.statusFilter();
+    return filter === 'All' ? this.columns : this.columns.filter((column) => column.id === filter);
+  });
 
   constructor() {
     effect(() => {
       if (!this.hasRecruitingAccess()) {
         return;
       }
+
       this.fetchApplications();
     });
   }
@@ -322,11 +704,11 @@ export class RecruiterPipelineComponent {
   }
 
   protected applicationsByStatus(status: PipelineStatus): RecruiterApplication[] {
-    return this.applications().filter((a) => a.status === status);
+    return this.applications().filter((application) => application.status === status);
   }
 
   protected otherColumns(application: RecruiterApplication): readonly PipelineColumn[] {
-    return this.columns.filter((c) => c.id !== application.status);
+    return this.columns.filter((column) => column.id !== application.status);
   }
 
   protected dotKind(status: PipelineStatus): string {
@@ -334,9 +716,6 @@ export class RecruiterPipelineComponent {
   }
 
   protected asStatus(value: string): PipelineStatus {
-    // The API enum mirrors PipelineStatus exactly. If a tenant somehow
-    // returns an unknown value we fall back to "Applied" so the dot still
-    // renders rather than blanking.
     return (STATUS_DOT_KIND as Record<string, string>)[value]
       ? (value as PipelineStatus)
       : 'Applied';
@@ -351,16 +730,15 @@ export class RecruiterPipelineComponent {
     if (status === 'Applied') {
       return 'New applications will land here as candidates apply to open roles.';
     }
+
     if (status === 'Rejected') {
       return 'Closed-out applications appear here for historical reference.';
     }
+
     return 'Drag a card here, or use a card’s “Move…” menu to bring candidates into this stage.';
   }
 
   protected daysInStageLabel(application: RecruiterApplication): string {
-    // updatedAtUtc is the most recent status mutation; appliedAtUtc is the
-    // initial intake. We prefer updated for "days in stage" since that's
-    // what recruiters care about when triaging.
     const since = new Date(application.updatedAtUtc || application.appliedAtUtc);
     const now = new Date();
     const ms = now.getTime() - since.getTime();
@@ -368,6 +746,7 @@ export class RecruiterPipelineComponent {
     if (days === 0) {
       return 'Today';
     }
+
     return `${days} ${days === 1 ? 'day' : 'days'} in stage`;
   }
 
@@ -381,7 +760,175 @@ export class RecruiterPipelineComponent {
     this.changeStatus(application, target);
   }
 
-  // ── Drag and drop ──────────────────────────────────────────────────
+  protected toggleSelection(applicationId: string, selected: boolean): void {
+    this.selectedIds.update((current) => {
+      if (selected) {
+        return current.includes(applicationId) ? current : [...current, applicationId];
+      }
+
+      return current.filter((id) => id !== applicationId);
+    });
+  }
+
+  protected isSelected(applicationId: string): boolean {
+    return this.selectedIds().includes(applicationId);
+  }
+
+  protected selectVisible(): void {
+    this.selectedIds.set(this.applications().map((application) => application.id));
+  }
+
+  protected clearSelection(): void {
+    this.selectedIds.set([]);
+  }
+
+  protected applyFilters(): void {
+    this.activePresetId.set('');
+    this.fetchApplications();
+  }
+
+  protected resetFilters(): void {
+    this.searchTerm.set('');
+    this.statusFilter.set('All');
+    this.tagFilter.set('');
+    this.locationFilter.set('');
+    this.stuckOnly.set(false);
+    this.activePresetId.set('');
+    this.presetName.set('');
+    this.clearSelection();
+    this.fetchApplications();
+  }
+
+  protected applySavedFilter(presetId: string): void {
+    this.activePresetId.set(presetId);
+
+    if (!presetId) {
+      return;
+    }
+
+    const preset = this.savedFilters().find((item) => item.id === presetId);
+    if (!preset) {
+      return;
+    }
+
+    this.presetName.set(preset.name);
+    this.searchTerm.set(preset.search ?? '');
+    this.statusFilter.set((preset.status as PipelineFilterStatus | null) ?? 'All');
+    this.tagFilter.set(preset.tag ?? '');
+    this.locationFilter.set(preset.location ?? '');
+    this.stuckOnly.set(preset.stuckOnly);
+    this.fetchApplications();
+  }
+
+  protected savePreset(): void {
+    const name = this.presetName().trim();
+    if (!name) {
+      this.errorMessage.set('Give the filter preset a short name before saving it.');
+      return;
+    }
+
+    this.savingPreset.set(true);
+    this.errorMessage.set(null);
+
+    this.recruiter.saveApplicationFilterPreset({
+      presetId: this.activePresetId() || null,
+      name,
+      search: this.searchTerm().trim() || null,
+      status: this.statusFilter() === 'All' ? null : this.statusFilter(),
+      tag: this.tagFilter().trim() || null,
+      location: this.locationFilter().trim() || null,
+      stuckOnly: this.stuckOnly(),
+    }).subscribe({
+      next: (preset) => {
+        this.activePresetId.set(preset.id);
+        this.presetName.set(preset.name);
+        this.savingPreset.set(false);
+        this.fetchApplications();
+      },
+      error: (error: unknown) => {
+        this.savingPreset.set(false);
+        this.errorMessage.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected deletePreset(): void {
+    const presetId = this.activePresetId();
+    if (!presetId) {
+      return;
+    }
+
+    this.savingPreset.set(true);
+    this.errorMessage.set(null);
+
+    this.recruiter.deleteApplicationFilterPreset(presetId).subscribe({
+      next: () => {
+        this.activePresetId.set('');
+        this.presetName.set('');
+        this.savingPreset.set(false);
+        this.fetchApplications();
+      },
+      error: (error: unknown) => {
+        this.savingPreset.set(false);
+        this.errorMessage.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected bulkMoveSelected(): void {
+    if (this.selectedCount() === 0) {
+      return;
+    }
+
+    this.bulkActionPending.set(true);
+    this.errorMessage.set(null);
+
+    this.recruiter.bulkMoveApplications({
+      applicationIds: this.selectedIds(),
+      status: this.bulkMoveStatus(),
+    }).subscribe({
+      next: () => {
+        this.bulkActionPending.set(false);
+        this.clearSelection();
+        this.fetchApplications();
+      },
+      error: (error: unknown) => {
+        this.bulkActionPending.set(false);
+        this.errorMessage.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected bulkTagSelected(operation: 'Add' | 'Remove'): void {
+    const tags = this.bulkTagText()
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
+
+    if (this.selectedCount() === 0 || tags.length === 0) {
+      this.errorMessage.set('Select at least one card and enter one or more comma-separated tags.');
+      return;
+    }
+
+    this.bulkActionPending.set(true);
+    this.errorMessage.set(null);
+
+    this.recruiter.bulkUpdateApplicationTags({
+      applicationIds: this.selectedIds(),
+      tags,
+      operation,
+    }).subscribe({
+      next: () => {
+        this.bulkActionPending.set(false);
+        this.bulkTagText.set('');
+        this.fetchApplications();
+      },
+      error: (error: unknown) => {
+        this.bulkActionPending.set(false);
+        this.errorMessage.set(this.toErrorMessage(error));
+      },
+    });
+  }
 
   protected onDragStart(event: DragEvent, application: RecruiterApplication): void {
     this.draggingId.set(application.id);
@@ -397,24 +944,23 @@ export class RecruiterPipelineComponent {
   }
 
   protected onDragOver(event: DragEvent, target: PipelineStatus): void {
-    // preventDefault is required for a drop event to fire on this element.
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = 'move';
     }
+
     if (this.dragTarget() !== target) {
       this.dragTarget.set(target);
     }
   }
 
   protected onDragLeave(event: DragEvent, target: PipelineStatus): void {
-    // dragleave fires when crossing into a child element too; only clear
-    // the target when we leave the column outline itself.
     const related = event.relatedTarget as Node | null;
     const column = event.currentTarget as HTMLElement | null;
     if (column && related && column.contains(related)) {
       return;
     }
+
     if (this.dragTarget() === target) {
       this.dragTarget.set(null);
     }
@@ -430,7 +976,7 @@ export class RecruiterPipelineComponent {
       return;
     }
 
-    const application = this.applications().find((a) => a.id === id);
+    const application = this.applications().find((item) => item.id === id);
     if (!application) {
       return;
     }
@@ -438,14 +984,6 @@ export class RecruiterPipelineComponent {
     this.changeStatus(application, target);
   }
 
-  // ── State updates ──────────────────────────────────────────────────
-
-  /**
-   * Optimistic move: update local state first so the UI feels instant,
-   * then PATCH the API. On failure, restore the original status and
-   * surface a danger alert. The server-returned application replaces the
-   * placeholder so updatedAtUtc / status are authoritative on success.
-   */
   private changeStatus(application: RecruiterApplication, target: PipelineStatus): void {
     if (application.status === target) {
       return;
@@ -464,13 +1002,10 @@ export class RecruiterPipelineComponent {
     this.errorMessage.set(null);
 
     this.recruiter.moveApplication(application.id, target).subscribe({
-      next: (updated) => {
-        this.applications.update((items) =>
-          items.map((item) => (item.id === updated.id ? updated : item)),
-        );
+      next: () => {
+        this.fetchApplications();
       },
       error: (error: unknown) => {
-        // Roll back optimistic move so the UI matches server reality.
         this.applications.update((items) =>
           items.map((item) =>
             item.id === application.id ? { ...item, status: previousStatus } : item,
@@ -484,9 +1019,16 @@ export class RecruiterPipelineComponent {
   private fetchApplications(): void {
     this.loading.set(true);
     this.errorMessage.set(null);
-    this.recruiter.applications().subscribe({
+
+    this.recruiter.applications(this.currentQuery()).subscribe({
       next: (board: RecruiterApplicationsBoard) => {
         this.applications.set(board.items);
+        this.availableTags.set(board.availableTags);
+        this.availableLocations.set(board.availableLocations);
+        this.savedFilters.set(board.savedFilters);
+        this.selectedIds.update((current) =>
+          current.filter((id) => board.items.some((item) => item.id === id)),
+        );
         this.loading.set(false);
       },
       error: (error: unknown) => {
@@ -496,10 +1038,21 @@ export class RecruiterPipelineComponent {
     });
   }
 
+  private currentQuery(): RecruiterApplicationsQuery {
+    return {
+      search: this.searchTerm().trim() || null,
+      status: this.statusFilter() === 'All' ? null : this.statusFilter(),
+      tag: this.tagFilter().trim() || null,
+      location: this.locationFilter().trim() || null,
+      stuckOnly: this.stuckOnly(),
+    };
+  }
+
   private toErrorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       return error.error?.detail ?? error.error?.title ?? error.message;
     }
-    return error instanceof Error ? error.message : 'Could not update the application status.';
+
+    return error instanceof Error ? error.message : 'Could not update the recruiter pipeline.';
   }
 }

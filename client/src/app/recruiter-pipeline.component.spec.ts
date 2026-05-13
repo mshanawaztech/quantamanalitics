@@ -40,6 +40,7 @@ function makeApplication(
     updatedAtUtc: '2026-05-01T00:00:00Z',
     daysInStage: 1,
     isStuck: false,
+    tags: [],
     ...partial,
   };
 }
@@ -98,6 +99,9 @@ describe('RecruiterPipelineComponent', () => {
         makeApplication({ id: 'a2', status: 'Interviewing', candidateName: 'Sam Two' }),
         makeApplication({ id: 'a3', status: 'Hired', candidateName: 'Kai Three' }),
       ],
+      availableTags: [],
+      availableLocations: [],
+      savedFilters: [],
     });
     fixture.detectChanges();
 
@@ -123,6 +127,9 @@ describe('RecruiterPipelineComponent', () => {
       .expectOne(APPLICATIONS_URL)
       .flush({
         items: [makeApplication({ id: 'a1', status: 'Applied' })],
+        availableTags: [],
+        availableLocations: [],
+        savedFilters: [],
       });
     fixture.detectChanges();
 
@@ -155,6 +162,18 @@ describe('RecruiterPipelineComponent', () => {
       updatedAtUtc: '2026-05-08T12:00:00Z',
     });
 
+    httpMock.expectOne(APPLICATIONS_URL).flush({
+      items: [
+        {
+          ...makeApplication({ id: 'a1', status: 'Interviewing' }),
+          updatedAtUtc: '2026-05-08T12:00:00Z',
+        },
+      ],
+      availableTags: [],
+      availableLocations: [],
+      savedFilters: [],
+    });
+
     fixture.detectChanges();
     expect(component.applications()[0].status).toBe('Interviewing');
     expect(component.applications()[0].updatedAtUtc).toBe('2026-05-08T12:00:00Z');
@@ -168,6 +187,9 @@ describe('RecruiterPipelineComponent', () => {
       .expectOne(APPLICATIONS_URL)
       .flush({
         items: [makeApplication({ id: 'a1', status: 'Applied' })],
+        availableTags: [],
+        availableLocations: [],
+        savedFilters: [],
       });
     fixture.detectChanges();
 
@@ -204,6 +226,9 @@ describe('RecruiterPipelineComponent', () => {
       .expectOne(APPLICATIONS_URL)
       .flush({
         items: [makeApplication({ id: 'a1', status: 'Applied' })],
+        availableTags: [],
+        availableLocations: [],
+        savedFilters: [],
       });
     fixture.detectChanges();
 
@@ -230,5 +255,111 @@ describe('RecruiterPipelineComponent', () => {
     expect(move.request.method).toBe('POST');
     expect(move.request.body).toEqual({ status: 'OfferSent' });
     move.flush(makeApplication({ id: 'a1', status: 'OfferSent' }));
+
+    httpMock.expectOne(APPLICATIONS_URL).flush({
+      items: [makeApplication({ id: 'a1', status: 'OfferSent' })],
+      availableTags: [],
+      availableLocations: [],
+      savedFilters: [],
+    });
+  });
+
+  it('sends recruiter filter params when applying search controls', () => {
+    const fixture = TestBed.createComponent(RecruiterPipelineComponent);
+    fixture.detectChanges();
+
+    httpMock.expectOne(APPLICATIONS_URL).flush({
+      items: [],
+      availableTags: ['urgent'],
+      availableLocations: ['Dallas, TX · Hybrid'],
+      savedFilters: [],
+    });
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as {
+      searchTerm: ReturnType<typeof signal<string>>;
+      statusFilter: ReturnType<typeof signal<string>>;
+      tagFilter: ReturnType<typeof signal<string>>;
+      locationFilter: ReturnType<typeof signal<string>>;
+      stuckOnly: ReturnType<typeof signal<boolean>>;
+      applyFilters(): void;
+    };
+
+    component.searchTerm.set('cloud');
+    component.statusFilter.set('Interviewing');
+    component.tagFilter.set('urgent');
+    component.locationFilter.set('Dallas, TX · Hybrid');
+    component.stuckOnly.set(true);
+    component.applyFilters();
+
+    const req = httpMock.expectOne((request) =>
+      request.url === APPLICATIONS_URL &&
+      request.params.get('search') === 'cloud' &&
+      request.params.get('status') === 'Interviewing' &&
+      request.params.get('tag') === 'urgent' &&
+      request.params.get('location') === 'Dallas, TX · Hybrid' &&
+      request.params.get('stuckOnly') === 'true');
+
+    req.flush({
+      items: [],
+      availableTags: ['urgent'],
+      availableLocations: ['Dallas, TX · Hybrid'],
+      savedFilters: [],
+    });
+  });
+
+  it('posts bulk tag updates for the selected cards', () => {
+    const fixture = TestBed.createComponent(RecruiterPipelineComponent);
+    fixture.detectChanges();
+
+    httpMock.expectOne(APPLICATIONS_URL).flush({
+      items: [
+        makeApplication({ id: 'a1', status: 'Applied' }),
+        makeApplication({ id: 'a2', status: 'Applied' }),
+      ],
+      availableTags: [],
+      availableLocations: [],
+      savedFilters: [],
+    });
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as unknown as {
+      toggleSelection(id: string, selected: boolean): void;
+      bulkTagText: ReturnType<typeof signal<string>>;
+      bulkTagSelected(operation: 'Add' | 'Remove'): void;
+    };
+
+    component.toggleSelection('a1', true);
+    component.toggleSelection('a2', true);
+    component.bulkTagText.set('urgent, referred');
+    component.bulkTagSelected('Add');
+
+    const req = httpMock.expectOne(`${APPLICATIONS_URL}/bulk-tags`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      applicationIds: ['a1', 'a2'],
+      tags: ['urgent', 'referred'],
+      operation: 'Add',
+    });
+
+    req.flush({
+      requestedCount: 2,
+      operation: 'Add',
+      tags: ['urgent', 'referred'],
+      items: [
+        makeApplication({ id: 'a1', status: 'Applied', tags: ['urgent', 'referred'] }),
+        makeApplication({ id: 'a2', status: 'Applied', tags: ['urgent', 'referred'] }),
+      ],
+    });
+
+    httpMock.expectOne(APPLICATIONS_URL).flush({
+      items: [
+        makeApplication({ id: 'a1', status: 'Applied', tags: ['urgent', 'referred'] }),
+        makeApplication({ id: 'a2', status: 'Applied', tags: ['urgent', 'referred'] }),
+      ],
+      availableTags: ['urgent', 'referred'],
+      availableLocations: [],
+      savedFilters: [],
+    });
   });
 });

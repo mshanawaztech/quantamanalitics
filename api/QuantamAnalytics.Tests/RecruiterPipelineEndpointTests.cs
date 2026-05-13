@@ -1,23 +1,40 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Tests.Fixtures;
 using QuantamAnalytics.Tests.TestAuth;
 
 namespace QuantamAnalytics.Tests;
 
-public sealed class RecruiterPipelineEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(nameof(PostgresCollection))]
+public sealed class RecruiterPipelineEndpointTests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly PostgresFixture _postgres;
+    private IsolatedAppFactory _factory = default!;
 
-    public RecruiterPipelineEndpointTests(WebApplicationFactory<Program> factory)
+    public RecruiterPipelineEndpointTests(PostgresFixture postgres)
     {
-        _factory = factory;
+        _postgres = postgres;
+    }
+
+    public async Task InitializeAsync()
+    {
+        _factory = new IsolatedAppFactory(_postgres.ConnectionString);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.MigrateAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _factory.DisposeAsync();
     }
 
     [Fact]
@@ -45,6 +62,9 @@ public sealed class RecruiterPipelineEndpointTests : IClassFixture<WebApplicatio
         var applied = payload!.Items.Single(x => x.Id == seed.AppliedId);
         applied.IsStuck.Should().BeTrue();
         applied.DaysInStage.Should().BeGreaterThanOrEqualTo(9);
+        payload.AvailableTags.Should().Contain("urgent");
+        payload.AvailableLocations.Should().Contain("Dallas, TX · Hybrid");
+        payload.SavedFilters.Should().ContainSingle(x => x.Name == "Urgent applied");
     }
 
     [Fact]
@@ -80,6 +100,81 @@ public sealed class RecruiterPipelineEndpointTests : IClassFixture<WebApplicatio
             .Count(x => x.EventType == ApplicationTimelineEventType.StageChanged)
             .Should()
             .BeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task Applications_board_filters_by_search_tag_status_and_stuck()
+    {
+        var seed = SeedApplications(_factory.Services);
+        var client = CreateRecruiterClient(seed.TenantId);
+
+        var response = await client.GetAsync(
+            "/api/v1/recruiter/applications?search=cloud&tag=urgent&status=Applied&stuckOnly=true");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+
+        var payload = await response.Content.ReadFromJsonAsync<RecruiterApplicationsBoardResponse>();
+        payload.Should().NotBeNull();
+        payload!.Items.Should().ContainSingle();
+        payload.Items[0].Id.Should().Be(seed.AppliedId);
+        payload.Items[0].Tags.Should().Contain("urgent");
+    }
+
+    [Fact]
+    public async Task Bulk_tags_endpoint_adds_tags_to_multiple_cards()
+    {
+        var seed = SeedApplications(_factory.Services);
+        var client = CreateRecruiterClient(seed.TenantId);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/recruiter/applications/bulk-tags",
+            new BulkUpdateApplicationTagsRequest(
+                [seed.AppliedId, seed.SecondAppliedId],
+                ["priority", "backend"],
+                "Add"));
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+
+        var payload = await response.Content.ReadFromJsonAsync<RecruiterBulkTagUpdateResponse>();
+        payload.Should().NotBeNull();
+        payload!.Items.Should().HaveCount(2);
+        payload.Items.Should().OnlyContain(x => x.Tags.Contains("priority"));
+        payload.Items.Should().OnlyContain(x => x.Tags.Contains("backend"));
+    }
+
+    [Fact]
+    public async Task Save_filter_endpoint_creates_and_lists_recruiter_preset()
+    {
+        var seed = SeedApplications(_factory.Services);
+        var client = CreateRecruiterClient(seed.TenantId);
+
+        var saveResponse = await client.PostAsJsonAsync(
+            "/api/v1/recruiter/applications/filters",
+            new SaveRecruiterApplicationFilterPresetRequest(
+                null,
+                "Offer follow-up",
+                "jane",
+                "Interviewing",
+                "urgent",
+                "Dallas",
+                false));
+        var saveBody = await saveResponse.Content.ReadAsStringAsync();
+
+        saveResponse.StatusCode.Should().Be(HttpStatusCode.OK, saveBody);
+
+        var boardResponse = await client.GetAsync("/api/v1/recruiter/applications");
+        var boardBody = await boardResponse.Content.ReadAsStringAsync();
+
+        boardResponse.StatusCode.Should().Be(HttpStatusCode.OK, boardBody);
+
+        var board = await boardResponse.Content.ReadFromJsonAsync<RecruiterApplicationsBoardResponse>();
+        board.Should().NotBeNull();
+        board!.SavedFilters.Should().Contain(x =>
+            x.Name == "Offer follow-up" &&
+            x.Tag == "urgent" &&
+            x.Status == "Interviewing");
     }
 
     private HttpClient CreateRecruiterClient(Guid tenantId) =>
@@ -142,6 +237,34 @@ public sealed class RecruiterPipelineEndpointTests : IClassFixture<WebApplicatio
             create unique index if not exists ix_applications_tenant_id_job_id_candidate_profile_id on applications (tenant_id, job_id, candidate_profile_id);
             create index if not exists ix_applications_tenant_id_status on applications (tenant_id, status);
 
+            create table if not exists application_tags (
+              id uuid primary key,
+              tenant_id uuid not null references tenants(id) on delete cascade,
+              application_id uuid not null references applications(id) on delete cascade,
+              name character varying(64) not null,
+              created_at_utc timestamp with time zone not null
+            );
+            create unique index if not exists ix_application_tags_tenant_id_application_id_name
+              on application_tags (tenant_id, application_id, name);
+            create index if not exists ix_application_tags_tenant_id_name
+              on application_tags (tenant_id, name);
+
+            create table if not exists recruiter_application_filter_presets (
+              id uuid primary key,
+              tenant_id uuid not null references tenants(id) on delete cascade,
+              created_by_auth_subject character varying(200) not null,
+              name character varying(120) not null,
+              search character varying(160),
+              status character varying(32),
+              tag character varying(64),
+              location character varying(160),
+              stuck_only boolean not null,
+              created_at_utc timestamp with time zone not null,
+              updated_at_utc timestamp with time zone not null
+            );
+            create unique index if not exists ix_recruiter_application_filter_presets_tenant_id_created_by_auth_subject_name
+              on recruiter_application_filter_presets (tenant_id, created_by_auth_subject, name);
+
             create table if not exists application_timeline_events (
               id uuid primary key,
               tenant_id uuid not null references tenants(id) on delete cascade,
@@ -161,6 +284,8 @@ public sealed class RecruiterPipelineEndpointTests : IClassFixture<WebApplicatio
               on application_timeline_events (tenant_id, candidate_profile_id, occurred_at_utc);
 
             delete from application_timeline_events;
+            delete from recruiter_application_filter_presets;
+            delete from application_tags;
             delete from applications;
             delete from candidate_profiles;
             delete from jobs;
@@ -210,7 +335,26 @@ public sealed class RecruiterPipelineEndpointTests : IClassFixture<WebApplicatio
         db.Jobs.Add(job);
         db.CandidateProfiles.AddRange(firstCandidate, secondCandidate);
         db.Applications.AddRange(applied, secondApplied);
+        db.ApplicationTags.AddRange(
+            new ApplicationTag(tenant.Id, applied.Id, "urgent"),
+            new ApplicationTag(tenant.Id, applied.Id, "cloud"),
+            new ApplicationTag(tenant.Id, secondApplied.Id, "backend"));
+        db.RecruiterApplicationFilterPresets.Add(new RecruiterApplicationFilterPreset(
+            tenant.Id,
+            "auth0|recruiter-1",
+            "Urgent applied",
+            "jane",
+            "Applied",
+            "urgent",
+            "Dallas",
+            true));
         db.SaveChanges();
+
+        db.Database.ExecuteSqlInterpolated($"""
+            update applications
+            set updated_at_utc = {DateTimeOffset.UtcNow.AddDays(-9)}
+            where id = {applied.Id};
+            """);
 
         return new SeededApplications(tenant.Id, applied.Id, secondApplied.Id);
     }

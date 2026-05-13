@@ -26,6 +26,9 @@ public static class RecruiterPortalEndpoint
 
         group.MapGet("/applications", GetApplicationsAsync);
         group.MapPost("/applications/bulk-status", BulkUpdateApplicationStatusAsync);
+        group.MapPost("/applications/bulk-tags", BulkUpdateApplicationTagsAsync);
+        group.MapPost("/applications/filters", SaveApplicationFilterPresetAsync);
+        group.MapDelete("/applications/filters/{filterPresetId:guid}", DeleteApplicationFilterPresetAsync);
         group.MapGet("/applications/{applicationId:guid}/timeline", GetApplicationTimelineAsync);
         group.MapPost("/applications/{applicationId:guid}/timeline/comments", AddApplicationTimelineCommentAsync);
         group.MapGet("/candidates/activity", GetCandidateActivityAsync);
@@ -140,6 +143,8 @@ public static class RecruiterPortalEndpoint
     }
 
     private static async Task<Results<Ok<RecruiterApplicationsBoardResponse>, ProblemHttpResult>> GetApplicationsAsync(
+        [AsParameters] RecruiterApplicationQuery request,
+        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
@@ -150,17 +155,138 @@ public static class RecruiterPortalEndpoint
         }
 
         var nowUtc = DateTimeOffset.UtcNow;
+        var search = NormalizeSearchValue(request.Search);
+        var status = NormalizeSearchValue(request.Status);
+        var tag = NormalizeSearchValue(request.Tag);
+        var location = NormalizeSearchValue(request.Location);
+        var stuckBeforeUtc = nowUtc - StuckThreshold;
 
-        var items = await db.Applications
-            .OrderByDescending(x => x.AppliedAtUtc)
+        if (!string.IsNullOrWhiteSpace(status) && !IsSupportedFilterStatus(status))
+        {
+            return TypedResults.Problem(
+                title: "Unsupported filter status",
+                detail: "Use Applied, Interviewing, OfferSent, Hired, or Rejected.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var query = db.Applications
+            .AsNoTracking()
             .Join(
-                db.Jobs,
+                db.Jobs.AsNoTracking(),
                 application => application.JobId,
                 job => job.Id,
-                (application, job) => ToRecruiterApplicationResponse(application, job.Id, job.Title, nowUtc))
+                (application, job) => new { Application = application, Job = job })
+            .Join(
+                db.CandidateProfiles.AsNoTracking(),
+                joined => joined.Application.CandidateProfileId,
+                candidate => candidate.Id,
+                (joined, candidate) => new
+                {
+                    joined.Application,
+                    joined.Job,
+                    Candidate = candidate,
+                });
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search}%";
+            query = query.Where(x =>
+                EF.Functions.ILike(x.Application.CandidateName, pattern) ||
+                EF.Functions.ILike(x.Application.CandidateEmail, pattern) ||
+                EF.Functions.ILike(x.Job.Title, pattern) ||
+                EF.Functions.ILike(x.Job.Location, pattern) ||
+                (x.Candidate.Headline != null && EF.Functions.ILike(x.Candidate.Headline, pattern)) ||
+                (x.Candidate.Summary != null && EF.Functions.ILike(x.Candidate.Summary, pattern)) ||
+                db.ApplicationTags.Any(t =>
+                    t.ApplicationId == x.Application.Id &&
+                    EF.Functions.ILike(t.Name, pattern)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(x => x.Application.Status.ToString() == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            query = query.Where(x =>
+                db.ApplicationTags.Any(t =>
+                    t.ApplicationId == x.Application.Id &&
+                    t.Name == tag));
+        }
+
+        if (!string.IsNullOrWhiteSpace(location))
+        {
+            var pattern = $"%{location}%";
+            query = query.Where(x => EF.Functions.ILike(x.Job.Location, pattern));
+        }
+
+        if (request.StuckOnly == true)
+        {
+            query = query.Where(x => x.Application.UpdatedAtUtc <= stuckBeforeUtc);
+        }
+
+        var rows = await query
+            .OrderByDescending(x => x.Application.AppliedAtUtc)
             .ToArrayAsync(cancellationToken);
 
-        return TypedResults.Ok(new RecruiterApplicationsBoardResponse(items));
+        var applicationIds = rows
+            .Select(x => x.Application.Id)
+            .ToArray();
+
+        var tagsByApplicationId = await GetTagsByApplicationIdAsync(
+            db,
+            applicationIds,
+            cancellationToken);
+
+        var availableTags = await db.ApplicationTags
+            .AsNoTracking()
+            .OrderBy(x => x.Name)
+            .Select(x => x.Name)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+
+        var availableLocations = await db.Jobs
+            .AsNoTracking()
+            .OrderBy(x => x.Location)
+            .Select(x => x.Location)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+
+        var currentSubject = ResolveActorSubject(user);
+        var savedFilters =
+            currentSubject is null
+                ? []
+                : await db.RecruiterApplicationFilterPresets
+                    .AsNoTracking()
+                    .Where(x => x.CreatedByAuthSubject == currentSubject)
+                    .OrderBy(x => x.Name)
+                    .Select(x => new RecruiterApplicationFilterPresetResponse(
+                        x.Id,
+                        x.Name,
+                        x.Search,
+                        x.Status,
+                        x.Tag,
+                        x.Location,
+                        x.StuckOnly,
+                        x.CreatedAtUtc,
+                        x.UpdatedAtUtc))
+                    .ToArrayAsync(cancellationToken);
+
+        var items = rows
+            .Select(x => ToRecruiterApplicationResponse(
+                x.Application,
+                x.Job.Id,
+                x.Job.Title,
+                nowUtc,
+                tagsByApplicationId.GetValueOrDefault(x.Application.Id, [])))
+            .ToArray();
+
+        return TypedResults.Ok(new RecruiterApplicationsBoardResponse(
+            items,
+            availableTags,
+            availableLocations,
+            savedFilters));
     }
 
     private static async Task<Results<Ok<RecruiterBulkStatusMoveResponse>, ProblemHttpResult>> BulkUpdateApplicationStatusAsync(
@@ -224,6 +350,10 @@ public static class RecruiterPortalEndpoint
             .Select(x => x.JobId)
             .Distinct()
             .ToArray();
+        var tagsByApplicationId = await GetTagsByApplicationIdAsync(
+            db,
+            applications.Select(x => x.Id).ToArray(),
+            cancellationToken);
 
         var jobTitles = await db.Jobs
             .Where(x => jobIds.Contains(x.Id))
@@ -231,7 +361,12 @@ public static class RecruiterPortalEndpoint
 
         var items = applications
             .Where(x => jobTitles.ContainsKey(x.JobId))
-            .Select(x => ToRecruiterApplicationResponse(x, x.JobId, jobTitles[x.JobId], nowUtc))
+            .Select(x => ToRecruiterApplicationResponse(
+                x,
+                x.JobId,
+                jobTitles[x.JobId],
+                nowUtc,
+                tagsByApplicationId.GetValueOrDefault(x.Id, [])))
             .OrderByDescending(x => x.UpdatedAtUtc)
             .ToArray();
 
@@ -240,6 +375,273 @@ public static class RecruiterPortalEndpoint
             movedCount,
             request.Status,
             items));
+    }
+
+    private static async Task<Results<Ok<RecruiterBulkTagUpdateResponse>, ProblemHttpResult>> BulkUpdateApplicationTagsAsync(
+        BulkUpdateApplicationTagsRequest request,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var applicationIds = request.ApplicationIds
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        var normalizedTags = request.Tags
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(ApplicationTag.Normalize)
+            .Distinct()
+            .ToArray();
+
+        if (applicationIds.Length == 0)
+        {
+            return TypedResults.Problem(
+                title: "Applications required",
+                detail: "Select at least one candidate card before applying bulk tags.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (normalizedTags.Length == 0)
+        {
+            return TypedResults.Problem(
+                title: "Tags required",
+                detail: "Add at least one tag before running the bulk tag action.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (!IsSupportedTagOperation(request.Operation))
+        {
+            return TypedResults.Problem(
+                title: "Unsupported tag operation",
+                detail: "Use Add or Remove when changing tags in bulk.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var applications = await db.Applications
+            .Where(x => applicationIds.Contains(x.Id))
+            .OrderByDescending(x => x.AppliedAtUtc)
+            .ToArrayAsync(cancellationToken);
+
+        var jobIds = applications
+            .Select(x => x.JobId)
+            .Distinct()
+            .ToArray();
+
+        var jobTitles = await db.Jobs
+            .Where(x => jobIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Title, cancellationToken);
+
+        var existingTags = await db.ApplicationTags
+            .Where(x => applicationIds.Contains(x.ApplicationId))
+            .ToListAsync(cancellationToken);
+
+        if (request.Operation == "Add")
+        {
+            var existingKeySet = existingTags
+                .Select(x => $"{x.ApplicationId:N}:{x.Name}")
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var applicationId in applicationIds)
+            {
+                foreach (var tag in normalizedTags)
+                {
+                    var key = $"{applicationId:N}:{tag}";
+                    if (!existingKeySet.Add(key))
+                    {
+                        continue;
+                    }
+
+                    db.ApplicationTags.Add(new ApplicationTag(
+                        currentTenant.TenantId.Value,
+                        applicationId,
+                        tag));
+                }
+            }
+        }
+        else
+        {
+            var toRemove = existingTags
+                .Where(x => normalizedTags.Contains(x.Name))
+                .ToArray();
+
+            db.ApplicationTags.RemoveRange(toRemove);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var tagsByApplicationId = await GetTagsByApplicationIdAsync(
+            db,
+            applications.Select(x => x.Id).ToArray(),
+            cancellationToken);
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        var items = applications
+            .Where(x => jobTitles.ContainsKey(x.JobId))
+            .Select(x => ToRecruiterApplicationResponse(
+                x,
+                x.JobId,
+                jobTitles[x.JobId],
+                nowUtc,
+                tagsByApplicationId.GetValueOrDefault(x.Id, [])))
+            .ToArray();
+
+        return TypedResults.Ok(new RecruiterBulkTagUpdateResponse(
+            applicationIds.Length,
+            request.Operation,
+            normalizedTags,
+            items));
+    }
+
+    private static async Task<Results<Ok<RecruiterApplicationFilterPresetResponse>, ProblemHttpResult>> SaveApplicationFilterPresetAsync(
+        SaveRecruiterApplicationFilterPresetRequest request,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return TypedResults.Problem(
+                title: "Preset name required",
+                detail: "Give the saved filter a short name so recruiters can reuse it later.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Status) && !IsSupportedFilterStatus(request.Status))
+        {
+            return TypedResults.Problem(
+                title: "Unsupported filter status",
+                detail: "Use Applied, Interviewing, OfferSent, Hired, or Rejected.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var currentSubject = ResolveActorSubject(user);
+        if (currentSubject is null)
+        {
+            return TypedResults.Problem(
+                title: "Recruiter identity required",
+                detail: "Saved filters require a stable authenticated recruiter subject.",
+                statusCode: StatusCodes.Status412PreconditionFailed);
+        }
+
+        var normalizedTag = NormalizeSearchValue(request.Tag);
+
+        RecruiterApplicationFilterPreset preset;
+        if (request.PresetId is Guid presetId && presetId != Guid.Empty)
+        {
+            preset = await db.RecruiterApplicationFilterPresets
+                .SingleOrDefaultAsync(x => x.Id == presetId && x.CreatedByAuthSubject == currentSubject, cancellationToken)
+                ?? new RecruiterApplicationFilterPreset(
+                    currentTenant.TenantId.Value,
+                    currentSubject,
+                    request.Name,
+                    request.Search,
+                    request.Status,
+                    normalizedTag,
+                    request.Location,
+                    request.StuckOnly);
+
+            if (preset.Id == presetId)
+            {
+                preset.UpdateCriteria(
+                    request.Name,
+                    request.Search,
+                    request.Status,
+                    normalizedTag,
+                    request.Location,
+                    request.StuckOnly);
+            }
+            else
+            {
+                db.RecruiterApplicationFilterPresets.Add(preset);
+            }
+        }
+        else
+        {
+            preset = await db.RecruiterApplicationFilterPresets
+                .SingleOrDefaultAsync(
+                    x => x.CreatedByAuthSubject == currentSubject && x.Name == request.Name.Trim(),
+                    cancellationToken)
+                ?? new RecruiterApplicationFilterPreset(
+                    currentTenant.TenantId.Value,
+                    currentSubject,
+                    request.Name,
+                    request.Search,
+                    request.Status,
+                    normalizedTag,
+                    request.Location,
+                    request.StuckOnly);
+
+            if (db.Entry(preset).State == EntityState.Detached)
+            {
+                db.RecruiterApplicationFilterPresets.Add(preset);
+            }
+            else
+            {
+                preset.UpdateCriteria(
+                    request.Name,
+                    request.Search,
+                    request.Status,
+                    normalizedTag,
+                    request.Location,
+                    request.StuckOnly);
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(new RecruiterApplicationFilterPresetResponse(
+            preset.Id,
+            preset.Name,
+            preset.Search,
+            preset.Status,
+            preset.Tag,
+            preset.Location,
+            preset.StuckOnly,
+            preset.CreatedAtUtc,
+            preset.UpdatedAtUtc));
+    }
+
+    private static async Task<Results<NoContent, NotFound, ProblemHttpResult>> DeleteApplicationFilterPresetAsync(
+        Guid filterPresetId,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var currentSubject = ResolveActorSubject(user);
+        if (currentSubject is null)
+        {
+            return TenantRequired();
+        }
+
+        var preset = await db.RecruiterApplicationFilterPresets
+            .SingleOrDefaultAsync(x => x.Id == filterPresetId && x.CreatedByAuthSubject == currentSubject, cancellationToken);
+        if (preset is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        db.RecruiterApplicationFilterPresets.Remove(preset);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.NoContent();
     }
 
     private static async Task<Results<Ok<RecruiterCandidateActivityResponse>, ProblemHttpResult>> GetCandidateActivityAsync(
@@ -524,11 +926,16 @@ public static class RecruiterPortalEndpoint
         await db.SaveChangesAsync(cancellationToken);
 
         var job = await db.Jobs.SingleAsync(x => x.Id == application.JobId, cancellationToken);
+        var tagsByApplicationId = await GetTagsByApplicationIdAsync(
+            db,
+            [application.Id],
+            cancellationToken);
         return TypedResults.Ok(ToRecruiterApplicationResponse(
             application,
             job.Id,
             job.Title,
-            DateTimeOffset.UtcNow));
+            DateTimeOffset.UtcNow,
+            tagsByApplicationId.GetValueOrDefault(application.Id, [])));
     }
 
     private static RecruiterJobResponse ToJobResponse(Job job) =>
@@ -538,7 +945,8 @@ public static class RecruiterPortalEndpoint
         Application application,
         Guid jobId,
         string jobTitle,
-        DateTimeOffset nowUtc)
+        DateTimeOffset nowUtc,
+        string[] tags)
     {
         var daysInStage = Math.Max(0, (int)Math.Floor((nowUtc - application.UpdatedAtUtc).TotalDays));
 
@@ -553,7 +961,8 @@ public static class RecruiterPortalEndpoint
             application.AppliedAtUtc,
             application.UpdatedAtUtc,
             daysInStage,
-            daysInStage >= StuckThreshold.TotalDays);
+            daysInStage >= StuckThreshold.TotalDays,
+            tags);
     }
 
     private static RecruiterInvoiceReadyItemResponse[] ToInvoiceReadyItems(IEnumerable<Timesheet> timesheets) =>
@@ -583,6 +992,15 @@ public static class RecruiterPortalEndpoint
     private static bool IsSupportedStatus(string status) =>
         status is "Interviewing" or "OfferSent" or "Hired" or "Rejected";
 
+    private static bool IsSupportedFilterStatus(string status) =>
+        status is "Applied" or "Interviewing" or "OfferSent" or "Hired" or "Rejected";
+
+    private static bool IsSupportedTagOperation(string operation) =>
+        operation is "Add" or "Remove";
+
+    private static string? NormalizeSearchValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static void ApplyStatusTransition(Application application, string status)
     {
         switch (status)
@@ -606,6 +1024,33 @@ public static class RecruiterPortalEndpoint
         user.FindFirstValue("name") ??
         user.FindFirstValue(ClaimTypes.Email) ??
         "Recruiter operations";
+
+    private static string? ResolveActorSubject(ClaimsPrincipal user) =>
+        user.FindFirstValue("sub") ??
+        user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+    private static async Task<Dictionary<Guid, string[]>> GetTagsByApplicationIdAsync(
+        AppDbContext db,
+        Guid[] applicationIds,
+        CancellationToken cancellationToken)
+    {
+        if (applicationIds.Length == 0)
+        {
+            return [];
+        }
+
+        var tags = await db.ApplicationTags
+            .AsNoTracking()
+            .Where(x => applicationIds.Contains(x.ApplicationId))
+            .OrderBy(x => x.Name)
+            .ToArrayAsync(cancellationToken);
+
+        return tags
+            .GroupBy(x => x.ApplicationId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(x => x.Name).ToArray());
+    }
 
     private static ApplicationTimelineEvent CreateStageTimelineEvent(
         Guid tenantId,
@@ -677,6 +1122,29 @@ public sealed record BulkUpdateApplicationStatusRequest(
     Guid[] ApplicationIds,
     string Status);
 
+public sealed record BulkUpdateApplicationTagsRequest(
+    Guid[] ApplicationIds,
+    string[] Tags,
+    string Operation);
+
+public sealed record SaveRecruiterApplicationFilterPresetRequest(
+    Guid? PresetId,
+    string Name,
+    string? Search,
+    string? Status,
+    string? Tag,
+    string? Location,
+    bool StuckOnly);
+
+public sealed class RecruiterApplicationQuery
+{
+    public string? Search { get; init; }
+    public string? Status { get; init; }
+    public string? Tag { get; init; }
+    public string? Location { get; init; }
+    public bool? StuckOnly { get; init; }
+}
+
 public sealed record RecruiterJobResponse(
     Guid Id,
     string Title,
@@ -698,15 +1166,37 @@ public sealed record RecruiterApplicationResponse(
     DateTimeOffset AppliedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     int DaysInStage,
-    bool IsStuck);
+    bool IsStuck,
+    string[] Tags);
 
-public sealed record RecruiterApplicationsBoardResponse(RecruiterApplicationResponse[] Items);
+public sealed record RecruiterApplicationsBoardResponse(
+    RecruiterApplicationResponse[] Items,
+    string[] AvailableTags,
+    string[] AvailableLocations,
+    RecruiterApplicationFilterPresetResponse[] SavedFilters);
 
 public sealed record RecruiterBulkStatusMoveResponse(
     int RequestedCount,
     int UpdatedCount,
     string Status,
     RecruiterApplicationResponse[] Items);
+
+public sealed record RecruiterBulkTagUpdateResponse(
+    int RequestedCount,
+    string Operation,
+    string[] Tags,
+    RecruiterApplicationResponse[] Items);
+
+public sealed record RecruiterApplicationFilterPresetResponse(
+    Guid Id,
+    string Name,
+    string? Search,
+    string? Status,
+    string? Tag,
+    string? Location,
+    bool StuckOnly,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc);
 
 public sealed record RecruiterInvoiceReadyResponse(RecruiterInvoiceReadyItemResponse[] Items);
 

@@ -33,7 +33,9 @@ public class AppDbContext : DbContext
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<CandidateProfile> CandidateProfiles => Set<CandidateProfile>();
     public DbSet<Application> Applications => Set<Application>();
+    public DbSet<ApplicationTag> ApplicationTags => Set<ApplicationTag>();
     public DbSet<ApplicationTimelineEvent> ApplicationTimelineEvents => Set<ApplicationTimelineEvent>();
+    public DbSet<RecruiterApplicationFilterPreset> RecruiterApplicationFilterPresets => Set<RecruiterApplicationFilterPreset>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<InterviewEvent> InterviewEvents => Set<InterviewEvent>();
     public DbSet<BackgroundCheck> BackgroundChecks => Set<BackgroundCheck>();
