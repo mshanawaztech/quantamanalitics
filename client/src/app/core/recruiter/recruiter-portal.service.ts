@@ -24,9 +24,23 @@ export interface RecruiterApplication {
   status: string;
   appliedAtUtc: string;
   updatedAtUtc: string;
+  daysInStage: number;
+  isStuck: boolean;
 }
 
 export interface RecruiterApplicationsBoard {
+  items: RecruiterApplication[];
+}
+
+export interface RecruiterBulkStatusMoveRequest {
+  applicationIds: string[];
+  status: string;
+}
+
+export interface RecruiterBulkStatusMoveResponse {
+  requestedCount: number;
+  updatedCount: number;
+  status: string;
   items: RecruiterApplication[];
 }
 
@@ -140,6 +154,13 @@ export class RecruiterPortalService {
     return this.http.post<RecruiterApplication>(
       `${environment.apiBase}/api/v1/recruiter/applications/${applicationId}/status`,
       { status },
+    );
+  }
+
+  bulkMoveApplications(request: RecruiterBulkStatusMoveRequest) {
+    return this.http.post<RecruiterBulkStatusMoveResponse>(
+      `${environment.apiBase}/api/v1/recruiter/applications/bulk-status`,
+      request,
     );
   }
 }

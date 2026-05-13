@@ -91,6 +91,7 @@ if (authEnabled)
     app.MapResumeParseEndpoint();
     app.MapReportingEndpoints();
     app.MapInvoiceEndpoints();
+    app.MapEmailTemplateEndpoints();
 }
 
 app.Run();

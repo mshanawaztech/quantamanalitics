@@ -51,7 +51,8 @@ quantamanalitics/
 │   │   └── Entities/    ← Tenant, Job, CandidateProfile, Application,
 │   │                       Submission, InterviewEvent, BackgroundCheck,
 │   │                       EsignDocument, OnboardingChecklistItem,
-│   │                       AuditLogEntry, Timesheet, TimeEntry, TimesheetTotals
+│   │                       AuditLogEntry, EmailTemplate,
+│   │                       Timesheet, TimeEntry, TimesheetTotals
 │   ├── QuantamAnalytics.Infrastructure/
 │   │   ├── Data/        ← AppDbContext + per-entity Configurations/
 │   │   │                 + AuditLogSaveChangesInterceptor (PR-44)
@@ -70,7 +71,7 @@ quantamanalitics/
 │   │                       CandidateProfile, ContractorTimesheet,
 │   │                       ClientApproval, ClientPortalJobs,
 │   │                       ClientPortalDocuments, InterviewScheduling,
-│   │                       BackgroundCheck, EsignDocument,
+│   │                       BackgroundCheck, EsignDocument, EmailTemplate,
 │   │                       OnboardingChecklist, DicePosting, Reporting
 │   └── QuantamAnalytics.Tests/
 │       ├── Fixtures/    ← PostgresFixture + IsolatedAppFactory (PR-30 IT pattern)
