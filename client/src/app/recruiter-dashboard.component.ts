@@ -14,6 +14,7 @@ import {
   RecruiterPortalService,
   RecruiterStripeFallbackItem,
 } from './core/recruiter/recruiter-portal.service';
+import { ParsedResumeResult } from './core/resume/resume-parse.models';
 
 @Component({
   selector: 'app-recruiter-dashboard',
@@ -219,6 +220,94 @@ import {
           </article>
         </section>
 
+        <section class="resume-review-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Resume review</p>
+              <h2>Parse a resume before you create the candidate record.</h2>
+              <p class="board-copy">
+                This preview uses the deterministic parser stub so recruiters can inspect contact details,
+                skills, and work history before committing a profile.
+              </p>
+            </div>
+            @if (parsingResume()) {
+              <span class="pill">Parsing</span>
+            }
+          </div>
+
+          <div class="resume-review-grid">
+            <div class="resume-upload-panel">
+              <label>
+                Candidate resume
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,application/pdf,.msword,.docx,text/plain"
+                  (change)="onResumeFileSelected($event)"
+                />
+              </label>
+
+              <div class="actions">
+                <button
+                  type="button"
+                  class="primary"
+                  (click)="parseResumePreview()"
+                  [disabled]="!selectedResumeFile() || parsingResume()"
+                >
+                  {{ parsingResume() ? 'Parsing…' : 'Parse resume' }}
+                </button>
+              </div>
+
+              @if (resumeParseMessage()) {
+                <p class="success">{{ resumeParseMessage() }}</p>
+              }
+
+              @if (resumeParseError()) {
+                <p class="error">{{ resumeParseError() }}</p>
+              }
+            </div>
+
+            <div class="resume-preview-panel">
+              @if (parsedResume()) {
+                <dl class="meta-list">
+                  <dt>Name</dt>
+                  <dd>{{ parsedResume()!.fullName || 'Not detected' }}</dd>
+                  <dt>Email</dt>
+                  <dd>{{ parsedResume()!.email || 'Not detected' }}</dd>
+                  <dt>Phone</dt>
+                  <dd>{{ parsedResume()!.phoneNumber || 'Not detected' }}</dd>
+                  <dt>Headline</dt>
+                  <dd>{{ parsedResume()!.headline || 'Not detected' }}</dd>
+                </dl>
+
+                @if (parsedResume()!.skills.length > 0) {
+                  <div class="chip-list">
+                    @for (skill of parsedResume()!.skills; track skill) {
+                      <span class="chip">{{ skill }}</span>
+                    }
+                  </div>
+                }
+
+                @if (parsedResume()!.workHistory.length > 0) {
+                  <div class="work-history">
+                    @for (item of parsedResume()!.workHistory; track item.employer + item.title + item.startDate) {
+                      <article class="work-item">
+                        <strong>{{ item.title }}</strong>
+                        <p>{{ item.employer }}</p>
+                        <span>{{ formatDateRange(item.startDate, item.endDate) }}</span>
+                      </article>
+                    }
+                  </div>
+                }
+              } @else {
+                <article class="activity-empty">
+                  <h3>No parsed resume preview yet</h3>
+                  <p>Upload a candidate resume and run the parser to preview the extracted fields here.</p>
+                </article>
+              }
+            </div>
+          </div>
+        </section>
+
         <section class="activity-card">
           <div class="section-head">
             <div>
@@ -365,13 +454,13 @@ import {
     .hero, .workspace { display: grid; gap: 1.25rem; }
     .hero { grid-template-columns: 1.15fr 0.85fr; margin-bottom: 1.5rem; }
     .workspace { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); align-items: start; }
-    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card, .activity-card, .column, .application-card, .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty {
+    .hero-card, .gate-card, .jobs-card, .board-card, .resume-review-card, .invoice-card, .handoff-card, .activity-card, .column, .application-card, .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty {
       border-radius: 1.5rem;
       background: rgb(255 251 244 / 0.88);
       border: 1px solid rgb(87 70 42 / 0.14);
       box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
     }
-    .hero-card, .gate-card, .jobs-card, .board-card, .invoice-card, .handoff-card, .activity-card { padding: 1.6rem; }
+    .hero-card, .gate-card, .jobs-card, .board-card, .resume-review-card, .invoice-card, .handoff-card, .activity-card { padding: 1.6rem; }
     .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
     h2, h3 { margin: 0; }
@@ -432,6 +521,9 @@ import {
     .toolbar-stat strong { font-size: 1.1rem; }
     .bulk-control { min-width: 11rem; }
     .jobs-list { display: grid; gap: 0.8rem; }
+    .resume-review-card { margin-top: 1.25rem; }
+    .resume-review-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: 1rem; align-items: start; }
+    .resume-upload-panel, .resume-preview-panel { display: grid; gap: 0.9rem; }
     .invoice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
     .handoff-actions, .handoff-summary, .handoff-preview { display: grid; gap: 0.9rem; }
     .handoff-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); margin-bottom: 1rem; }
@@ -514,6 +606,29 @@ import {
       font-size: 0.9rem;
     }
     .activity-item { display: grid; gap: 0.85rem; }
+    .chip-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: rgb(154 52 18 / 0.1);
+      color: #9a3412;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .work-history { display: grid; gap: 0.8rem; }
+    .work-item {
+      padding: 0.9rem 1rem;
+      border-radius: 1rem;
+      background: #fffdf9;
+      border: 1px solid #eadcc8;
+    }
+    .work-item strong { display: block; margin-bottom: 0.2rem; }
+    .work-item p, .work-item span { margin: 0; color: #6b6255; }
+    .meta-list { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 0.9rem; margin: 0; }
+    .meta-list dt { font-weight: 700; color: #3f372c; }
+    .meta-list dd { margin: 0; color: #554d41; word-break: break-word; }
     .activity-top {
       display: flex;
       justify-content: space-between;
@@ -546,7 +661,7 @@ import {
     .empty { color: #7c6f5e; }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 980px) {
-      .hero, .workspace, .job-form { grid-template-columns: 1fr; }
+      .hero, .workspace, .job-form, .resume-review-grid { grid-template-columns: 1fr; }
       .job-item { grid-template-columns: 1fr; }
       .slug { text-align: left; }
       .activity-top { flex-direction: column; }
@@ -573,12 +688,15 @@ export class RecruiterDashboardComponent {
   protected loadingHandoff = signal(false);
   protected creatingJob = signal(false);
   protected movingApplications = signal(false);
+  protected parsingResume = signal(false);
   protected downloadingQuickBooks = signal(false);
   protected jobsError = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
   protected activityError = signal<string | null>(null);
   protected invoiceReadyError = signal<string | null>(null);
   protected handoffError = signal<string | null>(null);
+  protected resumeParseError = signal<string | null>(null);
+  protected resumeParseMessage = signal<string | null>(null);
 
   protected jobTitle = '';
   protected jobLocation = '';
@@ -588,6 +706,8 @@ export class RecruiterDashboardComponent {
   protected bulkMoveStatus = 'Interviewing';
   protected selectedApplicationIds = signal<string[]>([]);
   protected draggedApplicationId = signal<string | null>(null);
+  protected selectedResumeFile = signal<File | null>(null);
+  protected parsedResume = signal<ParsedResumeResult | null>(null);
 
   constructor() {
     effect(() => {
@@ -692,6 +812,16 @@ export class RecruiterDashboardComponent {
     return new Date(value).toLocaleString();
   }
 
+  protected formatDateRange(startDate: string | null, endDate: string | null): string {
+    if (!startDate && !endDate) {
+      return 'Dates not detected';
+    }
+
+    const start = startDate ?? 'Unknown start';
+    const end = endDate ?? 'Present';
+    return `${start} - ${end}`;
+  }
+
   protected timelineKind(eventType: string): string {
     const normalized = eventType.toLowerCase();
 
@@ -765,6 +895,36 @@ export class RecruiterDashboardComponent {
 
   protected bulkMoveSelected(): void {
     this.moveMany(this.selectedApplicationIds(), this.bulkMoveStatus);
+  }
+
+  protected onResumeFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedResumeFile.set(input.files?.item(0) ?? null);
+    this.resumeParseError.set(null);
+    this.resumeParseMessage.set(null);
+  }
+
+  protected parseResumePreview(): void {
+    const file = this.selectedResumeFile();
+    if (!file) {
+      return;
+    }
+
+    this.parsingResume.set(true);
+    this.resumeParseError.set(null);
+    this.resumeParseMessage.set(null);
+
+    this.recruiter.parseResume(file).subscribe({
+      next: (parsed) => {
+        this.parsedResume.set(parsed);
+        this.parsingResume.set(false);
+        this.resumeParseMessage.set('Resume parsed. Review the extracted details before creating the profile.');
+      },
+      error: (error: unknown) => {
+        this.parsingResume.set(false);
+        this.resumeParseError.set(this.toErrorMessage(error));
+      },
+    });
   }
 
   protected downloadQuickBooksCsv(): void {

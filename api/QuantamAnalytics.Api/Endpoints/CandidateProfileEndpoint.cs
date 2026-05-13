@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Infrastructure.ResumeParsing;
 using QuantamAnalytics.Infrastructure.Storage;
 
 namespace QuantamAnalytics.Api.Endpoints;
@@ -30,6 +31,8 @@ public static class CandidateProfileEndpoint
         group.MapGet("/timeline", GetTimelineAsync);
         group.MapGet("/applications/{applicationId:guid}/timeline", GetApplicationTimelineAsync);
         group.MapPut("/", UpdateProfileAsync);
+        group.MapPost("/resume/parse", ParseResumeAsync)
+            .DisableAntiforgery();
         group.MapPost("/resume", UploadResumeAsync)
             .DisableAntiforgery();
 
@@ -236,6 +239,29 @@ public static class CandidateProfileEndpoint
 
         await db.SaveChangesAsync(cancellationToken);
         return TypedResults.Ok(ToResponse(profile));
+    }
+
+    private static async Task<Results<Ok<ParsedResumeResponse>, ProblemHttpResult>> ParseResumeAsync(
+        IFormFile? file,
+        ClaimsPrincipal user,
+        IResumeParser parser,
+        CancellationToken cancellationToken)
+    {
+        var authSubject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var email = user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email");
+        var tenantIdClaim = user.FindFirstValue(Roles.TenantIdClaim);
+
+        if (string.IsNullOrWhiteSpace(authSubject) ||
+            string.IsNullOrWhiteSpace(email) ||
+            !Guid.TryParse(tenantIdClaim, out _))
+        {
+            return TypedResults.Problem(
+                title: "Tenant assignment required",
+                detail: "Candidate profiles require a tenant_id claim in the authenticated session.",
+                statusCode: StatusCodes.Status412PreconditionFailed);
+        }
+
+        return await ResumeParseEndpoint.ParseUploadedResumeAsync(file, parser, cancellationToken);
     }
 
     private static async Task<Results<Ok<CandidateProfileResponse>, ProblemHttpResult>> UploadResumeAsync(

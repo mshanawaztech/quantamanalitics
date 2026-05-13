@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
+import { ParsedResumeResult } from '../resume/resume-parse.models';
 
 export interface RecruiterJob {
   id: string;
@@ -161,6 +162,16 @@ export class RecruiterPortalService {
     return this.http.post<RecruiterBulkStatusMoveResponse>(
       `${environment.apiBase}/api/v1/recruiter/applications/bulk-status`,
       request,
+    );
+  }
+
+  parseResume(file: File) {
+    const body = new FormData();
+    body.append('file', file);
+
+    return this.http.post<ParsedResumeResult>(
+      `${environment.apiBase}/api/v1/recruiter/resume/parse`,
+      body,
     );
   }
 }

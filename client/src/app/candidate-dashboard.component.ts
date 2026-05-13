@@ -10,6 +10,7 @@ import {
   CandidateProfileService,
   CandidateTimelineItem,
 } from './core/candidate/candidate-profile.service';
+import { ParsedResumeResult } from './core/resume/resume-parse.models';
 
 @Component({
   selector: 'app-candidate-dashboard',
@@ -143,17 +144,64 @@ import {
 
             <label class="upload-field">
               Resume file
-              <input type="file" accept=".pdf,.doc,.docx,application/pdf,.msword,.docx" (change)="onFileSelected($event)" />
+              <input type="file" accept=".pdf,.doc,.docx,.txt,application/pdf,.msword,.docx,text/plain" (change)="onFileSelected($event)" />
             </label>
+
+            <div class="actions">
+              <button type="button" class="secondary" (click)="parseResume()" [disabled]="!selectedFile() || parsingResume()">
+                {{ parsingResume() ? 'Extracting…' : 'Extract details' }}
+              </button>
+              <button type="button" class="primary" (click)="uploadResume()" [disabled]="!selectedFile() || uploading()">
+                {{ uploading() ? 'Uploading…' : 'Upload resume' }}
+              </button>
+            </div>
+
+            @if (parseMessage()) {
+              <p class="success">{{ parseMessage() }}</p>
+            }
 
             @if (uploadMessage()) {
               <p class="success">{{ uploadMessage() }}</p>
             }
 
-            <button type="button" class="primary" (click)="uploadResume()" [disabled]="!selectedFile() || uploading()">
-              {{ uploading() ? 'Uploading…' : 'Upload resume' }}
-            </button>
             <p class="hint">PDF, DOC, or DOCX up to 5 MB. Cloudflare R2 credentials are required in the environment.</p>
+            <p class="hint">Use Extract details to prefill the profile form from the uploaded resume before you save it.</p>
+
+            @if (parsedResume()) {
+              <div class="parse-preview">
+                <p class="label">Parsed preview</p>
+                <dl class="meta-list">
+                  <dt>Name</dt>
+                  <dd>{{ parsedResume()!.fullName || 'Not detected' }}</dd>
+                  <dt>Email</dt>
+                  <dd>{{ parsedResume()!.email || 'Not detected' }}</dd>
+                  <dt>Phone</dt>
+                  <dd>{{ parsedResume()!.phoneNumber || 'Not detected' }}</dd>
+                  <dt>Headline</dt>
+                  <dd>{{ parsedResume()!.headline || 'Not detected' }}</dd>
+                </dl>
+
+                @if (parsedResume()!.skills.length > 0) {
+                  <div class="chip-list">
+                    @for (skill of parsedResume()!.skills; track skill) {
+                      <span class="chip">{{ skill }}</span>
+                    }
+                  </div>
+                }
+
+                @if (parsedResume()!.workHistory.length > 0) {
+                  <div class="work-history">
+                    @for (item of parsedResume()!.workHistory; track item.employer + item.title + item.startDate) {
+                      <article class="work-item">
+                        <strong>{{ item.title }}</strong>
+                        <p>{{ item.employer }}</p>
+                        <span>{{ formatDateRange(item.startDate, item.endDate) }}</span>
+                      </article>
+                    }
+                  </div>
+                }
+              </div>
+            }
           </aside>
         </section>
 
@@ -303,11 +351,41 @@ import {
       cursor: pointer;
     }
     .primary[disabled] { opacity: 0.65; cursor: wait; }
+    .secondary {
+      padding: 0.9rem 1rem;
+      border-radius: 999px;
+      border: 1px solid #d8c8b0;
+      background: #fffdf9;
+      color: #3f372c;
+      font-weight: 700;
+      cursor: pointer;
+    }
     a { color: #9a3412; font-weight: 700; text-decoration: none; }
     .meta-list { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 0.9rem; margin: 1.25rem 0; }
     .meta-list dt { font-weight: 700; color: #3f372c; }
     .meta-list dd { margin: 0; color: #554d41; word-break: break-word; }
     .upload-field { margin-bottom: 1rem; }
+    .parse-preview { margin-top: 1.1rem; display: grid; gap: 0.9rem; }
+    .chip-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: rgb(154 52 18 / 0.1);
+      color: #9a3412;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .work-history { display: grid; gap: 0.8rem; }
+    .work-item {
+      padding: 0.9rem 1rem;
+      border-radius: 1rem;
+      background: #fffdf9;
+      border: 1px solid #eadcc8;
+    }
+    .work-item strong { display: block; margin-bottom: 0.2rem; }
+    .work-item p, .work-item span { margin: 0; color: #6b6255; }
     .history-card, .timeline-card { margin-top: 1.25rem; }
     .history-list { display: grid; gap: 0.9rem; }
     .history-item, .history-empty, .timeline-item { background: #fffdf9; border: 1px solid #eadcc8; }
@@ -386,12 +464,15 @@ export class CandidateDashboardComponent {
   protected timelineLoading = signal(false);
   protected saving = signal(false);
   protected uploading = signal(false);
+  protected parsingResume = signal(false);
   protected error = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
   protected timelineError = signal<string | null>(null);
   protected savedMessage = signal<string | null>(null);
   protected uploadMessage = signal<string | null>(null);
+  protected parseMessage = signal<string | null>(null);
   protected selectedFile = signal<File | null>(null);
+  protected parsedResume = signal<ParsedResumeResult | null>(null);
 
   protected fullName = '';
   protected email = '';
@@ -406,6 +487,7 @@ export class CandidateDashboardComponent {
         this.applications.set([]);
         this.timeline.set([]);
         this.selectedFile.set(null);
+        this.parsedResume.set(null);
         this.error.set(null);
         this.applicationsError.set(null);
         this.timelineError.set(null);
@@ -440,6 +522,16 @@ export class CandidateDashboardComponent {
     return new Date(value).toLocaleString();
   }
 
+  protected formatDateRange(startDate: string | null, endDate: string | null): string {
+    if (!startDate && !endDate) {
+      return 'Dates not detected';
+    }
+
+    const start = startDate ?? 'Unknown start';
+    const end = endDate ?? 'Present';
+    return `${start} - ${end}`;
+  }
+
   protected timelineKind(eventType: string): string {
     const normalized = eventType.toLowerCase();
 
@@ -470,6 +562,31 @@ export class CandidateDashboardComponent {
     const input = event.target as HTMLInputElement;
     this.selectedFile.set(input.files?.item(0) ?? null);
     this.uploadMessage.set(null);
+    this.parseMessage.set(null);
+  }
+
+  protected parseResume(): void {
+    const file = this.selectedFile();
+    if (!file) {
+      return;
+    }
+
+    this.parsingResume.set(true);
+    this.parseMessage.set(null);
+    this.error.set(null);
+
+    this.candidateProfile.parseResume(file).subscribe({
+      next: (parsed) => {
+        this.applyParsedResume(parsed);
+        this.parsedResume.set(parsed);
+        this.parsingResume.set(false);
+        this.parseMessage.set('Resume details extracted into the profile form. Review them, then save the profile.');
+      },
+      error: (error: unknown) => {
+        this.parsingResume.set(false);
+        this.error.set(this.toErrorMessage(error));
+      },
+    });
   }
 
   protected saveProfile(): void {
@@ -580,6 +697,36 @@ export class CandidateDashboardComponent {
     this.headline = profile.headline ?? '';
     this.summary = profile.summary ?? '';
     this.error.set(null);
+  }
+
+  private applyParsedResume(parsed: ParsedResumeResult): void {
+    if (parsed.fullName) {
+      this.fullName = parsed.fullName;
+    }
+
+    if (parsed.email) {
+      this.email = parsed.email;
+    }
+
+    if (parsed.phoneNumber) {
+      this.phoneNumber = parsed.phoneNumber;
+    }
+
+    if (parsed.headline) {
+      this.headline = parsed.headline;
+    }
+
+    if (!this.summary.trim()) {
+      const summaryParts = [
+        parsed.headline ? `Headline: ${parsed.headline}.` : '',
+        parsed.skills.length > 0 ? `Skills: ${parsed.skills.slice(0, 5).join(', ')}.` : '',
+        parsed.workHistory[0]
+          ? `Recent role: ${parsed.workHistory[0].title} at ${parsed.workHistory[0].employer}.`
+          : '',
+      ].filter(Boolean);
+
+      this.summary = summaryParts.join(' ');
+    }
   }
 
   private toErrorMessage(error: unknown): string {
