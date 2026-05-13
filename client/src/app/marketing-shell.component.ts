@@ -32,6 +32,7 @@ const PRIMARY_NAV: NavItem[] = [
 
 const PORTAL_NAV: NavItem[] = [
   { href: '/recruiter', label: 'Recruiter', authedOnly: true },
+  { href: '/recruiter/pipeline', label: 'Pipeline', authedOnly: true },
   { href: '/client', label: 'Client', authedOnly: true },
   { href: '/candidate', label: 'Candidate', authedOnly: true },
   { href: '/contractor', label: 'Contractor', authedOnly: true },
@@ -45,6 +46,7 @@ const ROUTE_LABELS: Record<string, string> = {
   jobs: 'Jobs',
   contact: 'Contact',
   recruiter: 'Recruiter',
+  pipeline: 'Pipeline',
   client: 'Client',
   candidate: 'Candidate',
   contractor: 'Contractor',
