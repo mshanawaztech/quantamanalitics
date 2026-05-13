@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
+import { ParsedResumeResult } from '../resume/resume-parse.models';
 
 export interface CandidateProfile {
   id: string;
@@ -73,6 +74,16 @@ export class CandidateProfileService {
 
     return this.http.post<CandidateProfile>(
       `${environment.apiBase}/api/v1/candidate/profile/resume`,
+      body,
+    );
+  }
+
+  parseResume(file: File) {
+    const body = new FormData();
+    body.append('file', file);
+
+    return this.http.post<ParsedResumeResult>(
+      `${environment.apiBase}/api/v1/candidate/profile/resume/parse`,
       body,
     );
   }

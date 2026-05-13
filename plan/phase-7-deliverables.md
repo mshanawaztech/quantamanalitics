@@ -14,8 +14,8 @@ before or alongside the pieces that depend on them.
 | --- | ----------------------------------- | ------------------------------------------------------------------------ | ------ |
 | 50  | `qa001-phase7-plan`                 | Phase 7 deliverables board + repo handoff after Phase 6                  | merged |
 | 51  | `qa001-candidate-timeline`          | Candidate activity feed, timeline events, comments, mentions, audit join | merged |
-| 52  | `qa001-pipeline-dnd`                | Drag-and-drop recruiter pipeline, bulk moves, stuck-stage SLA surfacing  | open   |
-| 53  | `qa001-resume-parsing`              | Resume upload parsing into candidate profile fields + recruiter review    | queued |
+| 52  | `qa001-pipeline-dnd`                | Drag-and-drop recruiter pipeline, bulk moves, stuck-stage SLA surfacing  | merged |
+| 53  | `qa001-resume-parsing`              | Resume upload parsing into candidate profile fields + recruiter review    | open   |
 | 54  | `qa001-email-templates`             | Reusable template system for invites, rejects, onboarding, offers        | queued |
 | 55  | `qa001-search-tags-bulk`            | Advanced search, saved filters, candidate tags, and bulk actions         | queued |
 | 56  | `qa001-candidate-portal-v2`         | Candidate-side timeline, application tracking, docs/tasks progress        | queued |

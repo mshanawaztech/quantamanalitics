@@ -21,7 +21,7 @@ namespace QuantamAnalytics.Api.Endpoints;
 /// </remarks>
 public static class ResumeParseEndpoint
 {
-    private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "application/pdf",
         "application/msword",
@@ -29,7 +29,7 @@ public static class ResumeParseEndpoint
         "text/plain",
     };
 
-    private const long MaxBytes = 5 * 1024 * 1024;
+    internal const long MaxBytes = 5 * 1024 * 1024;
 
     public static IEndpointRouteBuilder MapResumeParseEndpoint(this IEndpointRouteBuilder app)
     {
@@ -55,6 +55,14 @@ public static class ResumeParseEndpoint
                 statusCode: StatusCodes.Status412PreconditionFailed);
         }
 
+        return await ParseUploadedResumeAsync(file, parser, cancellationToken);
+    }
+
+    internal static async Task<Results<Ok<ParsedResumeResponse>, ProblemHttpResult>> ParseUploadedResumeAsync(
+        IFormFile? file,
+        IResumeParser parser,
+        CancellationToken cancellationToken)
+    {
         if (file is null || file.Length == 0)
         {
             return TypedResults.Problem(
@@ -84,7 +92,11 @@ public static class ResumeParseEndpoint
             new ResumeParseRequest(file.FileName, file.ContentType, stream),
             cancellationToken);
 
-        var response = new ParsedResumeResponse(
+        return TypedResults.Ok(ToResponse(result));
+    }
+
+    internal static ParsedResumeResponse ToResponse(ResumeParseResult result) =>
+        new(
             FullName: result.FullName,
             Email: result.Email,
             PhoneNumber: result.PhoneNumber,
@@ -95,21 +107,4 @@ public static class ResumeParseEndpoint
                 item.Title,
                 item.StartDate,
                 item.EndDate)).ToArray());
-
-        return TypedResults.Ok(response);
-    }
 }
-
-public sealed record ParsedResumeResponse(
-    string? FullName,
-    string? Email,
-    string? PhoneNumber,
-    string? Headline,
-    string[] Skills,
-    ParsedResumeWorkItem[] WorkHistory);
-
-public sealed record ParsedResumeWorkItem(
-    string Employer,
-    string Title,
-    DateOnly? StartDate,
-    DateOnly? EndDate);
