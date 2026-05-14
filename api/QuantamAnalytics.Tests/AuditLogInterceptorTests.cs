@@ -162,6 +162,54 @@ public sealed class AuditLogInterceptorTests : IAsyncLifetime
         body.Items.Should().HaveCount(1);
     }
 
+    [Fact]
+    public async Task Audit_log_query_can_filter_by_auth_subject_and_action()
+    {
+        var (tenantId, _, _) = await SeedTenantJobAndCandidateAsync();
+
+        var recruiter = _factory
+            .WithAuthenticatedUser(tenantId, "auth0|recruiter-created", "recruiter@example.com", Roles.Recruiter)
+            .CreateClient();
+
+        var createResponse = await recruiter.PostAsJsonAsync("/api/v1/recruiter/jobs", new
+        {
+            title = "Audit created role",
+            location = "Remote",
+            summary = "Created during audit-log tests.",
+            description = "Exercise the recruiter job API so the audit row records a real auth subject.",
+            isPublished = true,
+            postedOnUtc = (DateOnly?)null,
+        });
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var admin = _factory
+            .WithAuthenticatedUser(tenantId, "auth0|admin", "admin@example.com", Roles.PlatformAdmin)
+            .CreateClient();
+
+        var response = await admin.GetAsync("/api/v1/admin/audit-log?authSubject=auth0%7Crecruiter-created&action=Created");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<AuditLogQueryResponse>();
+        body.Should().NotBeNull();
+        body!.Items.Should().NotBeEmpty();
+        body.Items.Should().OnlyContain(x =>
+            x.AuthSubject == "auth0|recruiter-created" &&
+            x.Action == "Created");
+    }
+
+    [Fact]
+    public async Task Audit_log_query_returns_403_for_non_platform_admin()
+    {
+        var tenantId = Guid.NewGuid();
+        var recruiter = _factory
+            .WithAuthenticatedUser(tenantId, "auth0|recruiter", "recruiter@example.com", Roles.Recruiter)
+            .CreateClient();
+
+        var response = await recruiter.GetAsync("/api/v1/admin/audit-log");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     private async Task<(Guid TenantId, Guid JobId, Guid CandidateId)> SeedTenantJobAndCandidateAsync()
     {
         using var scope = _factory.Services.CreateScope();

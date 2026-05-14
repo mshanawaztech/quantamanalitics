@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AboutComponent } from './about.component';
+import { AdminAuditConsoleComponent } from './admin-audit-console.component';
 import { ContactComponent } from './contact.component';
 import { CandidateDashboardComponent } from './candidate-dashboard.component';
 import { CandidatePortalComponent } from './candidate-portal.component';
@@ -61,6 +62,10 @@ export const routes: Routes = [
       {
         path: 'candidate/dashboard',
         component: CandidateDashboardComponent,
+      },
+      {
+        path: 'admin/audit',
+        component: AdminAuditConsoleComponent,
       },
       {
         path: 'contractor',
