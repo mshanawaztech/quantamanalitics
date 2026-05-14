@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AccessService } from './core/auth/access.service';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
@@ -39,7 +40,10 @@ import {
       } @else if (!hasApprovalAccess()) {
         <section class="gate-card">
           <h2>Approval access required.</h2>
-          <p>Your current session is valid, but this workflow is limited to Client or PlatformAdmin roles.</p>
+          <p>
+            Your current session is valid, but this workflow requires approval
+            access such as Client, payroll admin, manager, or PlatformAdmin.
+          </p>
         </section>
       } @else {
         <section class="workspace">
@@ -207,6 +211,7 @@ import {
 export class ClientDashboardComponent {
   protected auth = inject(AuthService);
   protected me = inject(MeService);
+  protected access = inject(AccessService);
   private approvals = inject(ClientApprovalService);
 
   protected items = signal<ClientApprovalTimesheet[]>([]);
@@ -226,8 +231,7 @@ export class ClientDashboardComponent {
   }
 
   protected hasApprovalAccess(): boolean {
-    const roles = this.me.data()?.roles ?? [];
-    return roles.includes('Client') || roles.includes('PlatformAdmin');
+    return this.access.canAccessTimeApproval();
   }
 
   protected accessLabel(): string {

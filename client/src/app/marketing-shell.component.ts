@@ -8,6 +8,7 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { filter } from 'rxjs/operators';
+import { AccessService } from './core/auth/access.service';
 import { AuthService } from './core/auth/auth.service';
 
 interface Crumb {
@@ -20,6 +21,7 @@ interface NavItem {
   label: string;
   exact?: boolean;
   authedOnly?: boolean;
+  visibility?: 'recruiting' | 'interviews' | 'approvals' | 'candidate' | 'authenticated';
 }
 
 const PRIMARY_NAV: NavItem[] = [
@@ -31,12 +33,12 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 const PORTAL_NAV: NavItem[] = [
-  { href: '/recruiter', label: 'Recruiter', authedOnly: true },
-  { href: '/recruiter/pipeline', label: 'Pipeline', authedOnly: true },
-  { href: '/client', label: 'Client', authedOnly: true },
-  { href: '/candidate', label: 'Candidate', authedOnly: true },
-  { href: '/contractor', label: 'Contractor', authedOnly: true },
-  { href: '/interviews', label: 'Interviews', authedOnly: true },
+  { href: '/recruiter', label: 'Recruiter', authedOnly: true, visibility: 'recruiting' },
+  { href: '/recruiter/pipeline', label: 'Pipeline', authedOnly: true, visibility: 'recruiting' },
+  { href: '/client', label: 'Client', authedOnly: true, visibility: 'approvals' },
+  { href: '/candidate', label: 'Candidate', authedOnly: true, visibility: 'candidate' },
+  { href: '/contractor', label: 'Contractor', authedOnly: true, visibility: 'authenticated' },
+  { href: '/interviews', label: 'Interviews', authedOnly: true, visibility: 'interviews' },
 ];
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -128,7 +130,19 @@ const ROUTE_LABELS: Record<string, string> = {
               @if (userMenuOpen()) {
                 <div class="user-menu__panel" role="menu">
                   <p class="user-menu__email">{{ auth.email() }}</p>
-                  <a routerLink="/candidate" role="menuitem" (click)="closeUserMenu()">My profile</a>
+                  @if (access.canAccessCandidatePortal()) {
+                    <a routerLink="/candidate" role="menuitem" (click)="closeUserMenu()">My profile</a>
+                  }
+                  @if (accessBadges().length > 0) {
+                    <div class="user-menu__meta">
+                      <p class="user-menu__label">Access profile</p>
+                      <div class="user-menu__badges">
+                        @for (badge of accessBadges(); track badge.key) {
+                          <span class="user-menu__badge">{{ badge.label }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
                   <button type="button" role="menuitem" (click)="signOut()">Sign out</button>
                 </div>
               }
@@ -152,7 +166,7 @@ const ROUTE_LABELS: Record<string, string> = {
         @if (auth.isAuthenticated()) {
           <nav class="shell__nav shell__nav--portal" aria-label="Portals">
             <div class="shell__nav-inner">
-              @for (item of portalNav; track item.href) {
+              @for (item of portalNav(); track item.href) {
                 <a [routerLink]="item.href" routerLinkActive="active">{{ item.label }}</a>
               }
             </div>
@@ -166,7 +180,7 @@ const ROUTE_LABELS: Record<string, string> = {
             }
             @if (auth.isAuthenticated()) {
               <hr />
-              @for (item of portalNav; track item.href) {
+              @for (item of portalNav(); track item.href) {
                 <a [routerLink]="item.href" (click)="closeMobileNav()">{{ item.label }}</a>
               }
             }
@@ -425,6 +439,33 @@ const ROUTE_LABELS: Record<string, string> = {
       font-size: var(--font-size-xs);
       border-bottom: 1px solid var(--color-border);
     }
+    .user-menu__meta {
+      padding: var(--space-2) var(--space-3);
+      border-top: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--color-border);
+      display: grid;
+      gap: var(--space-2);
+    }
+    .user-menu__label {
+      margin: 0;
+      color: var(--color-ink-muted);
+      font-size: var(--font-size-xs);
+    }
+    .user-menu__badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-1);
+    }
+    .user-menu__badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.55rem;
+      border-radius: var(--radius-pill);
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-bold);
+    }
 
     .mobile-toggle {
       display: none;
@@ -593,11 +634,15 @@ const ROUTE_LABELS: Record<string, string> = {
 })
 export class MarketingShellComponent {
   protected auth = inject(AuthService);
+  protected access = inject(AccessService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
   protected readonly primaryNav = PRIMARY_NAV;
-  protected readonly portalNav = PORTAL_NAV;
+  protected readonly portalNav = computed(() =>
+    PORTAL_NAV.filter((item) => this.canShowPortalItem(item)),
+  );
+  protected readonly accessBadges = this.access.accessBadges;
   protected readonly year = new Date().getFullYear();
 
   protected readonly searchQuery = signal('');
@@ -642,6 +687,30 @@ export class MarketingShellComponent {
   protected signOut() {
     this.closeUserMenu();
     this.auth.logout();
+  }
+
+  private canShowPortalItem(item: NavItem): boolean {
+    if (!item.authedOnly) {
+      return true;
+    }
+
+    if (!this.auth.isAuthenticated()) {
+      return false;
+    }
+
+    switch (item.visibility) {
+      case 'recruiting':
+        return this.access.canAccessRecruitingWorkspace();
+      case 'interviews':
+        return this.access.canAccessInterviewWorkspace();
+      case 'approvals':
+        return this.access.canAccessTimeApproval();
+      case 'candidate':
+        return this.access.canAccessCandidatePortal();
+      case 'authenticated':
+      default:
+        return true;
+    }
   }
 
   private buildCrumbs(url: string): Crumb[] {

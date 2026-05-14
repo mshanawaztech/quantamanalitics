@@ -39,7 +39,7 @@ public static class InvoiceEndpoint
         // Recruiter / PlatformAdmin surface — read across the tenant.
         var recruiter = app.MapGroup("/api/v1/recruiter/invoices")
             .WithTags("Invoices · Recruiter")
-            .RequireAuthorization(AuthorizationPolicies.RequireRecruitingAccess);
+            .RequireAuthorization(AuthorizationPolicies.RequirePayrollAccess);
         recruiter.MapGet("/", ListAcrossTenantAsync);
         recruiter.MapPost("/{id:guid}/mark-paid", MarkPaidAsync);
 

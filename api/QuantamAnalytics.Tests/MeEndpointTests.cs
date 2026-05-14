@@ -1,7 +1,12 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using QuantamAnalytics.Api.Endpoints;
+using QuantamAnalytics.Api.Auth;
+using QuantamAnalytics.Domain.Common;
+using QuantamAnalytics.Tests.TestAuth;
 
 namespace QuantamAnalytics.Tests;
 
@@ -53,5 +58,35 @@ public sealed class MeEndpointTests : IClassFixture<WebApplicationFactory<Progra
         var response = await client.GetAsync("/me");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Me_returns_roles_permissions_and_tenant_for_authenticated_user()
+    {
+        var tenantId = Guid.NewGuid();
+
+        var client = _factory.WithAuthenticatedUser(
+            tenantId,
+            "auth0|hr-admin-1",
+            "hradmin@example.com",
+            Roles.HrAdmin,
+            Roles.Interviewer)
+            .CreateClient();
+
+        var response = await client.GetAsync("/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<MeResponse>();
+
+        payload.Should().NotBeNull();
+        payload!.Sub.Should().Be("auth0|hr-admin-1");
+        payload.Email.Should().Be("hradmin@example.com");
+        payload.Roles.Should().BeEquivalentTo(new[] { Roles.HrAdmin, Roles.Interviewer });
+        payload.Permissions.Should().BeEquivalentTo(new[]
+        {
+            PlatformPermissions.InterviewWorkspace,
+            PlatformPermissions.RecruitingWorkspace,
+        });
+        payload.TenantId.Should().Be(tenantId.ToString());
     }
 }
