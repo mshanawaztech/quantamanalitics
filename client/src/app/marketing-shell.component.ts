@@ -21,7 +21,7 @@ interface NavItem {
   label: string;
   exact?: boolean;
   authedOnly?: boolean;
-  visibility?: 'recruiting' | 'interviews' | 'approvals' | 'candidate' | 'authenticated';
+  visibility?: 'recruiting' | 'interviews' | 'approvals' | 'candidate' | 'authenticated' | 'admin';
 }
 
 const PRIMARY_NAV: NavItem[] = [
@@ -39,6 +39,7 @@ const PORTAL_NAV: NavItem[] = [
   { href: '/candidate', label: 'Candidate', authedOnly: true, visibility: 'candidate' },
   { href: '/contractor', label: 'Contractor', authedOnly: true, visibility: 'authenticated' },
   { href: '/interviews', label: 'Interviews', authedOnly: true, visibility: 'interviews' },
+  { href: '/admin/audit', label: 'Admin', authedOnly: true, visibility: 'admin' },
 ];
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -53,6 +54,8 @@ const ROUTE_LABELS: Record<string, string> = {
   candidate: 'Candidate',
   contractor: 'Contractor',
   interviews: 'Interviews',
+  admin: 'Admin',
+  audit: 'Audit',
   'style-guide': 'Style guide',
 };
 
@@ -707,6 +710,8 @@ export class MarketingShellComponent {
         return this.access.canAccessTimeApproval();
       case 'candidate':
         return this.access.canAccessCandidatePortal();
+      case 'admin':
+        return this.access.isPlatformAdmin();
       case 'authenticated':
       default:
         return true;

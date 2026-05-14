@@ -39,6 +39,8 @@ public static class AuditLogEndpoint
     private static async Task<Results<Ok<AuditLogQueryResponse>, ProblemHttpResult>> QueryAsync(
         AppDbContext db,
         ICurrentTenant currentTenant,
+        string? authSubject,
+        string? action,
         string? entityType,
         string? entityId,
         DateTimeOffset? from,
@@ -58,6 +60,23 @@ public static class AuditLogEndpoint
 
         var query = db.AuditLogEntries.AsQueryable();
 
+        if (!string.IsNullOrWhiteSpace(authSubject))
+        {
+            var trimmed = authSubject.Trim();
+            query = query.Where(x => x.AuthSubject == trimmed);
+        }
+        if (!string.IsNullOrWhiteSpace(action))
+        {
+            if (!Enum.TryParse<AuditLogAction>(action.Trim(), ignoreCase: true, out var parsedAction))
+            {
+                return TypedResults.Problem(
+                    title: "Unsupported audit action",
+                    detail: "Use Created, Updated, or Deleted.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            query = query.Where(x => x.Action == parsedAction);
+        }
         if (!string.IsNullOrWhiteSpace(entityType))
         {
             var trimmed = entityType.Trim();
