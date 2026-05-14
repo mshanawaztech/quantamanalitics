@@ -12,7 +12,7 @@ This file is read by Claude on every session in this repo. Treat the rules below
 - Live dev SPA: `https://ambitious-dune-099500b0f.7.azurestaticapps.net`
 - Live dev API: `https://ca-qa-dev-api.icymushroom-94be4003.eastus2.azurecontainerapps.io`
 
-Roadmap: [`plan/plan.md`](./plan/plan.md). Per-phase boards: [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md), [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md), [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md), [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md), [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md).
+Roadmap: [`plan/plan.md`](./plan/plan.md). Per-phase boards: [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md), [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md), [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md), [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md), [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md), [`plan/phase-6-deliverables.md`](./plan/phase-6-deliverables.md), [`plan/phase-7-deliverables.md`](./plan/phase-7-deliverables.md), [`plan/phase-8-deliverables.md`](./plan/phase-8-deliverables.md), [`plan/phase-9-deliverables.md`](./plan/phase-9-deliverables.md).
 
 ## Stack (locked — do not change without an ADR)
 
@@ -156,18 +156,18 @@ Use **Variables** for public OIDC config (anything embedded in a JWT or HTML bun
 
 ## Current state
 
-- **Phases 1 + 2 + 3 + 4: MERGED** (PRs 01–36). Live dev environment serves the marketing site, public jobs board, candidate intake, recruiter portal, contractor timesheets, client approval, pay rules, invoice staging, QBO/Stripe scaffold, full submission + interview + meeting-link + Checkr + DocuSeal + onboarding-checklist surfaces, Indeed XML feed, Dice posting scaffold, client portal (jobs + documents), and a baseline reporting summary.
-- **Phase 5: starting.** Real provider integrations + prod hardening + SaaS productization (self-serve signup, Stripe billing, SOC 2 prep). Skeleton board: [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md).
+- **Phases 1 + 2 + 3 + 4 + 6 + 7: MERGED.** Live dev environment serves the marketing site, public jobs board, candidate intake, recruiter portal, contractor timesheets, client approval, pay rules, invoice staging, QBO/Stripe scaffold, full submission + interview + meeting-link + Checkr + DocuSeal + onboarding-checklist surfaces, Indeed XML feed, Dice posting scaffold, client portal (jobs + documents), reporting, candidate timelines, drag-and-drop pipeline movement, resume parsing, email templates, search/tags/bulk actions, candidate portal v2, and recruiter notifications/KPI pulse surfaces.
+- **Phase 5: still partially open.** Real provider integrations + prod hardening + SaaS productization (self-serve signup, Stripe billing, SOC 2 prep). Active remaining queue: [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md).
+- **Phase 8: active execution queue.** Enterprise control plane work starts here: granular RBAC, audit history, recovery, file security, auth hardening, trust center, and observability/runbooks. Active board: [`plan/phase-8-deliverables.md`](./plan/phase-8-deliverables.md).
 
-### Phase 4 — what just landed
+### Phase 7 — what just landed
 
-All eight Phase 4 PRs merged. The platform is now demonstrably "client-ready":
-recruiters have a baseline reporting dashboard, clients have a read-only portal
-over jobs and signed documents, and the dev tenant has a stable Indeed XML
-feed URL anyone can hand to Indeed publishers. The two ops-floor PRs (PR-30
-multi-tenant isolation IT, PR-31 auto-applied migrations) landed first so the
-rest of Phase 4 could ship safely on top — and any new Phase 5 endpoint
-inherits that same safety net for free.
+All eight Phase 7 PRs merged. The platform now has the day-to-day recruiter
+operating surfaces that were missing from the earlier demo-focused build:
+candidate timelines, recruiter comments and mentions, drag-and-drop pipeline
+movement, bulk moves, stuck-stage surfacing, resume parsing, reusable email
+templates, richer search/tag/filter workflows, candidate portal progress, and a
+notifications + KPI pulse center for recruiters.
 
 ### Standing follow-ups (carry across phases)
 
@@ -213,7 +213,7 @@ Build phase target: **$0–10/month total run cost.** If any decision pushes spe
 ## Working with this project (every session)
 
 1. Read this file (you're doing it).
-2. Skim `plan/phase-5-deliverables.md` for what's pending.
+2. Skim `plan/phase-8-deliverables.md` for the active queue, plus `plan/phase-5-deliverables.md` for the still-open integration/productization work.
 3. Pull latest `main` and branch off (`git checkout main && git pull && git checkout -b qa001-<scope>`).
 4. Stay in the slice — no "while I'm here" adjacent work.
 5. Update the active phase's deliverables board status column on merge. Keep CLAUDE.md current at every phase boundary.

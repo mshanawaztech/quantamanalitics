@@ -1,6 +1,6 @@
 # Phase 7 — Recruiting Operations Maturity · 8 Deliverables
 
-**Status: IN PROGRESS.** This phase turns the current portals from a strong demo into
+**Status: MERGED.** This phase turned the current portals from a strong demo into
 an everyday recruiter operating surface. It is derived from the SaaS product
 audit and focuses on the highest-velocity workflow improvements first:
 candidate visibility, collaboration, search, pipeline management, and clearer
@@ -18,8 +18,8 @@ before or alongside the pieces that depend on them.
 | 53  | `qa001-resume-parsing`              | Resume upload parsing into candidate profile fields + recruiter review    | merged |
 | 54  | `qa001-email-templates`             | Reusable template system for invites, rejects, onboarding, offers        | merged |
 | 55  | `qa001-search-tags-bulk`            | Advanced search, saved filters, candidate tags, and bulk actions         | merged |
-| 56  | `qa001-candidate-portal-v2`         | Candidate-side timeline, application tracking, docs/tasks progress        | open   |
-| 57  | `qa001-notifications-analytics`     | Notification center, recruiter dashboards, loading/empty/error polish    | queued |
+| 56  | `qa001-candidate-portal-v2`         | Candidate-side timeline, application tracking, docs/tasks progress        | merged |
+| 57  | `qa001-notifications-analytics`     | Notification center, recruiter dashboards, loading/empty/error polish    | merged |
 
 > Order is a guideline. PR-51 (timeline) and PR-53 (resume parsing) should land
 > before PR-56, because the upgraded candidate portal needs real underlying
