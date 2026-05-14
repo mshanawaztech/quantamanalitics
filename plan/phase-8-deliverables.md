@@ -1,6 +1,6 @@
 # Phase 8 — Enterprise Control Plane · 8 Deliverables
 
-**Status: QUEUED.** This phase takes the platform from "strong operations app"
+**Status: IN PROGRESS.** This phase takes the platform from "strong operations app"
 to "credible enterprise system." It focuses on governance, security,
 recoverability, and tenant trust. Several of these items already have baseline
 foundation in the codebase; this phase is where they become first-class
@@ -10,7 +10,7 @@ customer-facing capabilities.
 
 | #   | Branch                              | Scope                                                                      | Status |
 | --- | ----------------------------------- | -------------------------------------------------------------------------- | ------ |
-| 58  | `qa001-phase8-plan`                 | Phase 8 deliverables board + repo handoff after Phase 7                    | queued |
+| 58  | `qa001-phase8-plan`                 | Phase 8 deliverables board + repo handoff after Phase 7                    | open   |
 | 59  | `qa001-rbac-granular`               | Granular role/permission matrix for recruiter, HR, payroll, interviewer    | queued |
 | 60  | `qa001-audit-console`               | Queryable audit log UI, subject/history views, login/access review surfaces | queued |
 | 61  | `qa001-soft-delete-recovery`        | Soft delete, recycle bin, restore windows, retention rules                 | queued |

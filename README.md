@@ -2,12 +2,11 @@
 
 A multi-tenant staffing platform — applicant tracking, interview management, onboarding, timesheets, invoicing, and outbound job-board posting. Built first for one staffing firm, designed to be sold as SaaS.
 
-**Status:** Phases 1 + 2 + 3 + 4 are merged and live in the shared dev
-environment. Phase 5 is still the active engineering queue (real provider
-integrations, prod hardening, and self-serve tenant work), while Phase 6
-product polish is also merged and live. A new post-audit roadmap now breaks the
-next SaaS maturity work into Phase 7, 8, and 9 deliverables for recruiter UX,
-enterprise controls, and intelligence/integrations. See [`plan/plan.md`](./plan/plan.md)
+**Status:** Phases 1 through 7 are merged and live in the shared dev
+environment. Phase 5 still contains the open real-provider and SaaS
+productization work, and **Phase 8 is now the active execution queue** for
+enterprise controls: granular RBAC, audit history, recovery, file security,
+auth hardening, and trust/ops surfaces. See [`plan/plan.md`](./plan/plan.md)
 for the full roadmap.
 
 ## Stack
@@ -128,6 +127,7 @@ The shared dev environment now demonstrates:
 - redesigned recruiter / client / candidate / contractor portals with live seeded demo data
 - contractor invoice submission, working details, and client-side invoice approval surfaces
 - accessibility statement page plus opt-in CI accessibility checks
+- recruiter notifications center, team pulse KPIs, stuck-stage attention surfacing, and candidate timeline transparency
 
 This is still a dev preview, not a production-ready operations closeout:
 
@@ -136,7 +136,7 @@ This is still a dev preview, not a production-ready operations closeout:
 - production hardening (private GHCR + managed-identity pull, prod Auth0 tenant, custom domain) remains open in Phase 5
 - self-serve tenant signup and Stripe subscription billing remain open in Phase 5
 
-See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the completed Time & Money phase, [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md) for the completed Hiring Workflow Depth phase, [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md) for the completed Distribution & Client Visibility phase, [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md) for the active remaining SaaS/integration queue, [`plan/phase-6-deliverables.md`](./plan/phase-6-deliverables.md) for the completed UX MVP catch-up, [`plan/phase-7-deliverables.md`](./plan/phase-7-deliverables.md) for the recruiter-operations maturity queue, [`plan/phase-8-deliverables.md`](./plan/phase-8-deliverables.md) for the enterprise-control queue, [`plan/phase-9-deliverables.md`](./plan/phase-9-deliverables.md) for the intelligence/integrations queue, and [`plan/plan.md`](./plan/plan.md) for the full roadmap.
+See [`plan/phase-1-deliverables.md`](./plan/phase-1-deliverables.md) for the completed MVP sequence, [`plan/phase-2-deliverables.md`](./plan/phase-2-deliverables.md) for the completed Time & Money phase, [`plan/phase-3-deliverables.md`](./plan/phase-3-deliverables.md) for the completed Hiring Workflow Depth phase, [`plan/phase-4-deliverables.md`](./plan/phase-4-deliverables.md) for the completed Distribution & Client Visibility phase, [`plan/phase-5-deliverables.md`](./plan/phase-5-deliverables.md) for the remaining SaaS/integration queue, [`plan/phase-6-deliverables.md`](./plan/phase-6-deliverables.md) for the completed UX MVP catch-up, [`plan/phase-7-deliverables.md`](./plan/phase-7-deliverables.md) for the completed recruiter-operations maturity phase, [`plan/phase-8-deliverables.md`](./plan/phase-8-deliverables.md) for the active enterprise-control queue, [`plan/phase-9-deliverables.md`](./plan/phase-9-deliverables.md) for the intelligence/integrations queue, and [`plan/plan.md`](./plan/plan.md) for the full roadmap.
 
 ## License
 
