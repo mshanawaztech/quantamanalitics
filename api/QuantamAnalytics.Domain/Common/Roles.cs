@@ -13,6 +13,10 @@ public static class Roles
 {
     public const string PlatformAdmin = "PlatformAdmin";
     public const string Recruiter = "Recruiter";
+    public const string HrAdmin = "HrAdmin";
+    public const string PayrollAdmin = "PayrollAdmin";
+    public const string Interviewer = "Interviewer";
+    public const string Manager = "Manager";
     public const string Candidate = "Candidate";
     public const string Client = "Client";
 
@@ -21,6 +25,10 @@ public static class Roles
     {
         PlatformAdmin,
         Recruiter,
+        HrAdmin,
+        PayrollAdmin,
+        Interviewer,
+        Manager,
         Candidate,
         Client,
     };

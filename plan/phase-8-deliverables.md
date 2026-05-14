@@ -10,8 +10,8 @@ customer-facing capabilities.
 
 | #   | Branch                              | Scope                                                                      | Status |
 | --- | ----------------------------------- | -------------------------------------------------------------------------- | ------ |
-| 58  | `qa001-phase8-plan`                 | Phase 8 deliverables board + repo handoff after Phase 7                    | open   |
-| 59  | `qa001-rbac-granular`               | Granular role/permission matrix for recruiter, HR, payroll, interviewer    | queued |
+| 58  | `qa001-phase8-plan`                 | Phase 8 deliverables board + repo handoff after Phase 7                    | merged |
+| 59  | `qa001-rbac-granular`               | Granular role/permission matrix for recruiter, HR, payroll, interviewer    | open   |
 | 60  | `qa001-audit-console`               | Queryable audit log UI, subject/history views, login/access review surfaces | queued |
 | 61  | `qa001-soft-delete-recovery`        | Soft delete, recycle bin, restore windows, retention rules                 | queued |
 | 62  | `qa001-file-security`               | Signed URLs, expiring downloads, encrypted resume/document handling         | queued |

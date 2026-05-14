@@ -77,10 +77,32 @@ public static class AuthExtensions
                 p => p.RequireAuthenticatedUser().RequireRole(Roles.Recruiter));
 
             options.AddPolicy(AuthorizationPolicies.RequireRecruitingAccess,
-                p => p.RequireAuthenticatedUser().RequireRole(Roles.Recruiter, Roles.PlatformAdmin));
+                p => p.RequireAuthenticatedUser().RequireRole(
+                    Roles.Recruiter,
+                    Roles.HrAdmin,
+                    Roles.Manager,
+                    Roles.PlatformAdmin));
+
+            options.AddPolicy(AuthorizationPolicies.RequireInterviewAccess,
+                p => p.RequireAuthenticatedUser().RequireRole(
+                    Roles.Interviewer,
+                    Roles.Recruiter,
+                    Roles.HrAdmin,
+                    Roles.Manager,
+                    Roles.PlatformAdmin));
 
             options.AddPolicy(AuthorizationPolicies.RequireTimeApprovalAccess,
-                p => p.RequireAuthenticatedUser().RequireRole(Roles.Client, Roles.PlatformAdmin));
+                p => p.RequireAuthenticatedUser().RequireRole(
+                    Roles.Client,
+                    Roles.PayrollAdmin,
+                    Roles.Manager,
+                    Roles.PlatformAdmin));
+
+            options.AddPolicy(AuthorizationPolicies.RequirePayrollAccess,
+                p => p.RequireAuthenticatedUser().RequireRole(
+                    Roles.PayrollAdmin,
+                    Roles.Manager,
+                    Roles.PlatformAdmin));
 
             options.AddPolicy(AuthorizationPolicies.RequireClientPortalAccess,
                 p => p.RequireAuthenticatedUser().RequireRole(Roles.Client, Roles.PlatformAdmin));

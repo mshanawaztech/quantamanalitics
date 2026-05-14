@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AccessService } from './core/auth/access.service';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
@@ -67,7 +68,10 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
       } @else if (!hasRecruitingAccess()) {
         <section class="gate">
           <h2>Recruiter access required.</h2>
-          <p>You're signed in, but this page is limited to Recruiter or PlatformAdmin roles.</p>
+          <p>
+            You're signed in, but this page requires recruiting access such as
+            Recruiter, HR admin, manager, or PlatformAdmin.
+          </p>
         </section>
       } @else {
         @if (errorMessage()) {
@@ -653,6 +657,7 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
 export class RecruiterPipelineComponent {
   protected readonly auth = inject(AuthService);
   private readonly me = inject(MeService);
+  private readonly access = inject(AccessService);
   private readonly recruiter = inject(RecruiterPortalService);
 
   protected readonly columns = COLUMNS;
@@ -699,8 +704,7 @@ export class RecruiterPipelineComponent {
   }
 
   protected hasRecruitingAccess(): boolean {
-    const roles = this.me.data()?.roles ?? [];
-    return roles.includes('Recruiter') || roles.includes('PlatformAdmin');
+    return this.access.canAccessRecruitingWorkspace();
   }
 
   protected applicationsByStatus(status: PipelineStatus): RecruiterApplication[] {

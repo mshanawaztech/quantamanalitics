@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AccessService } from './core/auth/access.service';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
@@ -125,7 +126,10 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       } @else if (!hasRecruitingAccess()) {
         <section class="gate-card">
           <h2>Recruiting access required.</h2>
-          <p>Your current session is valid, but this portal is limited to Recruiter or PlatformAdmin roles.</p>
+          <p>
+            Your current session is valid, but this portal requires recruiting
+            access such as Recruiter, HR admin, manager, or PlatformAdmin.
+          </p>
         </section>
       } @else {
         <section class="workspace">
@@ -614,90 +618,92 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
           }
         </section>
 
-        <section class="invoice-card">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Invoice staging</p>
-              <h2>Approved weeks ready for billing handoff</h2>
-            </div>
-            @if (loadingInvoiceReady()) {
-              <span class="pill">Loading</span>
-            }
-          </div>
-
-          @if (invoiceReadyError()) {
-            <p class="error">{{ invoiceReadyError() }}</p>
-          } @else {
-            <div class="invoice-list">
-              @for (item of invoiceReady(); track item.timesheetId) {
-                <article class="invoice-item">
-                  <strong>{{ item.contractorEmail }}</strong>
-                  <p>Week of {{ item.weekStartUtc }}</p>
-                  <p>{{ item.regularHours }} reg · {{ item.overtimeHours }} OT · {{ item.paidTimeOffHours }} PTO</p>
-                  <p>{{ item.payableHours }} payable hours · Approved {{ item.approvedAtUtc || 'pending timestamp' }}</p>
-                </article>
-              } @empty {
-                <p class="empty">No approved time is staged for invoicing yet.</p>
+        @if (hasPayrollAccess()) {
+          <section class="invoice-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Invoice staging</p>
+                <h2>Approved weeks ready for billing handoff</h2>
+              </div>
+              @if (loadingInvoiceReady()) {
+                <span class="pill">Loading</span>
               }
             </div>
-          }
-        </section>
 
-        <section class="handoff-card">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">QuickBooks + Stripe baseline</p>
-              <h2>Turn approved time into a billing handoff package</h2>
-            </div>
-            @if (loadingHandoff()) {
-              <span class="pill">Loading</span>
+            @if (invoiceReadyError()) {
+              <p class="error">{{ invoiceReadyError() }}</p>
+            } @else {
+              <div class="invoice-list">
+                @for (item of invoiceReady(); track item.timesheetId) {
+                  <article class="invoice-item">
+                    <strong>{{ item.contractorEmail }}</strong>
+                    <p>Week of {{ item.weekStartUtc }}</p>
+                    <p>{{ item.regularHours }} reg · {{ item.overtimeHours }} OT · {{ item.paidTimeOffHours }} PTO</p>
+                    <p>{{ item.payableHours }} payable hours · Approved {{ item.approvedAtUtc || 'pending timestamp' }}</p>
+                  </article>
+                } @empty {
+                  <p class="empty">No approved time is staged for invoicing yet.</p>
+                }
+              </div>
             }
-          </div>
+          </section>
 
-          <div class="handoff-actions">
-            <button type="button" class="primary" (click)="downloadQuickBooksCsv()" [disabled]="downloadingQuickBooks()">
-              {{ downloadingQuickBooks() ? 'Preparing CSV…' : 'Download QuickBooks CSV' }}
-            </button>
-            <button type="button" class="secondary" (click)="fetchInvoiceHandoff()" [disabled]="loadingHandoff()">
-              Refresh Stripe fallback preview
-            </button>
-          </div>
-
-          @if (handoffError()) {
-            <p class="error">{{ handoffError() }}</p>
-          } @else if (invoiceHandoff()) {
-            <div class="handoff-summary">
-              <article class="handoff-stat">
-                <span class="label">CSV file</span>
-                <strong>{{ invoiceHandoff()!.quickBooksFileName }}</strong>
-              </article>
-              <article class="handoff-stat">
-                <span class="label">Approved weeks</span>
-                <strong>{{ invoiceHandoff()!.approvedTimesheetCount }}</strong>
-              </article>
-              <article class="handoff-stat">
-                <span class="label">Payable hours</span>
-                <strong>{{ invoiceHandoff()!.totalPayableHours }}</strong>
-              </article>
-              <article class="handoff-stat">
-                <span class="label">Stripe batch</span>
-                <strong>{{ invoiceHandoff()!.stripeFallback.batchReference }}</strong>
-              </article>
-            </div>
-
-            <div class="handoff-preview">
-              @for (item of stripeFallbackItems(); track item.timesheetId) {
-                <article class="handoff-item">
-                  <strong>{{ item.contractorEmail }}</strong>
-                  <p>{{ item.description }}</p>
-                  <p>{{ item.quantity }} {{ item.unit }} · {{ item.collectionMethod }}</p>
-                </article>
-              } @empty {
-                <p class="empty">No Stripe fallback lines are ready yet.</p>
+          <section class="handoff-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">QuickBooks + Stripe baseline</p>
+                <h2>Turn approved time into a billing handoff package</h2>
+              </div>
+              @if (loadingHandoff()) {
+                <span class="pill">Loading</span>
               }
             </div>
-          }
-        </section>
+
+            <div class="handoff-actions">
+              <button type="button" class="primary" (click)="downloadQuickBooksCsv()" [disabled]="downloadingQuickBooks()">
+                {{ downloadingQuickBooks() ? 'Preparing CSV…' : 'Download QuickBooks CSV' }}
+              </button>
+              <button type="button" class="secondary" (click)="fetchInvoiceHandoff()" [disabled]="loadingHandoff()">
+                Refresh Stripe fallback preview
+              </button>
+            </div>
+
+            @if (handoffError()) {
+              <p class="error">{{ handoffError() }}</p>
+            } @else if (invoiceHandoff()) {
+              <div class="handoff-summary">
+                <article class="handoff-stat">
+                  <span class="label">CSV file</span>
+                  <strong>{{ invoiceHandoff()!.quickBooksFileName }}</strong>
+                </article>
+                <article class="handoff-stat">
+                  <span class="label">Approved weeks</span>
+                  <strong>{{ invoiceHandoff()!.approvedTimesheetCount }}</strong>
+                </article>
+                <article class="handoff-stat">
+                  <span class="label">Payable hours</span>
+                  <strong>{{ invoiceHandoff()!.totalPayableHours }}</strong>
+                </article>
+                <article class="handoff-stat">
+                  <span class="label">Stripe batch</span>
+                  <strong>{{ invoiceHandoff()!.stripeFallback.batchReference }}</strong>
+                </article>
+              </div>
+
+              <div class="handoff-preview">
+                @for (item of stripeFallbackItems(); track item.timesheetId) {
+                  <article class="handoff-item">
+                    <strong>{{ item.contractorEmail }}</strong>
+                    <p>{{ item.description }}</p>
+                    <p>{{ item.quantity }} {{ item.unit }} · {{ item.collectionMethod }}</p>
+                  </article>
+                } @empty {
+                  <p class="empty">No Stripe fallback lines are ready yet.</p>
+                }
+              </div>
+            }
+          </section>
+        }
       }
     </main>
   `,
@@ -946,6 +952,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
 export class RecruiterDashboardComponent {
   protected auth = inject(AuthService);
   protected me = inject(MeService);
+  protected access = inject(AccessService);
   private recruiter = inject(RecruiterPortalService);
 
   protected readonly columns = ['Applied', 'Interviewing', 'OfferSent', 'Hired', 'Rejected'];
@@ -1029,14 +1036,26 @@ Best,
       this.fetchNotifications();
       this.fetchEmailTemplateCatalog();
       this.fetchEmailTemplates();
-      this.fetchInvoiceReady();
-      this.fetchInvoiceHandoff();
+      if (this.hasPayrollAccess()) {
+        this.fetchInvoiceReady();
+        this.fetchInvoiceHandoff();
+      } else {
+        this.loadingInvoiceReady.set(false);
+        this.loadingHandoff.set(false);
+        this.invoiceReady.set([]);
+        this.invoiceHandoff.set(null);
+        this.invoiceReadyError.set(null);
+        this.handoffError.set(null);
+      }
     });
   }
 
   protected hasRecruitingAccess(): boolean {
-    const roles = this.me.data()?.roles ?? [];
-    return roles.includes('Recruiter') || roles.includes('PlatformAdmin');
+    return this.access.canAccessRecruitingWorkspace();
+  }
+
+  protected hasPayrollAccess(): boolean {
+    return this.access.canAccessPayrollBilling();
   }
 
   protected accessLabel(): string {
@@ -1044,7 +1063,13 @@ Best,
       return 'Awaiting sign in';
     }
 
-    return this.hasRecruitingAccess() ? 'Recruiter workspace ready' : 'Authenticated without recruiter access';
+    if (this.hasRecruitingAccess() && this.hasPayrollAccess()) {
+      return 'Recruiting + payroll controls ready';
+    }
+
+    return this.hasRecruitingAccess()
+      ? 'Recruiter workspace ready'
+      : 'Authenticated without recruiter access';
   }
 
   protected roleLabel(): string {

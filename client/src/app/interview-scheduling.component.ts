@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AccessService } from './core/auth/access.service';
 import { AuthService } from './core/auth/auth.service';
 import { MeService } from './core/auth/me.service';
 import {
@@ -58,9 +59,10 @@ type ScorecardTemplate = {
         </section>
       } @else if (!hasRecruitingAccess()) {
         <section class="gate-card">
-          <h2>Recruiting access required.</h2>
+          <h2>Interview access required.</h2>
           <p>
-            Your session is valid, but only Recruiter or PlatformAdmin roles can
+            Your session is valid, but only interview-enabled roles such as
+            Interviewer, Recruiter, HR admin, manager, or PlatformAdmin can
             open interview planning surfaces.
           </p>
         </section>
@@ -252,6 +254,7 @@ type ScorecardTemplate = {
 export class InterviewSchedulingComponent {
   protected auth = inject(AuthService);
   protected me = inject(MeService);
+  protected access = inject(AccessService);
   private interviews = inject(InterviewSchedulingService);
 
   protected readonly scorecards: ScorecardTemplate[] = [
@@ -296,8 +299,7 @@ export class InterviewSchedulingComponent {
   }
 
   protected hasRecruitingAccess(): boolean {
-    const roles = this.me.data()?.roles ?? [];
-    return roles.includes('Recruiter') || roles.includes('PlatformAdmin');
+    return this.access.canAccessInterviewWorkspace();
   }
 
   protected accessLabel(): string {
@@ -305,7 +307,9 @@ export class InterviewSchedulingComponent {
       return 'Awaiting sign in';
     }
 
-    return this.hasRecruitingAccess() ? 'Interview provider baseline ready' : 'Authenticated without recruiter access';
+    return this.hasRecruitingAccess()
+      ? 'Interview workspace ready'
+      : 'Authenticated without interview access';
   }
 
   protected roleLabel(): string {

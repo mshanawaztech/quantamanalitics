@@ -14,7 +14,7 @@ public static class InterviewSchedulingEndpoint
     {
         var group = app.MapGroup("/api/v1/interviews")
             .WithTags("Interview Scheduling")
-            .RequireAuthorization(AuthorizationPolicies.RequireRecruitingAccess);
+            .RequireAuthorization(AuthorizationPolicies.RequireInterviewAccess);
 
         group.MapGet("/overview", GetOverviewAsync);
         group.MapPost("/{id:guid}/meeting-link", GenerateMeetingLinkAsync);

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using QuantamAnalytics.Api.Endpoints;
+using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Tests.TestAuth;
@@ -26,9 +27,9 @@ public sealed class ClientApprovalEndpointTests : IClassFixture<WebApplicationFa
 
         var client = _factory.WithAuthenticatedUser(
             seed.TenantId,
-            "auth0|client-1",
-            "client@example.com",
-            "PlatformAdmin")
+            "auth0|payroll-1",
+            "payroll@example.com",
+            Roles.PayrollAdmin)
             .CreateClient();
 
         var response = await client.GetAsync("/api/v1/client/approvals/timesheets");
@@ -53,9 +54,9 @@ public sealed class ClientApprovalEndpointTests : IClassFixture<WebApplicationFa
 
         var client = _factory.WithAuthenticatedUser(
             seed.TenantId,
-            "auth0|client-1",
-            "client@example.com",
-            "PlatformAdmin")
+            "auth0|manager-1",
+            "manager@example.com",
+            Roles.Manager)
             .CreateClient();
 
         var approveResponse = await client.PostAsJsonAsync(
@@ -91,6 +92,23 @@ public sealed class ClientApprovalEndpointTests : IClassFixture<WebApplicationFa
 
         stored.Should().Contain(x => x.Id == seed.SubmittedId && x.Status == TimesheetStatus.Approved);
         stored.Should().Contain(x => x.Id == seed.SecondSubmittedId && x.Status == TimesheetStatus.Rejected);
+    }
+
+    [Fact]
+    public async Task Timesheets_endpoint_returns_403_for_recruiter_without_approval_access()
+    {
+        var tenantId = Guid.NewGuid();
+
+        var client = _factory.WithAuthenticatedUser(
+            tenantId,
+            "auth0|recruiter-1",
+            "recruiter@example.com",
+            Roles.Recruiter)
+            .CreateClient();
+
+        var response = await client.GetAsync("/api/v1/client/approvals/timesheets");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     private static SeededTimesheets SeedTimesheets(IServiceProvider services)

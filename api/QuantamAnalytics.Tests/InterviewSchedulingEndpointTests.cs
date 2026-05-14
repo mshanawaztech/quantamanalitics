@@ -26,7 +26,7 @@ public sealed class InterviewSchedulingEndpointTests : IClassFixture<WebApplicat
     {
         var tenantId = SeedInterviewData(_factory.Services);
         using var client = _factory
-            .WithAuthenticatedUser(tenantId, "auth0|recruiter-1", "recruiter@example.com", Roles.PlatformAdmin)
+            .WithAuthenticatedUser(tenantId, "auth0|interviewer-1", "interviewer@example.com", Roles.Interviewer)
             .CreateClient();
 
         var response = await client.GetAsync("/api/v1/interviews/overview");
@@ -37,6 +37,19 @@ public sealed class InterviewSchedulingEndpointTests : IClassFixture<WebApplicat
         payload!.Providers.Should().Contain(x => x.Name == "Google Calendar baseline");
         payload.Events.Should().ContainSingle();
         payload.Events[0].CandidateEmail.Should().Be("jane@example.com");
+    }
+
+    [Fact]
+    public async Task Overview_returns_403_for_payroll_only_session()
+    {
+        var tenantId = Guid.NewGuid();
+        using var client = _factory
+            .WithAuthenticatedUser(tenantId, "auth0|payroll-1", "payroll@example.com", Roles.PayrollAdmin)
+            .CreateClient();
+
+        var response = await client.GetAsync("/api/v1/interviews/overview");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     private static Guid SeedInterviewData(IServiceProvider services)

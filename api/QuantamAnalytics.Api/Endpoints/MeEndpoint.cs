@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using QuantamAnalytics.Api.Auth;
 using QuantamAnalytics.Domain.Common;
 
 namespace QuantamAnalytics.Api.Endpoints;
@@ -14,13 +15,16 @@ public static class MeEndpoint
     {
         app.MapGet("/me", (ClaimsPrincipal user) =>
         {
+            var roles = user.FindAll(Roles.RolesClaim).Select(c => c.Value).ToArray();
+
             return Results.Ok(new MeResponse(
                 Sub: user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
                 Email: user.FindFirstValue(ClaimTypes.Email)
                        ?? user.FindFirstValue("email")
                        ?? string.Empty,
                 Name: user.FindFirstValue("name") ?? string.Empty,
-                Roles: user.FindAll(Roles.RolesClaim).Select(c => c.Value).ToArray(),
+                Roles: roles,
+                Permissions: PlatformPermissions.Expand(roles),
                 TenantId: user.FindFirstValue(Roles.TenantIdClaim)));
         })
         .WithName("Me")
@@ -40,4 +44,5 @@ public sealed record MeResponse(
     string Email,
     string Name,
     string[] Roles,
+    string[] Permissions,
     string? TenantId);

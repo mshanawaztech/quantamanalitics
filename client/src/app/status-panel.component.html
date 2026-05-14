@@ -40,6 +40,7 @@
       } @else if (me.data(); as profile) {
         <dl class="profile">
           <dt>Role</dt><dd>{{ profile.roles.join(', ') || 'none' }}</dd>
+          <dt>Access</dt><dd>{{ profile.permissions?.join(', ') || 'derived locally' }}</dd>
           <dt>Tenant</dt><dd>{{ profile.tenantId || 'not assigned' }}</dd>
           <dt>Subject</dt><dd><code>{{ profile.sub }}</code></dd>
         </dl>
