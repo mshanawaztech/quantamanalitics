@@ -32,6 +32,7 @@ public static class RecruiterPortalEndpoint
         group.MapGet("/applications/{applicationId:guid}/timeline", GetApplicationTimelineAsync);
         group.MapPost("/applications/{applicationId:guid}/timeline/comments", AddApplicationTimelineCommentAsync);
         group.MapGet("/candidates/activity", GetCandidateActivityAsync);
+        group.MapGet("/notifications", GetNotificationsAsync);
         group.MapGet("/invoice-ready", GetInvoiceReadyAsync);
         group.MapGet("/invoice-handoff", GetInvoiceHandoffAsync);
         group.MapGet("/invoice-handoff/quickbooks.csv", DownloadQuickBooksCsvAsync);
@@ -684,6 +685,102 @@ public static class RecruiterPortalEndpoint
         return TypedResults.Ok(new RecruiterCandidateActivityResponse(items));
     }
 
+    private static async Task<Results<Ok<RecruiterNotificationsResponse>, ProblemHttpResult>> GetNotificationsAsync(
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        var nowUtc = DateTimeOffset.UtcNow;
+        var stuckBeforeUtc = nowUtc - StuckThreshold;
+
+        var recentTimelineItems = await db.ApplicationTimelineEvents
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .Take(8)
+            .Join(
+                db.Applications,
+                timeline => timeline.ApplicationId,
+                application => application.Id,
+                (timeline, application) => new { Timeline = timeline, Application = application })
+            .Join(
+                db.Jobs,
+                joined => joined.Application.JobId,
+                job => job.Id,
+                (joined, job) => new RecruiterNotificationItemResponse(
+                    $"timeline:{joined.Timeline.Id}",
+                    "activity",
+                    ToTimelineNotificationSeverity(joined.Timeline.EventType, joined.Application.Status),
+                    joined.Timeline.Title,
+                    $"{joined.Application.CandidateName} · {job.Title}",
+                    "Open recruiter workspace",
+                    "/recruiter",
+                    joined.Timeline.OccurredAtUtc))
+            .ToArrayAsync(cancellationToken);
+
+        var stuckItems = await db.Applications
+            .Where(x =>
+                x.Status != ApplicationStatus.Hired &&
+                x.Status != ApplicationStatus.Rejected &&
+                x.UpdatedAtUtc <= stuckBeforeUtc)
+            .OrderBy(x => x.UpdatedAtUtc)
+            .Join(
+                db.Jobs,
+                application => application.JobId,
+                job => job.Id,
+                (application, job) => new RecruiterNotificationItemResponse(
+                    $"stuck:{application.Id}",
+                    "pipeline",
+                    "warning",
+                    $"{application.CandidateName} is stuck in {application.Status}",
+                    $"{job.Title} has been idle for {Math.Max(1, (nowUtc - application.UpdatedAtUtc).Days)} days.",
+                    "Open search pipeline",
+                    "/recruiter/pipeline",
+                    application.UpdatedAtUtc))
+            .Take(4)
+            .ToArrayAsync(cancellationToken);
+
+        var invoiceReadySummary = await db.Timesheets
+            .Where(x => x.Status == TimesheetStatus.Approved)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                LatestApprovedAtUtc = g.Max(x => x.ReviewedAtUtc ?? x.UpdatedAtUtc),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var invoiceNotifications =
+            invoiceReadySummary is null || invoiceReadySummary.Count == 0
+                ? []
+                : new[]
+                {
+                    new RecruiterNotificationItemResponse(
+                        "billing:approved-timesheets",
+                        "billing",
+                        "success",
+                        $"{invoiceReadySummary.Count} approved week{(invoiceReadySummary.Count == 1 ? string.Empty : "s")} ready for billing",
+                        "Download the QuickBooks handoff or review the Stripe fallback preview from the recruiter workspace.",
+                        "Review invoice handoff",
+                        "/recruiter",
+                        invoiceReadySummary.LatestApprovedAtUtc),
+                };
+
+        var items = recentTimelineItems
+            .Concat(stuckItems)
+            .Concat(invoiceNotifications)
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .Take(12)
+            .ToArray();
+
+        return TypedResults.Ok(new RecruiterNotificationsResponse(
+            items,
+            items.Count(x => x.Severity == "warning")));
+    }
+
     private static async Task<Results<Ok<ApplicationTimelineResponse>, NotFound, ProblemHttpResult>> GetApplicationTimelineAsync(
         Guid applicationId,
         AppDbContext db,
@@ -1087,6 +1184,22 @@ public static class RecruiterPortalEndpoint
             _ => "The application timeline was updated.",
         };
 
+    private static string ToTimelineNotificationSeverity(
+        ApplicationTimelineEventType eventType,
+        ApplicationStatus status) =>
+        eventType switch
+        {
+            ApplicationTimelineEventType.OfferPrepared => "success",
+            ApplicationTimelineEventType.InterviewScheduled => "info",
+            ApplicationTimelineEventType.Applied => "info",
+            ApplicationTimelineEventType.RecruiterReviewed => "info",
+            ApplicationTimelineEventType.NoteAdded => "neutral",
+            ApplicationTimelineEventType.StageChanged when status == ApplicationStatus.Hired => "success",
+            ApplicationTimelineEventType.StageChanged when status == ApplicationStatus.Rejected => "warning",
+            ApplicationTimelineEventType.StageChanged => "info",
+            _ => "info",
+        };
+
     private static string Slugify(string value)
     {
         var chars = value
@@ -1197,6 +1310,20 @@ public sealed record RecruiterApplicationFilterPresetResponse(
     bool StuckOnly,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc);
+
+public sealed record RecruiterNotificationsResponse(
+    RecruiterNotificationItemResponse[] Items,
+    int AttentionCount);
+
+public sealed record RecruiterNotificationItemResponse(
+    string Id,
+    string Category,
+    string Severity,
+    string Title,
+    string Detail,
+    string? ActionLabel,
+    string? ActionHref,
+    DateTimeOffset OccurredAtUtc);
 
 public sealed record RecruiterInvoiceReadyResponse(RecruiterInvoiceReadyItemResponse[] Items);
 

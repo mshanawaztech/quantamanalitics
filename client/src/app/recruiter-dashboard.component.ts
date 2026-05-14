@@ -12,6 +12,7 @@ import {
   RecruiterApplicationsBoard,
   RecruiterBulkStatusMoveResponse,
   RecruiterCandidateActivityItem,
+  RecruiterNotificationItem,
   RecruiterInvoiceHandoffResponse,
   RecruiterInvoiceReadyItem,
   RecruiterJob,
@@ -41,6 +42,79 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
           <a routerLink="/recruiter/pipeline">Open search pipeline</a>
         </div>
       </section>
+
+      @if (auth.isAuthenticated() && hasRecruitingAccess()) {
+        <section class="workspace">
+          <article class="jobs-card">
+            <p class="eyebrow">Team pulse</p>
+            <h2>Keep attention on the bottlenecks.</h2>
+            @if (loadingPulse()) {
+              <span class="pill">Loading</span>
+            } @else {
+              <div class="board-toolbar">
+                <article class="toolbar-stat">
+                  <span class="label">Open pipeline</span>
+                  <strong>{{ openPipelineCount() }}</strong>
+                </article>
+                <article class="toolbar-stat">
+                  <span class="label">Active jobs</span>
+                  <strong>{{ activeJobCount() }}</strong>
+                </article>
+                <article class="toolbar-stat">
+                  <span class="label">Stuck &gt; 7d</span>
+                  <strong>{{ totalStuckCount() }}</strong>
+                </article>
+                <article class="toolbar-stat">
+                  <span class="label">Ready to invoice</span>
+                  <strong>{{ invoiceReady().length }}</strong>
+                </article>
+              </div>
+            }
+          </article>
+
+          <article class="activity-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Notification center</p>
+                <h2>See what needs action right now.</h2>
+              </div>
+              @if (loadingNotifications()) {
+                <span class="pill">Loading</span>
+              } @else if (attentionCount() > 0) {
+                <span class="stuck-pill">{{ attentionCount() }} attention</span>
+              }
+            </div>
+
+            @if (notificationsError()) {
+              <p class="error">{{ notificationsError() }}</p>
+              <button type="button" class="secondary" (click)="fetchNotifications()">Retry notifications</button>
+            } @else {
+              <div class="activity-list">
+                @for (item of notifications(); track item.id) {
+                  <article class="activity-item" [attr.data-severity]="item.severity">
+                    <div class="activity-top">
+                      <strong>{{ item.title }}</strong>
+                      <span class="timeline-date">{{ formatUtc(item.occurredAtUtc) }}</span>
+                    </div>
+                    <p>{{ item.detail }}</p>
+                    <div class="activity-top">
+                      <span class="pill">{{ item.category }}</span>
+                      @if (item.actionHref && item.actionLabel) {
+                        <a [routerLink]="item.actionHref">{{ item.actionLabel }}</a>
+                      }
+                    </div>
+                  </article>
+                } @empty {
+                  <article class="activity-empty">
+                    <h3>All clear for now</h3>
+                    <p>No new recruiter-facing alerts are waiting right now.</p>
+                  </article>
+                }
+              </div>
+            }
+          </article>
+        </section>
+      }
 
       @if (!auth.isAuthenticated()) {
         <section class="gate-card">
@@ -646,8 +720,11 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9a3412; font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
-    .board-copy { margin: 0.45rem 0 0; max-width: 36rem; }
+    .board-copy { margin: 0.45rem 0 0; }
     .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: #e7e5e4; color: #44403c; font-size: 0.85rem; font-weight: 700; }
+    .activity-item[data-severity='warning'] { border-color: #f59e0b; }
+    .activity-item[data-severity='success'] { border-color: #16a34a; }
+    .activity-item[data-severity='info'] { border-color: #2563eb; }
     .job-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; margin-bottom: 1.25rem; }
     label { display: grid; gap: 0.35rem; color: #3f372c; font-weight: 600; }
     input, textarea, select {
@@ -696,9 +773,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       background: #fffdf9;
       border: 1px solid #eadcc8;
     }
-    .toolbar-stat strong { font-size: 1.1rem; }
     .jobs-list { display: grid; gap: 0.8rem; }
-    .resume-review-card, .template-card { margin-top: 1.25rem; }
     .resume-review-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: 1rem; align-items: start; }
     .resume-upload-panel, .resume-preview-panel { display: grid; gap: 0.9rem; }
     .template-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr); gap: 1rem; align-items: start; }
@@ -729,7 +804,6 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .handoff-actions, .handoff-summary, .handoff-preview { display: grid; gap: 0.9rem; }
     .handoff-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); margin-bottom: 1rem; }
     .handoff-summary, .handoff-preview { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
-    .activity-card { margin-top: 1.25rem; }
     .activity-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.9rem; }
     .job-item, .application-card { padding: 1rem; }
     .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty { padding: 1rem; background: #fffdf9; }
@@ -859,7 +933,6 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .timeline-marker[data-kind='offer'] { background: #d97706; box-shadow: 0 0 0 0.25rem rgb(217 119 6 / 0.15); }
     .timeline-marker[data-kind='hired'] { background: #16a34a; box-shadow: 0 0 0 0.25rem rgb(22 163 74 / 0.15); }
     .timeline-marker[data-kind='rejected'] { background: #dc2626; box-shadow: 0 0 0 0.25rem rgb(220 38 38 / 0.15); }
-    .empty { color: #7c6f5e; }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 980px) {
       .hero, .workspace, .job-form, .resume-review-grid, .template-grid, .template-form, .template-preview-fields { grid-template-columns: 1fr; }
@@ -881,6 +954,7 @@ export class RecruiterDashboardComponent {
   protected jobs = signal<RecruiterJob[]>([]);
   protected applications = signal<RecruiterApplication[]>([]);
   protected candidateActivity = signal<RecruiterCandidateActivityItem[]>([]);
+  protected notifications = signal<RecruiterNotificationItem[]>([]);
   protected emailTemplateCatalog = signal<EmailTemplateCatalog | null>(null);
   protected emailTemplates = signal<RecruiterEmailTemplate[]>([]);
   protected selectedEmailTemplateId = signal<string | null>(null);
@@ -890,6 +964,7 @@ export class RecruiterDashboardComponent {
   protected loadingJobs = signal(false);
   protected loadingApplications = signal(false);
   protected loadingActivity = signal(false);
+  protected loadingNotifications = signal(false);
   protected loadingEmailTemplates = signal(false);
   protected loadingInvoiceReady = signal(false);
   protected loadingHandoff = signal(false);
@@ -902,6 +977,7 @@ export class RecruiterDashboardComponent {
   protected jobsError = signal<string | null>(null);
   protected applicationsError = signal<string | null>(null);
   protected activityError = signal<string | null>(null);
+  protected notificationsError = signal<string | null>(null);
   protected emailTemplateError = signal<string | null>(null);
   protected emailTemplateMessage = signal<string | null>(null);
   protected invoiceReadyError = signal<string | null>(null);
@@ -950,6 +1026,7 @@ Best,
       this.fetchJobs();
       this.fetchApplications();
       this.fetchCandidateActivity();
+      this.fetchNotifications();
       this.fetchEmailTemplateCatalog();
       this.fetchEmailTemplates();
       this.fetchInvoiceReady();
@@ -972,6 +1049,25 @@ Best,
 
   protected roleLabel(): string {
     return this.me.data()?.roles.join(', ') || 'Role not yet available';
+  }
+
+  protected attentionCount(): number {
+    return this.notifications().filter((item) => item.severity === 'warning').length;
+  }
+
+  protected openPipelineCount(): number {
+    return this.applications().filter((application) =>
+      application.status === 'Applied' ||
+      application.status === 'Interviewing' ||
+      application.status === 'OfferSent').length;
+  }
+
+  protected activeJobCount(): number {
+    return this.jobs().filter((job) => job.isPublished).length;
+  }
+
+  protected loadingPulse(): boolean {
+    return this.loadingJobs() || this.loadingApplications() || this.loadingInvoiceReady();
   }
 
   protected applicationsByStatus(status: string): RecruiterApplication[] {
@@ -1460,6 +1556,23 @@ Best,
         this.candidateActivity.set([]);
         this.loadingActivity.set(false);
         this.activityError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected fetchNotifications(): void {
+    this.loadingNotifications.set(true);
+    this.notificationsError.set(null);
+
+    this.recruiter.notifications().subscribe({
+      next: (response) => {
+        this.notifications.set(response.items);
+        this.loadingNotifications.set(false);
+      },
+      error: (error: unknown) => {
+        this.notifications.set([]);
+        this.loadingNotifications.set(false);
+        this.notificationsError.set(this.toErrorMessage(error));
       },
     });
   }

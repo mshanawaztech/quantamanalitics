@@ -113,6 +113,22 @@ export interface RecruiterCandidateActivityResponse {
   items: RecruiterCandidateActivityItem[];
 }
 
+export interface RecruiterNotificationItem {
+  id: string;
+  category: string;
+  severity: string;
+  title: string;
+  detail: string;
+  actionLabel: string | null;
+  actionHref: string | null;
+  occurredAtUtc: string;
+}
+
+export interface RecruiterNotificationsResponse {
+  items: RecruiterNotificationItem[];
+  attentionCount: number;
+}
+
 export interface RecruiterInvoiceReadyItem {
   timesheetId: string;
   contractorEmail: string;
@@ -256,6 +272,12 @@ export class RecruiterPortalService {
   candidateActivity() {
     return this.http.get<RecruiterCandidateActivityResponse>(
       `${environment.apiBase}/api/v1/recruiter/candidates/activity`,
+    );
+  }
+
+  notifications() {
+    return this.http.get<RecruiterNotificationsResponse>(
+      `${environment.apiBase}/api/v1/recruiter/notifications`,
     );
   }
 
