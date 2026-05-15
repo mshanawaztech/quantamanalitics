@@ -10,6 +10,7 @@ import { JobsListComponent } from './jobs-list.component';
 import { MarketingShellComponent } from './marketing-shell.component';
 import { NotFoundComponent } from './not-found.component';
 import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
+import { RecruiterEmailTemplatesComponent } from './recruiter-email-templates.component';
 import { RecruiterPipelineComponent } from './recruiter-pipeline.component';
 import { ContractorDashboardComponent } from './contractor-dashboard.component';
 import { HomeComponent } from './home.component';
@@ -85,6 +86,10 @@ export const routes: Routes = [
       {
         path: 'recruiter/pipeline',
         component: RecruiterPipelineComponent,
+      },
+      {
+        path: 'recruiter/email-templates',
+        component: RecruiterEmailTemplatesComponent,
       },
       {
         path: 'interviews',
