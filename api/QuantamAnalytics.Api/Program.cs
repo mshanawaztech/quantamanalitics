@@ -63,6 +63,10 @@ if (authEnabled)
     app.UseAuthorization();
 }
 
+// Platform API-key resolution runs after auth so JWT-authenticated
+// callers fall through. Only inspects requests under /api/v1/public.
+app.UseMiddleware<PlatformApiKeyMiddleware>();
+
 // Liveness — process is up. No DB, no auth, never blocks.
 // .AllowAnonymous() is set inside MapHealthEndpoint().
 app.MapHealthEndpoint();
@@ -93,6 +97,7 @@ if (authEnabled)
     app.MapInvoiceEndpoints();
     app.MapEmailTemplateEndpoints();
     app.MapAuditLogEndpoints();
+    app.MapPlatformApiEndpoints();
 }
 
 app.Run();
