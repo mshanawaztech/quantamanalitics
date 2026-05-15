@@ -12,16 +12,26 @@ customer-facing capabilities.
 | --- | ----------------------------------- | -------------------------------------------------------------------------- | ------ |
 | 58  | `qa001-phase8-plan`                 | Phase 8 deliverables board + repo handoff after Phase 7                    | merged |
 | 59  | `qa001-rbac-granular`               | Granular role/permission matrix for recruiter, HR, payroll, interviewer    | merged |
-| 60  | `qa001-audit-console`               | Queryable audit log UI, subject/history views, login/access review surfaces | open   |
-| 61  | `qa001-soft-delete-recovery`        | Soft delete, recycle bin, restore windows, retention rules                 | queued |
-| 62  | `qa001-file-security`               | Signed URLs, expiring downloads, encrypted resume/document handling         | queued |
-| 63  | `qa001-auth-hardening`              | MFA, session management, suspicious login handling, stronger password flows | queued |
-| 64  | `qa001-trust-center`                | Privacy, terms, cookie, GDPR, security pages and tenant trust center       | queued |
-| 65  | `qa001-ops-observability`           | Monitoring, backup/restore runbooks, disaster recovery, feature flags       | queued |
+| 60  | `qa001-audit-console`               | Queryable audit log UI, subject/history views, login/access review surfaces | merged |
+| 61  | `qa001-soft-delete-recovery`        | Soft delete on `ITenantScoped`, recycle bin, restore window               | in progress |
+| 62  | `qa001-file-security`               | `IResumeStorage.CreateSignedDownloadUrlAsync`, /me + /recruiter download-link endpoints, 1-hour TTL cap | review |
+| 63  | `qa001-auth-hardening`              | `/me/security/sessions/revoke` + `/me/security/suspicious-login` endpoints + Auth0 dashboard playbook   | review |
+| 64  | `qa001-trust-center`                | /trust, /privacy, /terms, /security, /dpa pages + footer column + breadcrumb labels                     | review |
+| 65  | `qa001-ops-observability`           | `IFeatureGate` + `AppSettingsFeatureGate` + /me/features endpoint + `docs/ops-runbook.md`                | review |
 
 > Order matters. PR-59 (granular RBAC) and PR-60 (audit console) should land
 > before broader rollout of recoverability and trust-center features, because
 > most enterprise buyers will evaluate permissioning and accountability first.
+
+### Status snapshot
+
+PR-58, 59, 60 are merged on main. PR-61 is in progress on the
+`qa001-soft-delete-recovery` branch. PRs 62, 63, 64, 65 are committed
+locally on their named branches and ready to push — they touch
+disjoint files (storage layer, session endpoints + docs, Angular pages,
+features infrastructure + docs) so they can be reviewed independently
+of PR-61 without merge risk. No EF migrations were added by 62–65, so
+no `dotnet ef` step is required before opening their PRs.
 
 ---
 
