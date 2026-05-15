@@ -46,6 +46,7 @@ public class AppDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<InterviewerAvailability> InterviewerAvailability => Set<InterviewerAvailability>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
