@@ -1,9 +1,15 @@
 # Phase 9 — Intelligence, Integrations & Monetization · 8 Deliverables
 
-**Status: QUEUED.** This phase is where the platform compounds into a harder
-to copy SaaS product: API surfaces, automations, stronger scheduling,
+**Status: IN PROGRESS.** This phase is where the platform compounds into a
+harder-to-copy SaaS product: API surfaces, automations, stronger scheduling,
 monetization add-ons, and AI assistance. The goal is not just polish, but
 operational leverage and differentiation.
+
+Each Phase 9 story ships the **provider boundary + deterministic stub +
+endpoints + tests** so the surface is real today and the implementation
+can swap in a paid vendor (OpenAI, Anthropic, Stripe, Zoom, etc.)
+without callers changing. Same pattern as the Phase 3 / 4 Checkr,
+DocuSeal, Dice, and meeting-link stubs.
 
 **Audit coverage:** 3, 4, 7, 18, 25, 26, 37, 39, 40.
 
