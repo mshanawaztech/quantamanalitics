@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using QuantamAnalytics.Infrastructure.Data;
@@ -11,9 +12,11 @@ using QuantamAnalytics.Infrastructure.Data;
 namespace QuantamAnalytics.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515054917_PlatformApiKeyBaseline")]
+    partial class PlatformApiKeyBaseline
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -784,26 +787,11 @@ namespace QuantamAnalytics.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset?>("DeletedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at_utc");
-
-                    b.Property<string>("DeletedByAuthSubject")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("deleted_by_auth_subject");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("description");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_deleted");
 
                     b.Property<bool>("IsPublished")
                         .ValueGeneratedOnAdd()
@@ -845,10 +833,6 @@ namespace QuantamAnalytics.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_jobs");
-
-                    b.HasIndex("TenantId", "DeletedAtUtc")
-                        .HasDatabaseName("ix_jobs_tenant_deleted")
-                        .HasFilter("is_deleted = true");
 
                     b.HasIndex("TenantId", "Slug")
                         .IsUnique()
