@@ -10,12 +10,21 @@ import { JobsListComponent } from './jobs-list.component';
 import { MarketingShellComponent } from './marketing-shell.component';
 import { NotFoundComponent } from './not-found.component';
 import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
+import { RecruiterEmailTemplatesComponent } from './recruiter-email-templates.component';
 import { RecruiterPipelineComponent } from './recruiter-pipeline.component';
+import { RecruiterRecycleBinComponent } from './recruiter-recycle-bin.component';
 import { ContractorDashboardComponent } from './contractor-dashboard.component';
 import { HomeComponent } from './home.component';
 import { InterviewSchedulingComponent } from './interview-scheduling.component';
 import { ServicesComponent } from './services.component';
 import { StyleGuideComponent } from './style-guide.component';
+import {
+  DpaComponent,
+  PrivacyComponent,
+  SecurityComponent,
+  TermsComponent,
+  TrustCenterComponent,
+} from './trust-center.component';
 import { LoginComponent } from './core/auth/login.component';
 
 export const routes: Routes = [
@@ -80,8 +89,32 @@ export const routes: Routes = [
         component: RecruiterPipelineComponent,
       },
       {
+        path: 'recruiter/email-templates',
+        component: RecruiterEmailTemplatesComponent,
+      },
+      {
         path: 'interviews',
         component: InterviewSchedulingComponent,
+      },
+      {
+        path: 'trust',
+        component: TrustCenterComponent,
+      },
+      {
+        path: 'privacy',
+        component: PrivacyComponent,
+      },
+      {
+        path: 'terms',
+        component: TermsComponent,
+      },
+      {
+        path: 'security',
+        component: SecurityComponent,
+      },
+      {
+        path: 'dpa',
+        component: DpaComponent,
       },
       {
         path: 'style-guide',

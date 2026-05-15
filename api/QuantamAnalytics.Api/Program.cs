@@ -97,7 +97,7 @@ if (authEnabled)
     app.MapInvoiceEndpoints();
     app.MapEmailTemplateEndpoints();
     app.MapAuditLogEndpoints();
-    app.MapPlatformApiEndpoints();
+    app.MapFeaturesEndpoint();
 }
 
 app.Run();
