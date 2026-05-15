@@ -21,7 +21,7 @@ scoped deliverable. Branch prefix stays `qa001-`.
 | 38  | `qa001-checkr-real`                    | Replace StubCheckrClient with real Checkr partner-API + signed webhooks | pending |
 | 39  | `qa001-docuseal-real`                  | Replace StubDocuSealClient with real DocuSeal API + signed webhooks    | pending |
 | 40  | `qa001-meeting-link-real`              | Real Zoom + Microsoft Teams meeting-link generation                    | pending |
-| 41  | `qa001-prod-hardening`                 | Private GHCR + managed-identity pull, Auth0 prod tenant, custom domain | pending |
+| 41  | `qa001-prod-hardening`                 | Private GHCR pull via Container App registry creds (slice 1 of 3)       | review  |
 | 42  | `qa001-tenant-signup`                  | Self-serve tenant signup flow + first-recruiter invite                 | pending |
 | 43  | `qa001-stripe-subscriptions`           | Stripe subscription billing for tenant-level seats                     | pending |
 | 44  | `qa001-soc2-baseline`                  | Audit logs, access reviews, encryption attestations for SOC 2 prep    | merged  |

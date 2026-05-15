@@ -58,6 +58,17 @@ param publicWebBaseUrl string = ''
 @description('When true, the API seeds demo tenants, jobs, and applications at startup.')
 param demoDataSeedOnStartup bool = false
 
+@description('Container registry server (e.g. ghcr.io). Empty = no registry credentials configured; useful when the image is public.')
+param registryServer string = ''
+
+@description('GHCR PAT username. Used only if registryServer is set. Plaintext is stored in a Container App secret named "registry-username".')
+@secure()
+param registryUsername string = ''
+
+@description('GHCR PAT secret / password. Used only if registryServer is set. Stored in a Container App secret named "registry-password".')
+@secure()
+param registryPassword string = ''
+
 @description('Port the container listens on. Must match ASPNETCORE_HTTP_PORTS.')
 param targetPort int = 8080
 
@@ -211,6 +222,34 @@ var allSecrets = concat(
   hasR2 ? r2Secrets : []
 )
 
+// Registry-credential secrets — only emitted when a registry is named
+// AND a username/password pair is provided. A public GHCR image still
+// requires `registries:` to be present so the platform knows which
+// server to pull from; in that case we omit the passwordSecretRef.
+var hasRegistry = !empty(registryServer)
+var hasRegistryAuth = hasRegistry && !empty(registryUsername) && !empty(registryPassword)
+
+var registrySecrets = hasRegistryAuth ? [
+  {
+    name: 'registry-password'
+    value: registryPassword
+  }
+] : []
+
+var allSecretsWithRegistry = concat(allSecrets, registrySecrets)
+
+var registries = hasRegistryAuth ? [
+  {
+    server: registryServer
+    username: registryUsername
+    passwordSecretRef: 'registry-password'
+  }
+] : (hasRegistry ? [
+  {
+    server: registryServer
+  }
+] : [])
+
 resource ca 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
@@ -235,7 +274,8 @@ resource ca 'Microsoft.App/containerApps@2024-03-01' = {
           }
         ]
       }
-      secrets: allSecrets
+      secrets: allSecretsWithRegistry
+      registries: registries
     }
     template: {
       containers: [
