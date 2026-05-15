@@ -58,6 +58,11 @@ const ROUTE_LABELS: Record<string, string> = {
   admin: 'Admin',
   audit: 'Audit',
   'style-guide': 'Style guide',
+  trust: 'Trust',
+  privacy: 'Privacy',
+  terms: 'Terms',
+  security: 'Security',
+  dpa: 'DPA',
 };
 
 /**
@@ -240,6 +245,14 @@ const ROUTE_LABELS: Record<string, string> = {
             <a routerLink="/contact">Contact</a>
             <a routerLink="/accessibility">Accessibility</a>
             <a href="https://github.com/mshanawaz114/quantamanalitics" target="_blank" rel="noopener">GitHub</a>
+          </div>
+          <div class="shell__footer-col">
+            <strong>Trust</strong>
+            <a routerLink="/trust">Trust center</a>
+            <a routerLink="/privacy">Privacy</a>
+            <a routerLink="/terms">Terms</a>
+            <a routerLink="/security">Security</a>
+            <a routerLink="/dpa">DPA</a>
           </div>
         </div>
         <div class="shell__footer-bottom">
