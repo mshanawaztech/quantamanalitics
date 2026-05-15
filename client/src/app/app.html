@@ -1,59 +1,203 @@
 <main class="page">
+  <!-- ─── Hero ────────────────────────────────────────────────────── -->
   <section class="hero">
     <div class="hero-copy">
-      <p class="eyebrow">Staffing operations, shaped as software</p>
-      <h1>From public hiring pages to recruiter workflow, on one tenant-safe platform.</h1>
+      <p class="eyebrow">Multi-tenant staffing platform</p>
+      <h1>The operating layer for staffing teams — sourcing through invoicing, on one tenant-safe platform.</h1>
       <p class="lede">
-        Quantam Analytics is building the operating layer for staffing teams that
-        want clearer pipeline movement, safer SaaS foundations, and fewer
-        handoffs between tools.
+        Quantam Analytics replaces the spreadsheet stack with a real ATS,
+        candidate portal, client approval flow, contractor timesheet + invoice,
+        and recruiter dashboards — all behind a single sign-in and a tenant-safe
+        data layer.
       </p>
 
       <div class="hero-actions">
-        <a routerLink="/contact" class="cta primary">Talk through your workflow</a>
-        <a routerLink="/services" class="cta secondary">Explore platform services</a>
-        <a routerLink="/jobs" class="cta secondary">Browse live job board</a>
-        <a routerLink="/candidate" class="cta secondary">Candidate portal</a>
+        <a routerLink="/recruiter" class="cta cta--primary">Open recruiter portal</a>
+        <a routerLink="/jobs" class="cta cta--ghost">Browse jobs</a>
+        <a routerLink="/trust" class="cta cta--ghost">Trust &amp; security</a>
       </div>
     </div>
 
-    <aside class="hero-panel">
-      <p class="eyebrow">What the platform is becoming</p>
-      <ul>
-        <li>Public job board and application intake</li>
-        <li>Recruiter portal with authenticated tenant isolation</li>
-        <li>Shared operating surface for submissions and delivery</li>
-        <li>Future-ready base for timesheets, invoicing, and client visibility</li>
-      </ul>
+    <aside class="hero-stats">
+      <div>
+        <p class="stat-value">9</p>
+        <p class="stat-label">phases shipped end to end</p>
+      </div>
+      <div>
+        <p class="stat-value">12 + 30</p>
+        <p class="stat-label">demo jobs and candidates seeded</p>
+      </div>
+      <div>
+        <p class="stat-value">WCAG 2.1 AA</p>
+        <p class="stat-label">accessibility verified</p>
+      </div>
+      <div>
+        <p class="stat-value">SOC 2 baseline</p>
+        <p class="stat-label">audit log on every mutation</p>
+      </div>
     </aside>
   </section>
 
-  <section class="signals">
-    <article>
-      <p class="signal-value">01</p>
-      <h2>One codebase, many staffing firms</h2>
-      <p>Tenant-aware claims and global query filtering keep future data surfaces isolated by default.</p>
-    </article>
-    <article>
-      <p class="signal-value">02</p>
-      <h2>Public site with product-grade plumbing</h2>
-      <p>The same application now handles live API health, authenticated identity, and public marketing routes.</p>
-    </article>
-    <article>
-      <p class="signal-value">03</p>
-      <h2>Recruiting-first roadmap</h2>
-      <p>Next milestones move from scaffold into public jobs, candidate intake, and recruiter workflow depth.</p>
-    </article>
+  <!-- ─── Portals ─────────────────────────────────────────────────── -->
+  <section class="portals" aria-labelledby="portals-heading">
+    <header>
+      <p class="eyebrow">Five portals, one platform</p>
+      <h2 id="portals-heading">Each role gets a workflow shaped for what they actually do.</h2>
+    </header>
+
+    <div class="portals-grid">
+      <a routerLink="/recruiter" class="portal-card">
+        <span class="portal-tag">Recruiter</span>
+        <strong>Pipeline, search, templates, parser.</strong>
+        <p>
+          Kanban with drag-and-drop status moves, candidate search with tag
+          filters, reusable email templates with merge fields, drag-drop
+          resume parsing, recycle bin for restorable deletes.
+        </p>
+        <span class="portal-cta">Open recruiter →</span>
+      </a>
+
+      <a routerLink="/contractor" class="portal-card">
+        <span class="portal-tag">Contractor</span>
+        <strong>Submit timesheet. Submit invoice.</strong>
+        <p>
+          Direct-engagement contractors log weekly hours, submit invoices,
+          track approval, and pull payment status — without emailing PDFs
+          to a recruiter.
+        </p>
+        <span class="portal-cta">Open contractor →</span>
+      </a>
+
+      <a routerLink="/client" class="portal-card">
+        <span class="portal-tag">Client</span>
+        <strong>Approve submissions. Review documents.</strong>
+        <p>
+          Hiring-manager-facing view of submitted candidates, signed
+          documents, and pending approvals. One-click approve / reject
+          with an audit trail.
+        </p>
+        <span class="portal-cta">Open client →</span>
+      </a>
+
+      <a routerLink="/candidate" class="portal-card">
+        <span class="portal-tag">Candidate</span>
+        <strong>Timeline, profile, quick actions.</strong>
+        <p>
+          Application history surfaced as a timeline, profile editor,
+          and quick links into open jobs and timesheet (when the
+          candidate is also a contractor).
+        </p>
+        <span class="portal-cta">Open candidate →</span>
+      </a>
+
+      <a routerLink="/interviews" class="portal-card">
+        <span class="portal-tag">Interviews</span>
+        <strong>Schedule, run, record.</strong>
+        <p>
+          Calendar provider abstraction (Google / Microsoft / Zoom) with
+          meeting-link generation, interviewer availability windows, and
+          self-booking slot picker.
+        </p>
+        <span class="portal-cta">Open interviews →</span>
+      </a>
+
+      <a routerLink="/admin/audit" class="portal-card">
+        <span class="portal-tag">Admin</span>
+        <strong>Audit review, RBAC matrix.</strong>
+        <p>
+          Append-only audit log queryable per actor + entity + action.
+          Granular role / permission matrix for recruiter, HR, payroll,
+          interviewer. SOC 2 evidence is one click away.
+        </p>
+        <span class="portal-cta">Open admin →</span>
+      </a>
+    </div>
   </section>
 
-  <section class="status-block">
+  <!-- ─── Capabilities by phase ───────────────────────────────────── -->
+  <section class="phases" aria-labelledby="phases-heading">
+    <header>
+      <p class="eyebrow">What's in the box</p>
+      <h2 id="phases-heading">Built phase by phase, shipped phase by phase.</h2>
+    </header>
+
+    <div class="phases-grid">
+      <article>
+        <h3>Recruiting ops</h3>
+        <ul>
+          <li>Candidate pipeline with drag-drop status moves</li>
+          <li>Bulk tag + status updates with search filter presets</li>
+          <li>Reusable email templates with merge fields + live preview</li>
+          <li>Resume parser with editable extracted fields</li>
+          <li>Activity timeline + recruiter comments + audit join</li>
+        </ul>
+      </article>
+
+      <article>
+        <h3>Time &amp; money</h3>
+        <ul>
+          <li>Weekly timesheet submission with hour categories</li>
+          <li>Contractor invoice submission + client approval state machine</li>
+          <li>Pay-rate rules + QuickBooks handoff CSV</li>
+          <li>Stripe subscription model for tenant-level seats</li>
+          <li>Billing summary with trial-day countdown</li>
+        </ul>
+      </article>
+
+      <article>
+        <h3>Identity &amp; trust</h3>
+        <ul>
+          <li>Auth0 JWT with role-based access policies</li>
+          <li>Multi-factor authentication ready for production</li>
+          <li>Sign-out-everywhere + suspicious-login feed</li>
+          <li>Append-only audit log on every mutation</li>
+          <li>30-day soft-delete recovery window</li>
+        </ul>
+      </article>
+
+      <article>
+        <h3>Integrations</h3>
+        <ul>
+          <li>Public job-board feed (Indeed XML)</li>
+          <li>Background check workflow (Checkr provider boundary)</li>
+          <li>E-signature workflow (DocuSeal provider boundary)</li>
+          <li>Customer-facing platform API with tenant-scoped keys</li>
+          <li>Outbound webhook subscriptions with HMAC + retry</li>
+        </ul>
+      </article>
+
+      <article>
+        <h3>AI assistance</h3>
+        <ul>
+          <li>Candidate ↔ job matching with scorecard + gap analysis</li>
+          <li>Auto-generated candidate summary + highlights</li>
+          <li>Interview question proposals tuned to the job description</li>
+          <li>Onboarding checklist generator</li>
+          <li>Offer-letter draft with state machine and acceptance tracking</li>
+        </ul>
+      </article>
+
+      <article>
+        <h3>Compliance &amp; ops</h3>
+        <ul>
+          <li>Trust center: privacy, terms, security, DPA</li>
+          <li>Accessibility statement + axe CI gate</li>
+          <li>Feature-flag boundary with appsettings drive</li>
+          <li>Signed-URL downloads for private files (1h TTL cap)</li>
+          <li>Documented backup / restore / postmortem runbook</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <!-- ─── Engineering proof ──────────────────────────────────────── -->
+  <section class="status-block" aria-labelledby="proof-heading">
     <div class="status-copy">
-      <p class="eyebrow">Platform proof</p>
-      <h2>Live environment, live auth, live tenant context.</h2>
+      <p class="eyebrow">Engineering proof</p>
+      <h2 id="proof-heading">Live environment, live auth, live tenant context.</h2>
       <p>
-        This section keeps the engineering proof visible while the public-facing
-        experience matures. It confirms the Azure deployment, Auth0 flow, and
-        authenticated API round-trip are healthy.
+        Real Azure deploy, real Auth0 tenant, real tenant-isolation filter.
+        The status panel below confirms the round-trip is healthy.
       </p>
     </div>
 
