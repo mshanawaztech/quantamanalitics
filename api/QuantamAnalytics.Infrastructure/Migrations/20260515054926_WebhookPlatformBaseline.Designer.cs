@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using QuantamAnalytics.Infrastructure.Data;
@@ -11,9 +12,11 @@ using QuantamAnalytics.Infrastructure.Data;
 namespace QuantamAnalytics.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515054926_WebhookPlatformBaseline")]
+    partial class WebhookPlatformBaseline
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -784,26 +787,11 @@ namespace QuantamAnalytics.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset?>("DeletedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at_utc");
-
-                    b.Property<string>("DeletedByAuthSubject")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("deleted_by_auth_subject");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("description");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_deleted");
 
                     b.Property<bool>("IsPublished")
                         .ValueGeneratedOnAdd()
@@ -845,10 +833,6 @@ namespace QuantamAnalytics.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_jobs");
-
-                    b.HasIndex("TenantId", "DeletedAtUtc")
-                        .HasDatabaseName("ix_jobs_tenant_deleted")
-                        .HasFilter("is_deleted = true");
 
                     b.HasIndex("TenantId", "Slug")
                         .IsUnique()
@@ -939,67 +923,6 @@ namespace QuantamAnalytics.Infrastructure.Migrations
                         .HasDatabaseName("ix_onboarding_checklist_items_tenant_id_candidate_profile_id_a");
 
                     b.ToTable("onboarding_checklist_items", (string)null);
-                });
-
-            modelBuilder.Entity("QuantamAnalytics.Domain.Entities.PlatformApiKey", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<string>("CreatedByAuthSubject")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("created_by_auth_subject");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("KeyHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("key_hash");
-
-                    b.Property<string>("KeyPrefix")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("key_prefix");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("label");
-
-                    b.Property<DateTimeOffset?>("LastUsedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_used_at_utc");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_platform_api_keys");
-
-                    b.HasIndex("KeyHash")
-                        .IsUnique()
-                        .HasDatabaseName("ix_platform_api_keys_key_hash");
-
-                    b.HasIndex("TenantId", "IsActive")
-                        .HasDatabaseName("ix_platform_api_keys_tenant_active");
-
-                    b.ToTable("platform_api_keys", (string)null);
                 });
 
             modelBuilder.Entity("QuantamAnalytics.Domain.Entities.RecruiterApplicationFilterPreset", b =>
@@ -1200,79 +1123,6 @@ namespace QuantamAnalytics.Infrastructure.Migrations
                         .HasDatabaseName("ix_tenants_slug");
 
                     b.ToTable("tenants", (string)null);
-                });
-
-            modelBuilder.Entity("QuantamAnalytics.Domain.Entities.TenantSubscription", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
-                        .HasColumnName("currency");
-
-                    b.Property<DateTimeOffset?>("CurrentPeriodEndsAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("current_period_ends_at_utc");
-
-                    b.Property<int>("IncludedSeats")
-                        .HasColumnType("integer")
-                        .HasColumnName("included_seats");
-
-                    b.Property<string>("PlanCode")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("plan_code");
-
-                    b.Property<decimal>("PricePerSeat")
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("price_per_seat");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<string>("StripeCustomerId")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("stripe_customer_id");
-
-                    b.Property<string>("StripeSubscriptionId")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("stripe_subscription_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<DateTimeOffset?>("TrialEndsAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("trial_ends_at_utc");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at_utc");
-
-                    b.HasKey("Id")
-                        .HasName("pk_tenant_subscriptions");
-
-                    b.HasIndex("StripeSubscriptionId")
-                        .HasDatabaseName("ix_tenant_subscriptions_stripe_sub");
-
-                    b.HasIndex("TenantId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_tenant_subscriptions_tenant_unique");
-
-                    b.ToTable("tenant_subscriptions", (string)null);
                 });
 
             modelBuilder.Entity("QuantamAnalytics.Domain.Entities.TimeEntry", b =>

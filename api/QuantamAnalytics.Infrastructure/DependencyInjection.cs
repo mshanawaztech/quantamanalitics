@@ -7,6 +7,7 @@ using QuantamAnalytics.Infrastructure.AI;
 using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Esign;
+using QuantamAnalytics.Infrastructure.Features;
 using QuantamAnalytics.Infrastructure.Interviews;
 using QuantamAnalytics.Infrastructure.JobBoards;
 using QuantamAnalytics.Infrastructure.ResumeParsing;
@@ -53,7 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
         services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
         services.AddSingleton<IResumeParser, StubResumeParser>();
-        services.AddSingleton<ICandidateMatcher, StubCandidateMatcher>();
+        services.AddSingleton<IFeatureGate, AppSettingsFeatureGate>();
 
         // Audit-log interceptor — scoped so it sees the per-request tenant
         // and auth subject. Resolved into the DbContext options below via
