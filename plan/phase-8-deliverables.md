@@ -13,7 +13,7 @@ customer-facing capabilities.
 | 58  | `qa001-phase8-plan`                 | Phase 8 deliverables board + repo handoff after Phase 7                    | merged |
 | 59  | `qa001-rbac-granular`               | Granular role/permission matrix for recruiter, HR, payroll, interviewer    | merged |
 | 60  | `qa001-audit-console`               | Queryable audit log UI, subject/history views, login/access review surfaces | open   |
-| 61  | `qa001-soft-delete-recovery`        | Soft delete, recycle bin, restore windows, retention rules                 | queued |
+| 61  | `qa001-soft-delete-recovery`        | `ISoftDeletable`, Job soft-delete + restore, recycle-bin endpoints, 30-day window | review |
 | 62  | `qa001-file-security`               | Signed URLs, expiring downloads, encrypted resume/document handling         | queued |
 | 63  | `qa001-auth-hardening`              | MFA, session management, suspicious login handling, stronger password flows | queued |
 | 64  | `qa001-trust-center`                | Privacy, terms, cookie, GDPR, security pages and tenant trust center       | queued |

@@ -18,3 +18,14 @@ public interface ITenantScoped : IEntity
 {
     Guid TenantId { get; }
 }
+
+/// <summary>
+/// Marker for tenant-scoped records that should be hidden from normal reads
+/// after deletion but remain recoverable within a retention window.
+/// </summary>
+public interface ISoftDeletable
+{
+    bool IsDeleted { get; }
+    DateTimeOffset? DeletedAtUtc { get; }
+    string? DeletedByAuthSubject { get; }
+}
