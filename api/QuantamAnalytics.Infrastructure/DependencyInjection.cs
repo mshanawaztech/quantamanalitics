@@ -3,6 +3,7 @@ using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using QuantamAnalytics.Infrastructure.AI;
 using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Esign;
