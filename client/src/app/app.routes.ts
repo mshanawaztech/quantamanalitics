@@ -16,6 +16,13 @@ import { HomeComponent } from './home.component';
 import { InterviewSchedulingComponent } from './interview-scheduling.component';
 import { ServicesComponent } from './services.component';
 import { StyleGuideComponent } from './style-guide.component';
+import {
+  DpaComponent,
+  PrivacyComponent,
+  SecurityComponent,
+  TermsComponent,
+  TrustCenterComponent,
+} from './trust-center.component';
 import { LoginComponent } from './core/auth/login.component';
 
 export const routes: Routes = [
@@ -82,6 +89,26 @@ export const routes: Routes = [
       {
         path: 'interviews',
         component: InterviewSchedulingComponent,
+      },
+      {
+        path: 'trust',
+        component: TrustCenterComponent,
+      },
+      {
+        path: 'privacy',
+        component: PrivacyComponent,
+      },
+      {
+        path: 'terms',
+        component: TermsComponent,
+      },
+      {
+        path: 'security',
+        component: SecurityComponent,
+      },
+      {
+        path: 'dpa',
+        component: DpaComponent,
       },
       {
         path: 'style-guide',
