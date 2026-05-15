@@ -63,6 +63,17 @@ param r2Bucket string = ''
 @description('Seed demo tenants, jobs, and recruiter pipeline data on API startup. True for the shared dev environment only.')
 param demoDataSeedOnStartup bool = false
 
+@description('Container registry hostname (e.g. ghcr.io). Set in prod to pull from a private repo; leave empty in dev to keep using a public image.')
+param registryServer string = ''
+
+@description('Container registry username for private image pulls. Leave empty for public images.')
+@secure()
+param registryUsername string = ''
+
+@description('Container registry password / PAT for private image pulls. Stored as a Container App secret.')
+@secure()
+param registryPassword string = ''
+
 // ── Naming ─────────────────────────────────────────────────────────────────
 // CAF-style abbreviations. Suffix unique per env so prd resources don't
 // collide with dev. Globally-unique names (KV, SWA) get a uniqueString suffix.
@@ -167,6 +178,9 @@ module containerApp 'modules/container-app.bicep' = {
     // emit per-job URLs that point at the SPA host instead of the API host.
     publicWebBaseUrl: 'https://${staticWebApp.outputs.defaultHostname}'
     demoDataSeedOnStartup: demoDataSeedOnStartup
+    registryServer: registryServer
+    registryUsername: registryUsername
+    registryPassword: registryPassword
   }
 }
 
