@@ -98,6 +98,7 @@ if (authEnabled)
     app.MapEmailTemplateEndpoints();
     app.MapAuditLogEndpoints();
     app.MapFeaturesEndpoint();
+    app.MapTenantBootstrapEndpoints();
 }
 
 app.Run();

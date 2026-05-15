@@ -11,6 +11,7 @@ import { filter } from 'rxjs/operators';
 import { AccessService } from './core/auth/access.service';
 import { AuthService } from './core/auth/auth.service';
 import { NotificationsBellComponent } from './core/notifications/notifications-bell.component';
+import { TenantBootstrapBannerComponent } from './core/auth/tenant-bootstrap-banner.component';
 
 interface Crumb {
   label: string;
@@ -86,7 +87,7 @@ const ROUTE_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-marketing-shell',
   standalone: true,
-  imports: [NotificationsBellComponent, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [NotificationsBellComponent, RouterLink, RouterLinkActive, RouterOutlet, TenantBootstrapBannerComponent],
   template: `
     <a class="skip-link" href="#main">Skip to main content</a>
 
@@ -218,6 +219,8 @@ const ROUTE_LABELS: Record<string, string> = {
           </div>
         </nav>
       }
+
+      <app-tenant-bootstrap-banner />
 
       <main id="main" class="shell__main" tabindex="-1">
         <router-outlet />
