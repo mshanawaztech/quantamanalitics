@@ -41,7 +41,22 @@ internal sealed class JobConfiguration : IEntityTypeConfiguration<Job>
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(x => x.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.DeletedAtUtc);
+
+        builder.Property(x => x.DeletedByAuthSubject)
+            .HasMaxLength(255);
+
         builder.HasIndex(x => new { x.TenantId, x.Slug }).IsUnique();
+
+        // Hot path for the recycle bin: list-deleted-for-tenant ordered by
+        // DeletedAtUtc desc. Partial index keeps the active-jobs path cheap.
+        builder.HasIndex(x => new { x.TenantId, x.DeletedAtUtc })
+            .HasFilter("is_deleted = true")
+            .HasDatabaseName("ix_jobs_tenant_deleted");
 
         builder.HasOne<Tenant>()
             .WithMany()

@@ -46,7 +46,7 @@ public class AppDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
-    public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+    public DbSet<InterviewerAvailability> InterviewerAvailability => Set<InterviewerAvailability>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -77,8 +77,16 @@ public class AppDbContext : DbContext
                 continue;
             }
 
+            // EF Core supports only one query filter per entity type, so the
+            // tenant clamp and the soft-delete clamp have to compose into a
+            // single predicate. We pick the right generic helper by whether
+            // the type also implements ISoftDeletable.
+            var helperName = typeof(ISoftDeletable).IsAssignableFrom(clrType)
+                ? nameof(SetTenantAndSoftDeleteFilter)
+                : nameof(SetTenantFilter);
+
             var method = typeof(AppDbContext)
-                .GetMethod(nameof(SetTenantFilter), BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetMethod(helperName, BindingFlags.Instance | BindingFlags.NonPublic)!
                 .MakeGenericMethod(clrType);
 
             method.Invoke(this, [modelBuilder]);
@@ -91,5 +99,20 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TEntity>()
             .HasQueryFilter(entity =>
                 (Guid?)entity.TenantId == CurrentTenantId);
+    }
+
+    /// <summary>
+    /// Combined filter for entities that are both tenant-scoped and soft-deletable.
+    /// Normal reads see only non-deleted rows for the current tenant; recycle-bin
+    /// endpoints must call <c>IgnoreQueryFilters()</c> explicitly (and they then
+    /// re-apply a manual tenant clamp to stay safe).
+    /// </summary>
+    private void SetTenantAndSoftDeleteFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, ITenantScoped, ISoftDeletable
+    {
+        modelBuilder.Entity<TEntity>()
+            .HasQueryFilter(entity =>
+                (Guid?)entity.TenantId == CurrentTenantId &&
+                !entity.IsDeleted);
     }
 }
