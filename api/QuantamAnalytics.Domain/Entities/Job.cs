@@ -6,7 +6,7 @@ namespace QuantamAnalytics.Domain.Entities;
 /// Public-facing job opening owned by a tenant. Represents the first business
 /// entity surfaced to anonymous users through the job board.
 /// </summary>
-public sealed class Job : ITenantScoped
+public sealed class Job : ITenantScoped, ISoftDeletable
 {
     private Job() { }
 
@@ -45,6 +45,9 @@ public sealed class Job : ITenantScoped
     public string Description { get; private set; } = default!;
     public DateOnly PostedOnUtc { get; private set; }
     public bool IsPublished { get; private set; }
+    public bool IsDeleted { get; private set; }
+    public DateTimeOffset? DeletedAtUtc { get; private set; }
+    public string? DeletedByAuthSubject { get; private set; }
 
     public void UpdateDetails(
         string title,
@@ -67,4 +70,36 @@ public sealed class Job : ITenantScoped
 
     public void Publish() => IsPublished = true;
     public void Unpublish() => IsPublished = false;
+
+    public void SoftDelete(string deletedByAuthSubject, DateTimeOffset deletedAtUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deletedByAuthSubject);
+
+        if (IsDeleted)
+        {
+            return;
+        }
+
+        IsDeleted = true;
+        DeletedAtUtc = deletedAtUtc;
+        DeletedByAuthSubject = deletedByAuthSubject.Trim();
+        IsPublished = false;
+    }
+
+    public void Restore(DateTimeOffset restoredAtUtc, TimeSpan retentionWindow)
+    {
+        if (!IsDeleted || DeletedAtUtc is null)
+        {
+            throw new InvalidOperationException("Only deleted jobs can be restored.");
+        }
+
+        if (restoredAtUtc > DeletedAtUtc.Value.Add(retentionWindow))
+        {
+            throw new InvalidOperationException("This job has passed the restore window.");
+        }
+
+        IsDeleted = false;
+        DeletedAtUtc = null;
+        DeletedByAuthSubject = null;
+    }
 }

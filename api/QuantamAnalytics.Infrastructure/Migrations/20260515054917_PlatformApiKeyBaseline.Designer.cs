@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using QuantamAnalytics.Infrastructure.Data;
@@ -11,9 +12,11 @@ using QuantamAnalytics.Infrastructure.Data;
 namespace QuantamAnalytics.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260515054917_PlatformApiKeyBaseline")]
+    partial class PlatformApiKeyBaseline
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -784,26 +787,11 @@ namespace QuantamAnalytics.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset?>("DeletedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at_utc");
-
-                    b.Property<string>("DeletedByAuthSubject")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("deleted_by_auth_subject");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("description");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_deleted");
 
                     b.Property<bool>("IsPublished")
                         .ValueGeneratedOnAdd()
@@ -845,10 +833,6 @@ namespace QuantamAnalytics.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_jobs");
-
-                    b.HasIndex("TenantId", "DeletedAtUtc")
-                        .HasDatabaseName("ix_jobs_tenant_deleted")
-                        .HasFilter("is_deleted = true");
 
                     b.HasIndex("TenantId", "Slug")
                         .IsUnique()
@@ -1329,141 +1313,6 @@ namespace QuantamAnalytics.Infrastructure.Migrations
                         .HasDatabaseName("ix_timesheets_tenant_id_contractor_auth_subject_week_start_utc");
 
                     b.ToTable("timesheets", (string)null);
-                });
-
-            modelBuilder.Entity("QuantamAnalytics.Domain.Entities.WebhookDelivery", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("attempt_count");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("event_type");
-
-                    b.Property<DateTimeOffset?>("LastAttemptedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_attempted_at_utc");
-
-                    b.Property<string>("LastResponseBody")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("last_response_body");
-
-                    b.Property<int?>("LastResponseStatusCode")
-                        .HasColumnType("integer")
-                        .HasColumnName("last_response_status_code");
-
-                    b.Property<DateTimeOffset>("NextAttemptAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("next_attempt_at_utc");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("payload_json");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("SubscriptionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("subscription_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_webhook_deliveries");
-
-                    b.HasIndex("Status", "NextAttemptAtUtc")
-                        .HasDatabaseName("ix_webhook_deliveries_status_next_attempt");
-
-                    b.HasIndex("TenantId", "CreatedAtUtc")
-                        .HasDatabaseName("ix_webhook_deliveries_tenant_created");
-
-                    b.ToTable("webhook_deliveries", (string)null);
-                });
-
-            modelBuilder.Entity("QuantamAnalytics.Domain.Entities.WebhookSubscription", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int>("ConsecutiveFailureCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("consecutive_failure_count");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<string>("CreatedByAuthSubject")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("created_by_auth_subject");
-
-                    b.Property<string>("EventTypes")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("event_types");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTimeOffset?>("LastDeliveryAttemptUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_delivery_attempt_utc");
-
-                    b.Property<DateTimeOffset?>("LastSuccessfulDeliveryUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_successful_delivery_utc");
-
-                    b.Property<string>("SecretHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("secret_hash");
-
-                    b.Property<string>("SecretPrefix")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("secret_prefix");
-
-                    b.Property<string>("TargetUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("target_url");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_webhook_subscriptions");
-
-                    b.HasIndex("TenantId", "IsActive")
-                        .HasDatabaseName("ix_webhook_subscriptions_tenant_active");
-
-                    b.ToTable("webhook_subscriptions", (string)null);
                 });
 
             modelBuilder.Entity("QuantamAnalytics.Domain.Entities.Application", b =>
