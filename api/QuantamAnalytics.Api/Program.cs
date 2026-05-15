@@ -93,7 +93,7 @@ if (authEnabled)
     app.MapInvoiceEndpoints();
     app.MapEmailTemplateEndpoints();
     app.MapAuditLogEndpoints();
-    app.MapRecycleBinEndpoints();
+    app.MapFeaturesEndpoint();
 }
 
 app.Run();
