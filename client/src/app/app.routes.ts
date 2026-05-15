@@ -12,6 +12,7 @@ import { NotFoundComponent } from './not-found.component';
 import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
 import { RecruiterEmailTemplatesComponent } from './recruiter-email-templates.component';
 import { RecruiterPipelineComponent } from './recruiter-pipeline.component';
+import { RecruiterRecycleBinComponent } from './recruiter-recycle-bin.component';
 import { ContractorDashboardComponent } from './contractor-dashboard.component';
 import { HomeComponent } from './home.component';
 import { InterviewSchedulingComponent } from './interview-scheduling.component';
