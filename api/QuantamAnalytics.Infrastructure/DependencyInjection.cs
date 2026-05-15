@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
         services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
         services.AddSingleton<IResumeParser, StubResumeParser>();
+        services.AddSingleton<AI.ICopilotProvider, AI.StubCopilotProvider>();
 
         // Audit-log interceptor — scoped so it sees the per-request tenant
         // and auth subject. Resolved into the DbContext options below via
