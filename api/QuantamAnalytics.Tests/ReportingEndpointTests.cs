@@ -124,14 +124,20 @@ public sealed class ReportingEndpointTests : IAsyncLifetime
         var job = new Job(tenantA.Id, "Senior Backend", "senior-backend", "Remote", "Backend role.", "Long description.", DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)));
         db.Jobs.Add(job);
 
-        var candidate = new CandidateProfile(tenantA.Id, "auth0|c", "c@example.com", "Casey Candidate");
-        db.CandidateProfiles.Add(candidate);
+        // One CandidateProfile per Application — the Application entity has a
+        // unique index on (tenant, job, candidate) so a single candidate cannot
+        // hold multiple application rows for the same job.
+        var candidate1 = new CandidateProfile(tenantA.Id, "auth0|c1", "c@example.com", "Casey Candidate");
+        var candidate2 = new CandidateProfile(tenantA.Id, "auth0|c2", "c2@example.com", "Casey Two");
+        var candidate3 = new CandidateProfile(tenantA.Id, "auth0|c3", "c3@example.com", "Casey Three");
+        var candidate4 = new CandidateProfile(tenantA.Id, "auth0|c4", "c4@example.com", "Casey Four");
+        db.CandidateProfiles.AddRange(candidate1, candidate2, candidate3, candidate4);
 
-        var applied1 = new Application(tenantA.Id, job.Id, candidate.Id, "c@example.com", "Casey Candidate", null);
-        var applied2 = new Application(tenantA.Id, job.Id, candidate.Id, "c2@example.com", "Casey Two", null);
-        var interviewing = new Application(tenantA.Id, job.Id, candidate.Id, "c3@example.com", "Casey Three", null);
+        var applied1 = new Application(tenantA.Id, job.Id, candidate1.Id, "c@example.com", "Casey Candidate", null);
+        var applied2 = new Application(tenantA.Id, job.Id, candidate2.Id, "c2@example.com", "Casey Two", null);
+        var interviewing = new Application(tenantA.Id, job.Id, candidate3.Id, "c3@example.com", "Casey Three", null);
         interviewing.TransitionToInterviewing();
-        var hired = new Application(tenantA.Id, job.Id, candidate.Id, "c4@example.com", "Casey Four", null);
+        var hired = new Application(tenantA.Id, job.Id, candidate4.Id, "c4@example.com", "Casey Four", null);
         hired.TransitionToInterviewing();
         hired.TransitionToOfferSent();
         hired.TransitionToHired();
@@ -141,7 +147,7 @@ public sealed class ReportingEndpointTests : IAsyncLifetime
             tenantId: tenantA.Id,
             applicationId: hired.Id,
             jobId: job.Id,
-            candidateProfileId: candidate.Id,
+            candidateProfileId: candidate4.Id,
             candidateEmail: "c4@example.com",
             candidateName: "Casey Four");
         submission.SubmitToClient("auth0|recruiter-a", "Big Bank Co", "Strong systems background.");
