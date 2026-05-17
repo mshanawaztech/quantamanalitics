@@ -48,6 +48,11 @@ public class AppDbContext : DbContext
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<InterviewerAvailability> InterviewerAvailability => Set<InterviewerAvailability>();
     public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
+    public DbSet<PlatformApiKey> PlatformApiKeys => Set<PlatformApiKey>();
+    public DbSet<OfferLetter> OfferLetters => Set<OfferLetter>();
+    public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+    public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

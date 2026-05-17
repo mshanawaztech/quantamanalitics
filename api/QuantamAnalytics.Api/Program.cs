@@ -99,6 +99,13 @@ if (authEnabled)
     app.MapAuditLogEndpoints();
     app.MapFeaturesEndpoint();
     app.MapTenantBootstrapEndpoints();
+    app.MapSchedulingEndpoints();
+    app.MapCandidateMatchEndpoints();
+    app.MapOfferLetterEndpoints();
+    app.MapPlatformApiEndpoints();
+    app.MapWebhookEndpoints();
+    app.MapBillingEndpoints();
+    app.MapCopilotEndpoints();
 }
 
 app.Run();
