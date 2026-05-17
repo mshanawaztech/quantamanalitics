@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { environment } from '../../../environments/environment';
 
 /**
  * Client wrapper for the in-app notifications feed shipped in PR-57.
@@ -13,6 +14,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
   private http = inject(HttpClient);
+  private base = `${environment.apiBase}/api/v1/me/notifications`;
 
   readonly items = signal<NotificationItem[]>([]);
   readonly unreadCount = signal(0);
@@ -25,7 +27,7 @@ export class NotificationsService {
     this.loading.set(true);
     this.error.set(null);
 
-    this.http.get<NotificationFeedResponse>('/api/v1/me/notifications').subscribe({
+    this.http.get<NotificationFeedResponse>(this.base).subscribe({
       next: (response) => {
         this.items.set(response.items ?? []);
         this.unreadCount.set(response.unreadCount ?? 0);
@@ -50,7 +52,7 @@ export class NotificationsService {
     this.items.set(after);
     this.unreadCount.update((c) => Math.max(0, c - 1));
 
-    this.http.post(`/api/v1/me/notifications/${id}/read`, null).subscribe({
+    this.http.post(`${this.base}/${id}/read`, null).subscribe({
       error: () => {
         // Roll back if the server rejected the flip.
         this.items.set(before);
@@ -67,7 +69,7 @@ export class NotificationsService {
     this.items.set(before.map((n) => (n.readAtUtc ? n : { ...n, readAtUtc: nowIso })));
     this.unreadCount.set(0);
 
-    this.http.post('/api/v1/me/notifications/read-all', null).subscribe({
+    this.http.post(`${this.base}/read-all`, null).subscribe({
       error: () => {
         this.items.set(before);
         this.unreadCount.set(before.filter((n) => !n.readAtUtc).length);

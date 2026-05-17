@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 /**
  * Client wrapper for the self-service tenant bootstrap shipped in
@@ -11,7 +12,10 @@ import { Observable } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class TenantBootstrapService {
   private http = inject(HttpClient);
-  private base = '/api/v1/me/tenant';
+  // Absolute API base — without environment.apiBase the relative path
+  // resolves against the SWA host instead of the Container App and
+  // returns 405 / 404.
+  private base = `${environment.apiBase}/api/v1/me/tenant`;
 
   /** Returns 404 when the user has no membership yet. */
   getMembership(): Observable<TenantMembership> {

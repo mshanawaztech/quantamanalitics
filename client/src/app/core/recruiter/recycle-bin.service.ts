@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 /**
  * Client wrapper for the recruiter recycle-bin shipped in Story 61.
@@ -12,7 +13,9 @@ import { Observable } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class RecycleBinService {
   private http = inject(HttpClient);
-  private base = '/api/v1/recruiter/recycle-bin';
+  // Absolute API base required so the SPA hits the Container App API,
+  // not the Static Web App's own host.
+  private base = `${environment.apiBase}/api/v1/recruiter/recycle-bin`;
 
   listJobs(): Observable<RecycleBinJobsResponse> {
     return this.http.get<RecycleBinJobsResponse>(`${this.base}/jobs`);
