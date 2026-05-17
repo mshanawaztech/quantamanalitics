@@ -6,6 +6,7 @@ using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.ResumeParsing;
 using QuantamAnalytics.Infrastructure.Storage;
+using QuantamAnalytics.Infrastructure.Tenancy;
 
 namespace QuantamAnalytics.Api.Endpoints;
 
@@ -42,9 +43,10 @@ public static class CandidateProfileEndpoint
     private static async Task<Results<Ok<CandidateProfileResponse>, ProblemHttpResult>> GetProfileAsync(
         ClaimsPrincipal user,
         AppDbContext db,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
-        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        var profile = await GetOrCreateProfileAsync(user, db, currentTenant, cancellationToken);
         if (profile is null)
         {
             return TypedResults.Problem(
@@ -59,9 +61,10 @@ public static class CandidateProfileEndpoint
     private static async Task<Results<Ok<CandidateApplicationsResponse>, ProblemHttpResult>> GetApplicationsAsync(
         ClaimsPrincipal user,
         AppDbContext db,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
-        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        var profile = await GetOrCreateProfileAsync(user, db, currentTenant, cancellationToken);
         if (profile is null)
         {
             return TypedResults.Problem(
@@ -95,9 +98,10 @@ public static class CandidateProfileEndpoint
     private static async Task<Results<Ok<CandidateTimelineFeedResponse>, ProblemHttpResult>> GetTimelineAsync(
         ClaimsPrincipal user,
         AppDbContext db,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
-        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        var profile = await GetOrCreateProfileAsync(user, db, currentTenant, cancellationToken);
         if (profile is null)
         {
             return TypedResults.Problem(
@@ -161,9 +165,10 @@ public static class CandidateProfileEndpoint
         Guid applicationId,
         ClaimsPrincipal user,
         AppDbContext db,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
-        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        var profile = await GetOrCreateProfileAsync(user, db, currentTenant, cancellationToken);
         if (profile is null)
         {
             return TypedResults.Problem(
@@ -219,9 +224,10 @@ public static class CandidateProfileEndpoint
         UpdateCandidateProfileRequest request,
         ClaimsPrincipal user,
         AppDbContext db,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
-        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        var profile = await GetOrCreateProfileAsync(user, db, currentTenant, cancellationToken);
         if (profile is null)
         {
             return TypedResults.Problem(
@@ -245,15 +251,18 @@ public static class CandidateProfileEndpoint
         IFormFile? file,
         ClaimsPrincipal user,
         IResumeParser parser,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
         var authSubject = user.FindFirstValue(ClaimTypes.NameIdentifier);
         var email = user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email");
-        var tenantIdClaim = user.FindFirstValue(Roles.TenantIdClaim);
 
+        // Use ICurrentTenant — same middleware-fallback rationale as
+        // GetOrCreateProfileAsync. JWT claim-direct reads bypass the
+        // tenant_memberships table and break bootstrap-via-banner users.
         if (string.IsNullOrWhiteSpace(authSubject) ||
             string.IsNullOrWhiteSpace(email) ||
-            !Guid.TryParse(tenantIdClaim, out _))
+            currentTenant.TenantId is null)
         {
             return TypedResults.Problem(
                 title: "Tenant assignment required",
@@ -295,7 +304,7 @@ public static class CandidateProfileEndpoint
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var profile = await GetOrCreateProfileAsync(user, db, cancellationToken);
+        var profile = await GetOrCreateProfileAsync(user, db, currentTenant, cancellationToken);
         if (profile is null)
         {
             return TypedResults.Problem(
@@ -330,19 +339,25 @@ public static class CandidateProfileEndpoint
     private static async Task<CandidateProfile?> GetOrCreateProfileAsync(
         ClaimsPrincipal user,
         AppDbContext db,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
         var authSubject = user.FindFirstValue(ClaimTypes.NameIdentifier);
         var email = user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email");
-        var tenantIdClaim = user.FindFirstValue(Roles.TenantIdClaim);
         var displayName = user.FindFirstValue("name");
 
+        // Use ICurrentTenant instead of reading the JWT claim directly.
+        // TenantResolutionMiddleware falls back to the tenant_memberships
+        // table when the JWT has no tenant_id claim, so users bootstrapped
+        // via /me/tenant/join-demo end up tenant-scoped here too.
         if (string.IsNullOrWhiteSpace(authSubject) ||
             string.IsNullOrWhiteSpace(email) ||
-            !Guid.TryParse(tenantIdClaim, out var tenantId))
+            currentTenant.TenantId is null)
         {
             return null;
         }
+
+        var tenantId = currentTenant.TenantId.Value;
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var profile = await db.CandidateProfiles
