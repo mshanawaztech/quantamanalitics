@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 /**
  * Thin wrapper over /api/v1/recruiter/email-templates. The recruiter
@@ -10,7 +11,7 @@ import { Observable } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class EmailTemplatesService {
   private http = inject(HttpClient);
-  private base = '/api/v1/recruiter/email-templates';
+  private base = `${environment.apiBase}/api/v1/recruiter/email-templates`;
 
   catalog(): Observable<EmailTemplateCatalogResponse> {
     return this.http.get<EmailTemplateCatalogResponse>(`${this.base}/catalog`);

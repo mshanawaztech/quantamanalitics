@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 /**
  * Wrapper for the recruiter resume-parse endpoint (PR-82 backend).
@@ -15,7 +16,10 @@ export class ResumeParseService {
   parse(file: File): Observable<ParsedResume> {
     const form = new FormData();
     form.append('file', file, file.name);
-    return this.http.post<ParsedResume>('/api/v1/recruiter/resume/parse', form);
+    return this.http.post<ParsedResume>(
+      `${environment.apiBase}/api/v1/recruiter/resume/parse`,
+      form,
+    );
   }
 }
 
