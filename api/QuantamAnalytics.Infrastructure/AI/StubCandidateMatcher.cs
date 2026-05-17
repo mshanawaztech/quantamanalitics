@@ -118,10 +118,12 @@ public sealed partial class StubCandidateMatcher : ICandidateMatcher
     private static string NormalizeToken(string raw) =>
         raw.Trim().Trim(',', '.', ';', ':', '(', ')', '[', ']').ToLowerInvariant();
 
+    // CA1859: private helper is only called with arrays — use the concrete
+    // type so the JIT can skip the interface dispatch.
     private static string BuildSummary(
         double overall,
-        IReadOnlyList<string> matched,
-        IReadOnlyList<string> gaps)
+        string[] matched,
+        string[] gaps)
     {
         var label = overall switch
         {
@@ -131,11 +133,11 @@ public sealed partial class StubCandidateMatcher : ICandidateMatcher
             _ => "Likely mismatch",
         };
 
-        var matchedPart = matched.Count > 0
+        var matchedPart = matched.Length > 0
             ? $"Aligned on: {string.Join(", ", matched.Take(4))}."
             : "No declared skills overlap with the job description.";
 
-        var gapsPart = gaps.Count > 0
+        var gapsPart = gaps.Length > 0
             ? $" Likely gaps: {string.Join(", ", gaps.Take(4))}."
             : string.Empty;
 
