@@ -18,10 +18,22 @@ namespace QuantamAnalytics.Api.Tenancy;
 /// for their account), we fall back to a tenant-memberships lookup keyed
 /// on the auth subject so they don't end up locked out of every portal.
 /// </summary>
-public sealed class TenantResolutionMiddleware
+public sealed partial class TenantResolutionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<TenantResolutionMiddleware> _logger;
+
+    /// <summary>
+    /// Source-generated log delegate — satisfies CA1848 by pre-generating
+    /// the formatter at compile time. Only fires when an authenticated
+    /// principal arrived without a resolvable subject claim.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "Authenticated principal arrived with no resolvable subject claim. " +
+                  "Claim types present: {ClaimTypes}")]
+    private static partial void LogMissingSubjectClaim(ILogger logger, string claimTypes);
 
     public TenantResolutionMiddleware(
         RequestDelegate next,
@@ -65,10 +77,7 @@ public sealed class TenantResolutionMiddleware
                 .Distinct()
                 .OrderBy(t => t)
                 .ToArray();
-            _logger.LogWarning(
-                "Authenticated principal arrived with no resolvable subject claim. " +
-                "Claim types present: {ClaimTypes}",
-                string.Join(", ", claimTypes));
+            LogMissingSubjectClaim(_logger, string.Join(", ", claimTypes));
         }
 
         // Fallback: JWT carried no tenant_id but we DO have an authenticated
