@@ -10,13 +10,17 @@ internal sealed class InvoiceNumberSequenceConfiguration : IEntityTypeConfigurat
     {
         builder.ToTable("invoice_number_sequences");
 
-        // Composite primary key — there is exactly one row per (tenant, year).
-        builder.HasKey(x => new { x.TenantId, x.Year });
+        // Surrogate PK so the entity satisfies IEntity. The (tenant, year)
+        // tuple is still one-row-only via a unique index.
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
 
         builder.Property(x => x.TenantId).IsRequired();
         builder.Property(x => x.Year).IsRequired();
         builder.Property(x => x.NextValue).IsRequired();
         builder.Property(x => x.UpdatedAtUtc).IsRequired();
+
+        builder.HasIndex(x => new { x.TenantId, x.Year }).IsUnique();
 
         builder.HasOne<Tenant>()
             .WithMany()
