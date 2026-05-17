@@ -278,6 +278,7 @@ public static class CandidateProfileEndpoint
         ClaimsPrincipal user,
         AppDbContext db,
         IResumeStorage resumeStorage,
+        ICurrentTenant currentTenant,
         CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
