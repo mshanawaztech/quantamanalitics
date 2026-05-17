@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using QuantamAnalytics.Api.Auth;
@@ -51,15 +52,23 @@ public static class SchedulingEndpoint
         }
 
         var subject = currentUser.AuthSubject;
-        var rows = await db.InterviewerAvailability
+        // Pull the raw TimeOnly + DayOfWeek values out of the query first;
+        // format to "HH:mm" client-side so CA1305 (locale-sensitive ToString)
+        // is satisfied, and so EF doesn't need to translate a format-string
+        // call to SQL (which it can't).
+        var raw = await db.InterviewerAvailability
             .Where(x => x.InterviewerAuthSubject == subject)
             .OrderBy(x => x.DayOfWeek).ThenBy(x => x.StartTimeUtc)
+            .Select(x => new { x.Id, x.DayOfWeek, x.StartTimeUtc, x.EndTimeUtc })
+            .ToArrayAsync(cancellationToken);
+
+        var rows = raw
             .Select(x => new InterviewerWindowResponse(
                 x.Id,
                 x.DayOfWeek.ToString(),
-                x.StartTimeUtc.ToString("HH:mm"),
-                x.EndTimeUtc.ToString("HH:mm")))
-            .ToArrayAsync(cancellationToken);
+                x.StartTimeUtc.ToString("HH:mm", CultureInfo.InvariantCulture),
+                x.EndTimeUtc.ToString("HH:mm", CultureInfo.InvariantCulture)))
+            .ToArray();
 
         return TypedResults.Ok(rows);
     }
@@ -111,8 +120,8 @@ public static class SchedulingEndpoint
             new InterviewerWindowResponse(
                 window.Id,
                 window.DayOfWeek.ToString(),
-                window.StartTimeUtc.ToString("HH:mm"),
-                window.EndTimeUtc.ToString("HH:mm")));
+                window.StartTimeUtc.ToString("HH:mm", CultureInfo.InvariantCulture),
+                window.EndTimeUtc.ToString("HH:mm", CultureInfo.InvariantCulture)));
     }
 
     private static async Task<Results<NoContent, NotFound, ProblemHttpResult>> RemoveMyAvailabilityAsync(
