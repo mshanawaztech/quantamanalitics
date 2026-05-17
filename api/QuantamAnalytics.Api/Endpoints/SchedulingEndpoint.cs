@@ -142,13 +142,15 @@ public static class SchedulingEndpoint
         return TypedResults.NoContent();
     }
 
+    // CA1068: CancellationToken must be the last parameter, even after
+    // optional string query parameters.
     private static async Task<Results<Ok<BookableSlotsResponse>, ProblemHttpResult>> ListSlotsAsync(
         AppDbContext db,
         ICurrentTenant currentTenant,
-        CancellationToken cancellationToken,
         string interviewerAuthSubject,
         string? fromDateUtc = null,
-        string? toDateUtc = null)
+        string? toDateUtc = null,
+        CancellationToken cancellationToken = default)
     {
         if (currentTenant.TenantId is null)
         {

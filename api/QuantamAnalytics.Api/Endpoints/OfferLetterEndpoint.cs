@@ -122,26 +122,29 @@ public static class OfferLetterEndpoint
 
     private static Task<Results<Ok<OfferResponse>, NotFound, ProblemHttpResult>> SendAsync(
         Guid id, AppDbContext db, ICurrentTenant ct, CancellationToken ck) =>
-            TransitionAsync(id, db, ct, ck, o => o.Send());
+            TransitionAsync(id, db, ct, o => o.Send(), ck);
 
     private static Task<Results<Ok<OfferResponse>, NotFound, ProblemHttpResult>> AcceptAsync(
         Guid id, RecordOfferResponseRequest body, AppDbContext db, ICurrentTenant ct, CancellationToken ck) =>
-            TransitionAsync(id, db, ct, ck, o => o.RecordAcceptance(body?.Note));
+            TransitionAsync(id, db, ct, o => o.RecordAcceptance(body?.Note), ck);
 
     private static Task<Results<Ok<OfferResponse>, NotFound, ProblemHttpResult>> DeclineAsync(
         Guid id, RecordOfferResponseRequest body, AppDbContext db, ICurrentTenant ct, CancellationToken ck) =>
-            TransitionAsync(id, db, ct, ck, o => o.RecordDecline(body?.Note));
+            TransitionAsync(id, db, ct, o => o.RecordDecline(body?.Note), ck);
 
     private static Task<Results<Ok<OfferResponse>, NotFound, ProblemHttpResult>> WithdrawAsync(
         Guid id, AppDbContext db, ICurrentTenant ct, CancellationToken ck) =>
-            TransitionAsync(id, db, ct, ck, o => o.Withdraw());
+            TransitionAsync(id, db, ct, o => o.Withdraw(), ck);
 
+    // CA1068: CancellationToken must be the last parameter on every public
+    // and internal method (analyzer also flags private helpers when their
+    // shape leaks into a delegate signature). Move it to last.
     private static async Task<Results<Ok<OfferResponse>, NotFound, ProblemHttpResult>> TransitionAsync(
         Guid id,
         AppDbContext db,
         ICurrentTenant currentTenant,
-        CancellationToken cancellationToken,
-        Action<OfferLetter> action)
+        Action<OfferLetter> action,
+        CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
 
