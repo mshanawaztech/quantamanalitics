@@ -41,10 +41,16 @@ public static class OfferLetterEndpoint
     {
         if (currentTenant.TenantId is null) return TenantRequired();
 
-        var items = await db.OfferLetters
+        // Materialize the entities first, then project — passing `Project` as
+        // a method group into IQueryable.Select() leaves the compiler unable
+        // to choose between the Expression and Func overloads (CS0411), and
+        // even if it could, EF Core can't decompile a method-body to SQL.
+        // Loading the full entity is fine here; offer letters are low-volume
+        // per tenant.
+        var offers = await db.OfferLetters
             .OrderByDescending(x => x.UpdatedAtUtc)
-            .Select(Project)
             .ToArrayAsync(cancellationToken);
+        var items = offers.Select(Project).ToArray();
         return TypedResults.Ok(new OfferListResponse(items));
     }
 
