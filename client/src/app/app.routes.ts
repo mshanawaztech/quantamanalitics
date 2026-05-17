@@ -18,6 +18,7 @@ import { ContractorInvoicesComponent } from './contractor-invoices.component';
 import { HomeComponent } from './home.component';
 import { InterviewSchedulingComponent } from './interview-scheduling.component';
 import { ServicesComponent } from './services.component';
+import { SettingsBrandingComponent } from './settings-branding.component';
 import { StyleGuideComponent } from './style-guide.component';
 import {
   DpaComponent,
@@ -120,6 +121,10 @@ export const routes: Routes = [
       {
         path: 'dpa',
         component: DpaComponent,
+      },
+      {
+        path: 'settings/branding',
+        component: SettingsBrandingComponent,
       },
       {
         path: 'style-guide',

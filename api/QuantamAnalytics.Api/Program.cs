@@ -95,6 +95,7 @@ if (authEnabled)
     app.MapResumeParseEndpoint();
     app.MapReportingEndpoints();
     app.MapInvoiceEndpoints();
+    app.MapTenantBrandingEndpoints();
     app.MapEmailTemplateEndpoints();
     app.MapAuditLogEndpoints();
     app.MapFeaturesEndpoint();

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using QuantamAnalytics.Api.Auth;
 using QuantamAnalytics.Domain.Entities;
+using QuantamAnalytics.Domain.Pdf;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
@@ -31,6 +32,7 @@ public static class InvoiceEndpoint
         contractor.MapPost("/", CreateAsync);
         contractor.MapPut("/{id:guid}", UpdateMineAsync);
         contractor.MapPost("/{id:guid}/submit", SubmitMineAsync);
+        contractor.MapGet("/{id:guid}/pdf", DownloadPdfAsync);
 
         var recruiter = app.MapGroup("/api/v1/recruiter/invoices")
             .WithTags("Invoices · Recruiter")
@@ -226,6 +228,39 @@ public static class InvoiceEndpoint
         {
             return InvalidTransitionProblem(ex.Message);
         }
+    }
+
+    private static async Task<Results<FileContentHttpResult, NotFound, ProblemHttpResult>> DownloadPdfAsync(
+        Guid id,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
+        IInvoicePdfRenderer pdfRenderer,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null) return TenantRequired();
+        var subject = currentUser.AuthSubject;
+        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+
+        var invoice = await db.Invoices
+            .Include(x => x.LineItems)
+            .SingleOrDefaultAsync(
+                x => x.Id == id && x.ContractorAuthSubject == subject,
+                cancellationToken);
+
+        if (invoice is null) return TypedResults.NotFound();
+
+        var branding = await db.TenantBrandings
+            .SingleOrDefaultAsync(x => x.TenantId == currentTenant.TenantId, cancellationToken);
+
+        // Logo fetch deferred: v3.2 will pull bytes from R2 if LogoObjectKey
+        // is set. For v3.1 the renderer falls back to the text identity.
+        var pdf = pdfRenderer.Render(invoice, branding, logoBytes: null);
+
+        return TypedResults.File(
+            fileContents: pdf,
+            contentType: "application/pdf",
+            fileDownloadName: $"Invoice-{invoice.InvoiceNumber}.pdf");
     }
 
     // ── Recruiter / admin handlers ─────────────────────────────────────
