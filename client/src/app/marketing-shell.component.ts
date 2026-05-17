@@ -41,6 +41,7 @@ const PORTAL_NAV: NavItem[] = [
   { href: '/client', label: 'Client', authedOnly: true, visibility: 'approvals' },
   { href: '/candidate', label: 'Candidate', authedOnly: true, visibility: 'candidate' },
   { href: '/contractor', label: 'Contractor', authedOnly: true, visibility: 'authenticated' },
+  { href: '/contractor/invoices', label: 'Invoices', authedOnly: true, visibility: 'authenticated' },
   { href: '/interviews', label: 'Interviews', authedOnly: true, visibility: 'interviews' },
   { href: '/admin/audit', label: 'Admin', authedOnly: true, visibility: 'admin' },
 ];
@@ -57,6 +58,7 @@ const ROUTE_LABELS: Record<string, string> = {
   client: 'Client',
   candidate: 'Candidate',
   contractor: 'Contractor',
+  invoices: 'Invoices',
   interviews: 'Interviews',
   admin: 'Admin',
   audit: 'Audit',
