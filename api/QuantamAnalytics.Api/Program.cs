@@ -106,6 +106,11 @@ if (authEnabled)
     app.MapWebhookEndpoints();
     app.MapBillingEndpoints();
     app.MapCopilotEndpoints();
+    app.MapNotificationsEndpoints();
+    app.MapClientPortalJobsEndpoints();
+    app.MapRecycleBinEndpoints();
+    app.MapSessionEndpoints();
+    app.MapSignedDownloadEndpoints();
 }
 
 app.Run();
