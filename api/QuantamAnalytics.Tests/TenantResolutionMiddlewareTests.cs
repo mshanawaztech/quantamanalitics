@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using QuantamAnalytics.Api.Tenancy;
 using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Infrastructure.Data;
@@ -24,7 +25,9 @@ public sealed class TenantResolutionMiddlewareTests
 
         var currentTenant = new TestCurrentTenant();
         var currentUser = new TestCurrentUser();
-        var middleware = new TenantResolutionMiddleware(_ => Task.CompletedTask);
+        var middleware = new TenantResolutionMiddleware(
+            _ => Task.CompletedTask,
+            NullLogger<TenantResolutionMiddleware>.Instance);
         using var db = NewContext();
 
         await middleware.InvokeAsync(httpContext, currentTenant, currentUser, db);
@@ -52,7 +55,9 @@ public sealed class TenantResolutionMiddlewareTests
 
         var currentTenant = new TestCurrentTenant();
         var currentUser = new TestCurrentUser();
-        var middleware = new TenantResolutionMiddleware(_ => Task.CompletedTask);
+        var middleware = new TenantResolutionMiddleware(
+            _ => Task.CompletedTask,
+            NullLogger<TenantResolutionMiddleware>.Instance);
         using var db = NewContext();
 
         await middleware.InvokeAsync(httpContext, currentTenant, currentUser, db);
