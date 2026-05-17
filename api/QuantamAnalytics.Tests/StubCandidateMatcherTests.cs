@@ -22,7 +22,11 @@ public sealed class StubCandidateMatcherTests
         score.Overall.Should().BeGreaterThan(0.6);
         score.SkillsCoverage.Should().BeGreaterThan(0.5);
         score.MatchedSkills.Should().Contain(["python", "aws", "react"]);
-        score.Summary.Should().Contain("Strong match").Or.Contain("Promising fit");
+        // Coverage * 0.7 + seniorityFit * 0.3 lands the overall around the
+        // 0.6–0.8 band depending on how many JD tokens are picked up as
+        // "probable skills" — so either label is acceptable; the only
+        // wrong answer is one of the negative buckets.
+        score.Summary.Should().MatchRegex("Strong match|Promising fit");
     }
 
     [Fact]
