@@ -117,7 +117,7 @@ let nextId = 0;
 export class QaInputComponent {
   @Input() label = '';
   @Input() name?: string;
-  @Input() type: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' = 'text';
+  @Input() type: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'date' = 'text';
   @Input() placeholder = '';
   @Input() value: string | number = '';
   @Input() hint?: string;

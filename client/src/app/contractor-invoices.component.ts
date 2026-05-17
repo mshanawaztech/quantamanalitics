@@ -130,14 +130,14 @@ import {
                 type="date"
                 [(ngModel)]="draftPeriodStart"
                 name="periodStart"
-                required
+                [required]="true"
               ></qa-input>
               <qa-input
                 label="Period end"
                 type="date"
                 [(ngModel)]="draftPeriodEnd"
                 name="periodEnd"
-                required
+                [required]="true"
               ></qa-input>
               <qa-input
                 label="Hours"
@@ -145,7 +145,7 @@ import {
                 [(ngModel)]="draftHours"
                 name="hours"
                 hint="Total hours invoiced. Must be ≥ 0."
-                required
+                [required]="true"
               ></qa-input>
               <qa-input
                 label="Amount"
@@ -153,14 +153,14 @@ import {
                 [(ngModel)]="draftAmount"
                 name="amount"
                 hint="Pre-tax total. Currency below."
-                required
+                [required]="true"
               ></qa-input>
               <qa-input
                 label="Currency"
                 [(ngModel)]="draftCurrency"
                 name="currency"
                 hint="3-letter ISO code (USD, EUR, GBP, …)."
-                required
+                [required]="true"
               ></qa-input>
             </div>
 
