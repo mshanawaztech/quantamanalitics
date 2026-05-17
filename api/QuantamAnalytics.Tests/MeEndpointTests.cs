@@ -3,8 +3,8 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Api.Auth;
+using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Tests.TestAuth;
 

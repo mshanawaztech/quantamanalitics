@@ -1,0 +1,6 @@
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+PROJECT_STACK = "aspnet-core-10,angular,postgresql,bicep,azure-container-apps"
+_comment = "Hint to Claude that this project uses .NET 10 LTS + Angular + PostgreSQL. Picked up by codebase-aware agents."

@@ -56,7 +56,7 @@ import {
         <p class="lede">
           Reusable copy for invites, rejections, onboarding nudges. Merge
           fields like
-          <code>&#123;&#123;CandidateFirstName&#125;&#125;</code>
+          <code ngNonBindable>{{CandidateFirstName}}</code>
           render at send time.
         </p>
       </header>
@@ -160,9 +160,7 @@ import {
                   type="button"
                   class="merge-fields__chip"
                   (click)="insertMergeField(field)"
-                >
-                  &#123;&#123;{{ field }}&#125;&#125;
-                </button>
+                >{{ formatToken(field) }}</button>
               }
             </div>
 
@@ -484,8 +482,18 @@ export class RecruiterEmailTemplatesComponent {
     // Drop at end — full cursor-aware insertion would require a textarea
     // ref and selectionStart tracking; the chip pattern below is the
     // simplest thing that lets a recruiter discover the token names.
-    const token = `{{${field}}}`;
-    this.draftBody = this.draftBody + token;
+    this.draftBody = this.draftBody + this.formatToken(field);
+  }
+
+  /**
+   * Wraps a field name in the {{…}} token shape we expect the backend
+   * to substitute at send time. Returned as a plain string so the
+   * Angular template parser doesn't try to interpret the braces as a
+   * nested interpolation expression (which was the root cause of the
+   * NG5002 parser errors that blocked the SPA build).
+   */
+  protected formatToken(field: string): string {
+    return `{{${field}}}`;
   }
 
   private loadAll(): void {

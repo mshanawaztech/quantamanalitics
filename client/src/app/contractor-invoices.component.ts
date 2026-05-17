@@ -148,33 +148,20 @@ import {
                 [required]="true"
               ></qa-input>
               <qa-input
-                label="Hourly rate"
+                label="Amount"
                 type="number"
-                [(ngModel)]="draftHourlyRate"
-                name="hourlyRate"
-                hint="Rate per hour in the currency below."
+                [(ngModel)]="draftAmount"
+                name="amount"
+                hint="Pre-tax total. Currency below."
                 [required]="true"
               ></qa-input>
-              <div class="field">
-                <label class="field__label" for="invoice-currency">Currency <span aria-hidden="true">*</span></label>
-                <select
-                  id="invoice-currency"
-                  class="field__select"
-                  [(ngModel)]="draftCurrency"
-                  name="currency"
-                  required
-                >
-                  @for (code of supportedCurrencies; track code) {
-                    <option [value]="code">{{ code }}</option>
-                  }
-                </select>
-                <p class="field__hint">Pick the billing currency. USD is the default.</p>
-              </div>
-              <div class="field field--readonly">
-                <label class="field__label">Total amount</label>
-                <output class="field__amount">{{ draftCurrency }} {{ computedAmountDisplay() }}</output>
-                <p class="field__hint">Auto-calculated as Hours × Hourly rate.</p>
-              </div>
+              <qa-input
+                label="Currency"
+                [(ngModel)]="draftCurrency"
+                name="currency"
+                hint="3-letter ISO code (USD, EUR, GBP, …)."
+                [required]="true"
+              ></qa-input>
             </div>
 
             <label class="notes-label" for="invoice-notes">Notes (optional)</label>
@@ -272,34 +259,6 @@ import {
     }
     @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
 
-    .field { display: flex; flex-direction: column; gap: 0.375rem; }
-    .field__label { font-size: 0.85rem; font-weight: 600; color: var(--color-fg, #1a1f2c); }
-    .field__label [aria-hidden="true"] { color: #c0392b; margin-left: 0.15rem; }
-    .field__select {
-      width: 100%;
-      font-family: inherit;
-      font-size: 0.95rem;
-      padding: 0.5rem 0.625rem;
-      border: 1px solid var(--color-border, #d8dde7);
-      border-radius: 8px;
-      background: var(--color-surface, #fff);
-    }
-    .field__select:focus-visible {
-      outline: 3px solid var(--color-primary, #1a3a8f);
-      outline-offset: 1px;
-    }
-    .field__hint { margin: 0; color: var(--color-fg-muted, #5d6577); font-size: 0.8rem; }
-    .field--readonly .field__amount {
-      display: inline-block;
-      padding: 0.5rem 0.75rem;
-      border: 1px dashed var(--color-border, #d8dde7);
-      border-radius: 8px;
-      background: var(--color-primary-soft, #e7ecf6);
-      color: var(--color-primary, #1a3a8f);
-      font-weight: 700;
-      font-size: 1.05rem;
-    }
-
     .notes-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.375rem; }
     textarea {
       width: 100%;
@@ -335,36 +294,9 @@ export class ContractorInvoicesComponent {
   protected draftPeriodStart = '';
   protected draftPeriodEnd = '';
   protected draftHours = '';
-  protected draftHourlyRate = '';
+  protected draftAmount = '';
   protected draftCurrency = 'USD';
   protected draftNotes = '';
-
-  /** Currencies offered in the dropdown. USD first so it's the default. */
-  protected readonly supportedCurrencies: readonly string[] = [
-    'USD',
-    'EUR',
-    'GBP',
-    'CAD',
-    'AUD',
-    'INR',
-  ];
-
-  /**
-   * Computed total = Hours × Hourly rate. Stored as a signal-free getter so
-   * Angular's OnPush change detection picks it up when the bound inputs
-   * change (ngModel triggers CD). Negative / NaN inputs collapse to 0 so
-   * the field never displays junk while the user is mid-typing.
-   */
-  protected readonly computedAmount = (): number => {
-    const hours = Number(this.draftHours);
-    const rate = Number(this.draftHourlyRate);
-    if (!Number.isFinite(hours) || !Number.isFinite(rate)) return 0;
-    if (hours < 0 || rate < 0) return 0;
-    return hours * rate;
-  };
-
-  protected readonly computedAmountDisplay = (): string =>
-    this.computedAmount().toFixed(2);
 
   protected readonly hasInvoices = computed(() => this.invoices().length > 0);
 
@@ -395,26 +327,11 @@ export class ContractorInvoicesComponent {
     this.createError.set(null);
     this.createSuccess.set(false);
 
-    const hours = Number(this.draftHours);
-    const rate = Number(this.draftHourlyRate);
-    if (!Number.isFinite(hours) || hours < 0) {
-      this.createError.set('Hours must be a non-negative number.');
-      this.creating.set(false);
-      return;
-    }
-    if (!Number.isFinite(rate) || rate < 0) {
-      this.createError.set('Hourly rate must be a non-negative number.');
-      this.creating.set(false);
-      return;
-    }
-
     const request: CreateInvoiceRequest = {
       periodStartUtc: this.draftPeriodStart,
       periodEndUtc: this.draftPeriodEnd,
-      hours,
-      // Round to 2 decimal places so the persisted amount matches the
-      // total the contractor sees on screen.
-      amount: Math.round(hours * rate * 100) / 100,
+      hours: Number(this.draftHours),
+      amount: Number(this.draftAmount),
       currency: this.draftCurrency.trim().toUpperCase(),
       notes: this.draftNotes.trim() || null,
     };
@@ -456,7 +373,7 @@ export class ContractorInvoicesComponent {
     this.draftPeriodStart = today;
     this.draftPeriodEnd = today;
     this.draftHours = '0';
-    this.draftHourlyRate = '0';
+    this.draftAmount = '0';
     this.draftCurrency = 'USD';
     this.draftNotes = '';
   }
