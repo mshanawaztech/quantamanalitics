@@ -44,6 +44,7 @@ const PORTAL_NAV: NavItem[] = [
   { href: '/contractor/invoices', label: 'Invoices', authedOnly: true, visibility: 'authenticated' },
   { href: '/interviews', label: 'Interviews', authedOnly: true, visibility: 'interviews' },
   { href: '/admin/audit', label: 'Admin', authedOnly: true, visibility: 'admin' },
+  { href: '/settings/branding', label: 'Branding', authedOnly: true, visibility: 'authenticated' },
 ];
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -62,6 +63,8 @@ const ROUTE_LABELS: Record<string, string> = {
   interviews: 'Interviews',
   admin: 'Admin',
   audit: 'Audit',
+  settings: 'Settings',
+  branding: 'Branding',
   'style-guide': 'Style guide',
   trust: 'Trust',
   privacy: 'Privacy',

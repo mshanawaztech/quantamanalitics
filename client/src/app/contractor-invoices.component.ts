@@ -389,6 +389,16 @@ import {
               >{{ sending() ? 'Submitting…' : 'Submit for review' }}</qa-button>
             </div>
           }
+
+          @if (selectedInvoice()) {
+            <div class="summary__actions summary__actions--pdf">
+              <qa-button
+                variant="ghost"
+                [disabled]="downloadingPdf()"
+                (click)="downloadPdf()"
+              >{{ downloadingPdf() ? 'Generating PDF…' : 'Download PDF' }}</qa-button>
+            </div>
+          }
         </aside>
       </form>
     </main>
@@ -613,6 +623,7 @@ export class ContractorInvoicesComponent {
 
   protected readonly saving = signal(false);
   protected readonly sending = signal(false);
+  protected readonly downloadingPdf = signal(false);
   protected readonly formError = signal<string | null>(null);
   protected readonly saveSuccess = signal<string | null>(null);
 
@@ -868,6 +879,37 @@ export class ContractorInvoicesComponent {
       },
       error: (e: unknown) => {
         this.sending.set(false);
+        this.formError.set(toMessage(e));
+      },
+    });
+  }
+
+  /**
+   * Fetch the server-rendered PDF as a Blob and trigger a browser download.
+   * Uses createObjectURL + a synthetic anchor click so no extra library is
+   * needed and the file picks up the Content-Disposition filename from the
+   * server response (Invoice-INV-2026-NNNN.pdf).
+   */
+  protected downloadPdf(): void {
+    const invoice = this.selectedInvoice();
+    if (!invoice) return;
+    this.downloadingPdf.set(true);
+    this.formError.set(null);
+
+    this.svc.downloadPdf(invoice.id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `Invoice-${invoice.invoiceNumber}.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        window.URL.revokeObjectURL(url);
+        this.downloadingPdf.set(false);
+      },
+      error: (e: unknown) => {
+        this.downloadingPdf.set(false);
         this.formError.set(toMessage(e));
       },
     });

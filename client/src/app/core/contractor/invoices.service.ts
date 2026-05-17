@@ -34,6 +34,16 @@ export class ContractorInvoicesService {
   submit(id: string): Observable<InvoiceResponse> {
     return this.http.post<InvoiceResponse>(`${this.base}/${id}/submit`, null);
   }
+
+  /**
+   * Fetches the rendered PDF as a Blob so the caller can trigger a browser
+   * download via createObjectURL + an anchor click. Returning a Blob (not
+   * a download side-effect) keeps the service testable and lets callers
+   * choose between download / inline preview.
+   */
+  downloadPdf(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/${id}/pdf`, { responseType: 'blob' });
+  }
 }
 
 export interface InvoiceLineItemRequest {
