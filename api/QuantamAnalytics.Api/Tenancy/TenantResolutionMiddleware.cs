@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using QuantamAnalytics.Domain.Common;
@@ -38,7 +39,13 @@ public sealed class TenantResolutionMiddleware
             resolvedTenantId = tenantId;
         }
 
-        var subject = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        // Auth0 emits the auth subject as `sub`. Depending on the JWT bearer
+        // claim-mapping config that may surface as ClaimTypes.NameIdentifier,
+        // the raw `sub`, or the JwtRegisteredClaimNames.Sub URI. Read all
+        // three so downstream consumers never see a phantom-null subject.
+        var subject = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? context.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? context.User.FindFirstValue("sub");
         currentUser.SetAuthSubject(subject);
 
         // Fallback: JWT carried no tenant_id but we DO have an authenticated
