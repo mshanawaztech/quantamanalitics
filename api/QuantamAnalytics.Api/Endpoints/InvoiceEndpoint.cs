@@ -57,13 +57,13 @@ public static class InvoiceEndpoint
     // ── Contractor handlers ────────────────────────────────────────────
 
     private static async Task<Results<Ok<InvoiceListResponse>, ProblemHttpResult>> ListMineAsync(
-        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var subject = currentUser.AuthSubject;
         if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
 
         var rows = await db.Invoices
@@ -80,10 +80,11 @@ public static class InvoiceEndpoint
         ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var subject = currentUser.AuthSubject;
         var email = user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirst("email")?.Value;
         if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(email))
         {
@@ -118,13 +119,13 @@ public static class InvoiceEndpoint
 
     private static async Task<Results<Ok<InvoiceResponse>, NotFound, ProblemHttpResult>> SubmitMineAsync(
         Guid id,
-        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var subject = currentUser.AuthSubject;
         if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
 
         var invoice = await db.Invoices
@@ -208,13 +209,13 @@ public static class InvoiceEndpoint
     private static async Task<Results<Ok<InvoiceResponse>, NotFound, ProblemHttpResult>> ApproveAsync(
         Guid id,
         InvoiceDecisionRequest body,
-        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var subject = currentUser.AuthSubject;
         if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
 
         var invoice = await db.Invoices.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -235,13 +236,13 @@ public static class InvoiceEndpoint
     private static async Task<Results<Ok<InvoiceResponse>, NotFound, ProblemHttpResult>> RejectAsync(
         Guid id,
         InvoiceDecisionRequest body,
-        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var subject = currentUser.AuthSubject;
         if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
         if (string.IsNullOrWhiteSpace(body.Note))
         {
