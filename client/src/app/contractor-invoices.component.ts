@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {
   ContractorInvoicesService,
   CreateInvoiceRequest,
@@ -191,16 +192,25 @@ import {
             <legend>Invoice details</legend>
             <div class="grid grid--3">
               <div class="field">
-                <label class="field__label">Invoice number</label>
-                @if (formInvoiceNumber()) {
-                  <div class="field__number"><span>{{ formInvoiceNumber() }}</span></div>
-                } @else {
-                  <div class="field__badge">
-                    <span class="field__badge-dot"></span>
-                    Auto-generated on save
-                  </div>
-                }
-                <p class="field__hint">Auto-numbered per tenant per year.</p>
+                <label class="field__label" for="invoice-number-input">Invoice number</label>
+                <input
+                  id="invoice-number-input"
+                  class="field__input"
+                  type="text"
+                  [(ngModel)]="formInvoiceNumberInput"
+                  name="invoiceNumber"
+                  placeholder="Leave blank to auto-generate"
+                  [disabled]="isReadOnly() || isEditing()"
+                />
+                <p class="field__hint">
+                  @if (isEditing() && formInvoiceNumber()) {
+                    Issued as <strong>{{ formInvoiceNumber() }}</strong>. Locked once saved.
+                  } @else if (formInvoiceNumberInput) {
+                    Custom number — must be unique for your tenant.
+                  } @else {
+                    Server auto-mints INV-{{ formYear() }}-NNNN on save.
+                  }
+                </p>
               </div>
               <qa-input
                 label="Issue date"
@@ -251,61 +261,108 @@ import {
 
           <fieldset class="section" [disabled]="isReadOnly()">
             <legend>Invoice items</legend>
-            <div class="items">
-              <div class="items__head">
-                <span class="items__col items__col--description">Description</span>
-                <span class="items__col items__col--hours">Hours</span>
-                <span class="items__col items__col--rate">Rate</span>
-                <span class="items__col items__col--amount">Amount</span>
-                <span class="items__col items__col--actions" aria-hidden="true"></span>
-              </div>
-              @for (item of formLineItems(); track $index; let i = $index) {
-                <div class="items__row">
-                  <input
-                    class="items__input items__col--description"
-                    type="text"
-                    [ngModel]="item.description"
-                    (ngModelChange)="updateLineItem(i, 'description', $event)"
-                    name="li-desc-{{ i }}"
-                    placeholder="Consulting Services"
-                  />
-                  <input
-                    class="items__input items__col--hours"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    [ngModel]="item.hours"
-                    (ngModelChange)="updateLineItem(i, 'hours', $event)"
-                    name="li-hours-{{ i }}"
-                    aria-label="Hours"
-                  />
-                  <input
-                    class="items__input items__col--rate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    [ngModel]="item.rate"
-                    (ngModelChange)="updateLineItem(i, 'rate', $event)"
-                    name="li-rate-{{ i }}"
-                    aria-label="Rate"
-                  />
-                  <span class="items__amount items__col--amount">
-                    {{ formCurrency }} {{ lineItemAmount(item) | number:'1.2-2' }}
-                  </span>
-                  <button
-                    type="button"
-                    class="items__delete items__col--actions"
-                    (click)="removeLineItem(i)"
-                    [disabled]="formLineItems().length === 1"
-                    aria-label="Delete line item"
-                  >×</button>
-                </div>
+            <p class="section__hint">One row per work-week. Pick the Monday and we'll compute the Sunday end. Hours = Days × Hours/day. Amount = Hours × Rate.</p>
+
+            <div class="weeks">
+              @for (item of formLineItems(); track $index; let i = $index; let last = $last) {
+                <article class="week">
+                  <header class="week__head">
+                    <span class="week__num">Week {{ i + 1 }}</span>
+                    @if (item.weekStart) {
+                      <span class="week__range">
+                        {{ item.weekStart }} → {{ lineItemWeekEnd(item) || '—' }}
+                      </span>
+                    }
+                    <button
+                      type="button"
+                      class="week__delete"
+                      (click)="removeLineItem(i)"
+                      [disabled]="formLineItems().length === 1"
+                      aria-label="Delete this week"
+                    >Remove</button>
+                  </header>
+
+                  <div class="week__grid">
+                    <label class="field field--span2">
+                      <span class="field__label">Description</span>
+                      <input
+                        class="field__input"
+                        type="text"
+                        [ngModel]="item.description"
+                        (ngModelChange)="updateLineItem(i, 'description', $event)"
+                        name="li-desc-{{ i }}"
+                        placeholder="e.g., NYS-DOCCS"
+                      />
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Week of (Monday)</span>
+                      <input
+                        class="field__input"
+                        type="date"
+                        [ngModel]="item.weekStart"
+                        (ngModelChange)="updateLineItem(i, 'weekStart', $event)"
+                        name="li-weekstart-{{ i }}"
+                      />
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Days</span>
+                      <input
+                        class="field__input field__input--num"
+                        type="number" min="0" max="7" step="0.5"
+                        [ngModel]="item.daysWorked"
+                        (ngModelChange)="updateLineItem(i, 'daysWorked', $event)"
+                        name="li-days-{{ i }}"
+                      />
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Hours / day</span>
+                      <input
+                        class="field__input field__input--num"
+                        type="number" min="0" step="0.25"
+                        [ngModel]="item.hoursPerDay"
+                        (ngModelChange)="updateLineItem(i, 'hoursPerDay', $event)"
+                        name="li-hpd-{{ i }}"
+                      />
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Rate</span>
+                      <input
+                        class="field__input field__input--num"
+                        type="number" min="0" step="0.01"
+                        [ngModel]="item.rate"
+                        (ngModelChange)="updateLineItem(i, 'rate', $event)"
+                        name="li-rate-{{ i }}"
+                      />
+                    </label>
+                  </div>
+
+                  <div class="week__totals">
+                    <span class="week__formula">
+                      {{ item.daysWorked || 0 }} × {{ item.hoursPerDay || 0 }} =
+                      <strong>{{ lineItemHours(item) | number:'1.0-2' }}</strong> hrs
+                    </span>
+                    <span class="week__amount">
+                      {{ formCurrency }} <strong>{{ lineItemAmount(item) | number:'1.2-2' }}</strong>
+                    </span>
+                  </div>
+
+                  <label class="field week__notes">
+                    <span class="field__label">Notes (optional)</span>
+                    <textarea
+                      rows="2"
+                      [ngModel]="item.notes"
+                      (ngModelChange)="updateLineItem(i, 'notes', $event)"
+                      name="li-notes-{{ i }}"
+                      placeholder="Additional info for this week (overtime, PTO, etc.)"
+                    ></textarea>
+                  </label>
+                </article>
               }
-              <button
-                type="button"
-                class="items__add"
-                (click)="addLineItem()"
-              >+ Add item</button>
+              <button type="button" class="weeks__add" (click)="addLineItem()">+ Add another week</button>
             </div>
           </fieldset>
         </section>
@@ -399,13 +456,40 @@ import {
             <div class="summary__actions summary__actions--pdf">
               <qa-button
                 variant="ghost"
+                [disabled]="downloadingPdf() || loadingPreview()"
+                (click)="openPreview()"
+              >{{ loadingPreview() ? 'Loading preview…' : 'Preview invoice' }}</qa-button>
+              <qa-button
+                variant="ghost"
                 [disabled]="downloadingPdf()"
                 (click)="downloadPdf()"
               >{{ downloadingPdf() ? 'Generating PDF…' : 'Download PDF' }}</qa-button>
+              <qa-button
+                variant="ghost"
+                [disabled]="downloadingCsv()"
+                (click)="downloadCsv()"
+              >{{ downloadingCsv() ? 'Exporting CSV…' : 'Export to CSV' }}</qa-button>
             </div>
           }
         </aside>
       </form>
+
+      @if (previewUrl()) {
+        <div class="preview-modal" role="dialog" aria-modal="true" aria-label="Invoice preview">
+          <div class="preview-modal__shroud" (click)="closePreview()"></div>
+          <div class="preview-modal__panel">
+            <header class="preview-modal__head">
+              <h2>Invoice preview</h2>
+              <button type="button" class="preview-modal__close" (click)="closePreview()" aria-label="Close preview">×</button>
+            </header>
+            <iframe class="preview-modal__frame" [src]="previewSafeUrl()" title="Invoice PDF"></iframe>
+            <footer class="preview-modal__foot">
+              <qa-button variant="primary" (click)="downloadPdf()">Download PDF</qa-button>
+              <qa-button variant="ghost" (click)="closePreview()">Close</qa-button>
+            </footer>
+          </div>
+        </div>
+      }
     </main>
   `,
   styles: `
@@ -672,10 +756,143 @@ import {
     .summary__actions--pdf { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--color-border, #d8dde7); }
 
     .hint { color: var(--color-fg-muted, #5d6577); }
+    .section__hint { margin: 0 0 1rem; color: var(--color-fg-muted, #5d6577); font-size: 0.85rem; }
+
+    /* ── Week cards (replace old items table) ────────────────────── */
+    .weeks { display: grid; gap: 1rem; }
+    .week {
+      border: 1px solid var(--color-border, #d8dde7);
+      border-radius: 12px;
+      padding: 1rem 1.125rem;
+      background: var(--color-surface, #fff);
+    }
+    .week__head {
+      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+      margin-bottom: 0.875rem;
+    }
+    .week__num {
+      font-weight: 700; font-size: 0.95rem;
+      color: var(--color-primary, #1a3a8f);
+    }
+    .week__range { color: var(--color-fg-muted, #5d6577); font-size: 0.85rem; }
+    .week__delete {
+      margin-left: auto;
+      background: transparent; border: 1px solid var(--color-border, #d8dde7);
+      color: #991b1b; padding: 0.3rem 0.625rem; border-radius: 7px;
+      font-family: inherit; font-size: 0.8rem; cursor: pointer;
+    }
+    .week__delete:hover { background: #fee2e2; border-color: #fca5a5; }
+    .week__delete:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .week__grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 0.875rem;
+    }
+    .week__grid .field--span2 { grid-column: span 2; }
+    @media (max-width: 720px) {
+      .week__grid { grid-template-columns: 1fr 1fr; }
+      .week__grid .field--span2 { grid-column: 1 / -1; }
+    }
+    @media (max-width: 480px) {
+      .week__grid { grid-template-columns: 1fr; }
+      .week__grid .field--span2 { grid-column: auto; }
+    }
+
+    .field__input {
+      width: 100%; min-width: 0;
+      font-family: inherit; font-size: 0.9rem;
+      padding: 0.5rem 0.625rem;
+      border: 1px solid var(--color-border, #d8dde7);
+      border-radius: 7px;
+      background: var(--color-surface, #fff);
+    }
+    .field__input--num { text-align: right; font-variant-numeric: tabular-nums; }
+    .field__input:focus-visible {
+      outline: 3px solid var(--color-primary, #1a3a8f);
+      outline-offset: 1px;
+    }
+
+    .week__totals {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 1rem; padding: 0.625rem 0.875rem;
+      background: #f8fafc; border-radius: 8px;
+      font-size: 0.9rem; flex-wrap: wrap;
+    }
+    .week__formula { color: var(--color-fg-muted, #5d6577); }
+    .week__formula strong { color: var(--color-fg, #1a1f2c); }
+    .week__amount { font-size: 1rem; color: var(--color-fg-muted, #5d6577); }
+    .week__amount strong { color: var(--color-primary, #1a3a8f); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+
+    .week__notes { display: block; margin-top: 0.875rem; }
+    .week__notes textarea {
+      width: 100%; font-family: inherit; font-size: 0.9rem;
+      padding: 0.5rem 0.625rem;
+      border: 1px solid var(--color-border, #d8dde7);
+      border-radius: 7px; resize: vertical;
+    }
+    .week__notes textarea:focus-visible {
+      outline: 3px solid var(--color-primary, #1a3a8f);
+      outline-offset: 1px;
+    }
+
+    .weeks__add {
+      width: 100%; padding: 0.875rem;
+      background: var(--color-primary-soft, #e7ecf6);
+      border: 1px dashed var(--color-primary, #1a3a8f);
+      border-radius: 10px;
+      color: var(--color-primary, #1a3a8f); font-weight: 600;
+      font-family: inherit; font-size: 0.9rem; cursor: pointer;
+    }
+    .weeks__add:hover { background: #d8e0f0; }
+
+    /* ── Preview modal ───────────────────────────────────────────── */
+    .preview-modal {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: stretch; justify-content: center;
+    }
+    .preview-modal__shroud {
+      position: absolute; inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .preview-modal__panel {
+      position: relative; z-index: 1;
+      margin: 2rem auto; max-width: 960px; width: calc(100% - 2rem);
+      max-height: calc(100vh - 4rem);
+      background: var(--color-surface, #fff);
+      border-radius: 14px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.3);
+    }
+    .preview-modal__head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.875rem 1.25rem;
+      border-bottom: 1px solid var(--color-border, #d8dde7);
+    }
+    .preview-modal__head h2 { margin: 0; font-size: 1.05rem; }
+    .preview-modal__close {
+      background: none; border: 0; font-size: 1.5rem; line-height: 1;
+      cursor: pointer; padding: 0.25rem 0.625rem; border-radius: 7px;
+      color: var(--color-fg-muted, #5d6577);
+    }
+    .preview-modal__close:hover { background: var(--color-bg-muted, #f4f6fa); }
+    .preview-modal__frame {
+      flex: 1 1 auto; width: 100%; border: 0;
+      background: #f4f6fa;
+      min-height: 400px;
+    }
+    .preview-modal__foot {
+      display: flex; gap: 0.625rem; justify-content: flex-end;
+      padding: 0.875rem 1.25rem;
+      border-top: 1px solid var(--color-border, #d8dde7);
+    }
   `,
 })
 export class ContractorInvoicesComponent {
   private svc = inject(ContractorInvoicesService);
+  private sanitizer = inject(DomSanitizer);
 
   protected readonly invoices = signal<InvoiceResponse[]>([]);
   protected readonly loading = signal(false);
@@ -684,6 +901,14 @@ export class ContractorInvoicesComponent {
   protected readonly saving = signal(false);
   protected readonly sending = signal(false);
   protected readonly downloadingPdf = signal(false);
+  protected readonly downloadingCsv = signal(false);
+  protected readonly loadingPreview = signal(false);
+  protected readonly previewUrl = signal<string | null>(null);
+  /** Sanitized SafeUrl for the iframe. Recomputed when previewUrl changes. */
+  protected previewSafeUrl(): SafeResourceUrl | null {
+    const url = this.previewUrl();
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+  }
   protected readonly formError = signal<string | null>(null);
   protected readonly saveSuccess = signal<string | null>(null);
 
@@ -710,9 +935,20 @@ export class ContractorInvoicesComponent {
   protected formCurrency = 'USD';
   protected formTaxRate = '0';
   protected formNotes = '';
+  /** User's custom override; if blank on save, server mints. */
+  protected formInvoiceNumberInput = '';
   protected readonly formLineItems = signal<DraftLineItem[]>([]);
   /** Server-minted number — only present when editing an existing invoice. */
   protected readonly formInvoiceNumber = signal('');
+
+  /** Year hint in the hint text under the Invoice number input. */
+  protected formYear(): number {
+    if (this.formIssueDate) {
+      const y = Number(this.formIssueDate.slice(0, 4));
+      if (Number.isFinite(y)) return y;
+    }
+    return new Date().getFullYear();
+  }
 
   // ── Currency catalog ──────────────────────────────────────────────
   protected readonly supportedCurrencies = [
@@ -813,6 +1049,7 @@ export class ContractorInvoicesComponent {
   protected onSelectInvoice(inv: InvoiceResponse): void {
     this.selectedInvoiceId.set(inv.id);
     this.formInvoiceNumber.set(inv.invoiceNumber);
+    this.formInvoiceNumberInput = inv.invoiceNumber;
     this.formClientName = inv.clientName;
     this.formIssueDate = inv.issueDateUtc;
     this.formDueDate = inv.dueDateUtc;
@@ -825,8 +1062,11 @@ export class ContractorInvoicesComponent {
       inv.lineItems.length > 0
         ? inv.lineItems.map((li) => ({
             description: li.description,
-            hours: String(li.hours),
+            weekStart: li.weekStartUtc ?? '',
+            daysWorked: String(li.daysWorked || 0),
+            hoursPerDay: String(li.hoursPerDay || 0),
             rate: String(li.rate),
+            notes: li.notes ?? '',
           }))
         : [emptyLineItem()],
     );
@@ -835,24 +1075,36 @@ export class ContractorInvoicesComponent {
 
   protected startNewInvoice(): void {
     const today = isoToday();
+    const monday = mondayOf(today);
+    const periodEnd = isoOffsetDays(30); // 1 month default period
     const due = isoOffsetDays(15);
     this.selectedInvoiceId.set(null);
     this.formInvoiceNumber.set('');
+    this.formInvoiceNumberInput = '';
     this.formClientName = '';
     this.formIssueDate = today;
     this.formDueDate = due;
-    this.formPeriodStart = today;
-    this.formPeriodEnd = today;
+    this.formPeriodStart = monday;
+    this.formPeriodEnd = periodEnd;
     this.formCurrency = 'USD';
-    this.formTaxRate = '10';
+    this.formTaxRate = '0';
     this.formNotes = '';
-    this.formLineItems.set([emptyLineItem()]);
+    this.formLineItems.set([{ ...emptyLineItem(), weekStart: monday }]);
     this.formError.set(null);
   }
 
   // ── Line items ───────────────────────────────────────────────────
   protected addLineItem(): void {
-    this.formLineItems.update((list) => [...list, emptyLineItem()]);
+    // Default the next week to the Monday AFTER the latest one in the list,
+    // so adding a "Week 2" naturally lines up with the contractor's billing.
+    const list = this.formLineItems();
+    const lastWeekStart = list.length > 0 ? list[list.length - 1].weekStart : '';
+    const nextWeek = lastWeekStart ? isoAddDays(lastWeekStart, 7) : mondayOf(isoToday());
+    const lastRate = list.length > 0 ? list[list.length - 1].rate : '0';
+    this.formLineItems.update((cur) => [
+      ...cur,
+      { ...emptyLineItem(), weekStart: nextWeek, rate: lastRate },
+    ]);
   }
 
   protected removeLineItem(i: number): void {
@@ -872,11 +1124,28 @@ export class ContractorInvoicesComponent {
     );
   }
 
+  /** Hours = Days × Hours/Day, rounded to 2dp. Used in the "5×8=40" display. */
+  protected lineItemHours(item: DraftLineItem): number {
+    const d = Number(item.daysWorked);
+    const hpd = Number(item.hoursPerDay);
+    if (!Number.isFinite(d) || !Number.isFinite(hpd) || d < 0 || hpd < 0) return 0;
+    return Math.round(d * hpd * 100) / 100;
+  }
+
+  /** Amount = Hours × Rate, rounded to 2dp. */
   protected lineItemAmount(item: DraftLineItem): number {
-    const h = Number(item.hours);
     const r = Number(item.rate);
-    if (!Number.isFinite(h) || !Number.isFinite(r) || h < 0 || r < 0) return 0;
-    return Math.round(h * r * 100) / 100;
+    if (!Number.isFinite(r) || r < 0) return 0;
+    return Math.round(this.lineItemHours(item) * r * 100) / 100;
+  }
+
+  /** Sunday end-of-week computed from the Monday start. Empty for non-weekly. */
+  protected lineItemWeekEnd(item: DraftLineItem): string {
+    if (!item.weekStart) return '';
+    const start = new Date(item.weekStart + 'T00:00:00Z');
+    if (Number.isNaN(start.getTime())) return '';
+    start.setUTCDate(start.getUTCDate() + 6);
+    return start.toISOString().slice(0, 10);
   }
 
   // ── Submit / save ────────────────────────────────────────────────
@@ -975,6 +1244,68 @@ export class ContractorInvoicesComponent {
     });
   }
 
+  /**
+   * Fetch the server-rendered PDF as a Blob and trigger a CSV download.
+   * Mirrors downloadPdf() but with the /csv endpoint.
+   */
+  protected downloadCsv(): void {
+    const invoice = this.selectedInvoice();
+    if (!invoice) return;
+    this.downloadingCsv.set(true);
+    this.formError.set(null);
+
+    this.svc.downloadCsv(invoice.id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `Invoice-${invoice.invoiceNumber}.csv`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        window.URL.revokeObjectURL(url);
+        this.downloadingCsv.set(false);
+      },
+      error: (e: unknown) => {
+        this.downloadingCsv.set(false);
+        this.formError.set(toMessage(e));
+      },
+    });
+  }
+
+  /**
+   * Fetch the rendered PDF and stuff it into an iframe via createObjectURL
+   * so the contractor sees exactly what the client will receive. The Blob
+   * URL is revoked when the modal closes (closePreview).
+   */
+  protected openPreview(): void {
+    const invoice = this.selectedInvoice();
+    if (!invoice) return;
+    this.loadingPreview.set(true);
+    this.formError.set(null);
+
+    this.svc.downloadPdf(invoice.id).subscribe({
+      next: (blob) => {
+        // Revoke any previous URL before allocating a new one.
+        const existing = this.previewUrl();
+        if (existing) window.URL.revokeObjectURL(existing);
+        const url = window.URL.createObjectURL(blob);
+        this.previewUrl.set(url);
+        this.loadingPreview.set(false);
+      },
+      error: (e: unknown) => {
+        this.loadingPreview.set(false);
+        this.formError.set(toMessage(e));
+      },
+    });
+  }
+
+  protected closePreview(): void {
+    const url = this.previewUrl();
+    if (url) window.URL.revokeObjectURL(url);
+    this.previewUrl.set(null);
+  }
+
   protected statusDetailFor(inv: InvoiceResponse): string {
     switch (inv.status) {
       case 'Paid': return inv.paidAtUtc ? `Paid ${inv.paidAtUtc.slice(0, 10)}` : 'Paid';
@@ -1023,25 +1354,30 @@ export class ContractorInvoicesComponent {
     const items: InvoiceLineItemRequest[] = this.formLineItems()
       .filter((li) =>
         li.description.trim().length > 0 ||
-        Number(li.hours) > 0 ||
+        Number(li.daysWorked) > 0 ||
+        Number(li.hoursPerDay) > 0 ||
         Number(li.rate) > 0,
       )
       .map((li) => ({
         description: li.description.trim() || '—',
-        hours: Number(li.hours) || 0,
+        weekStartUtc: li.weekStart || null,
+        daysWorked: Number(li.daysWorked) || 0,
+        hoursPerDay: Number(li.hoursPerDay) || 0,
         rate: Number(li.rate) || 0,
+        notes: li.notes.trim() || null,
       }));
 
     if (items.length === 0) {
       return 'Add at least one line item before saving.';
     }
     for (const li of items) {
-      if (li.hours < 0 || li.rate < 0) {
-        return 'Line item hours and rate must be non-negative.';
+      if (li.daysWorked < 0 || li.hoursPerDay < 0 || li.rate < 0) {
+        return 'Line item days, hours/day, and rate must be non-negative.';
       }
     }
 
     return {
+      invoiceNumber: this.formInvoiceNumberInput.trim() || null,
       clientName: this.formClientName.trim() || null,
       issueDateUtc: issue,
       dueDateUtc: due,
@@ -1057,15 +1393,29 @@ export class ContractorInvoicesComponent {
 
 // ── Local helpers ────────────────────────────────────────────────────
 
-/** Working shape for a line item in the form (strings so empty inputs survive). */
+/**
+ * Working shape for a line item in the form. Strings on every numeric so
+ * empty inputs survive (Angular ngModel passes "" instead of NaN).
+ * Each item represents one work-week (Monday → Sunday).
+ */
 interface DraftLineItem {
   description: string;
-  hours: string;
+  weekStart: string;   // ISO yyyy-MM-dd of the Monday, or '' for non-weekly
+  daysWorked: string;
+  hoursPerDay: string;
   rate: string;
+  notes: string;
 }
 
-function emptyLineItem(): DraftLineItem {
-  return { description: '', hours: '0', rate: '0' };
+function emptyLineItem(defaultRate?: number): DraftLineItem {
+  return {
+    description: '',
+    weekStart: '',
+    daysWorked: '5',
+    hoursPerDay: '8',
+    rate: defaultRate != null ? String(defaultRate) : '0',
+    notes: '',
+  };
 }
 
 function isoToday(): string {
@@ -1074,6 +1424,25 @@ function isoToday(): string {
 
 function isoOffsetDays(days: number): string {
   const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Given any ISO date, returns the Monday of that week (UTC, ISO weekday). */
+function mondayOf(iso: string): string {
+  const d = new Date(iso + 'T00:00:00Z');
+  if (Number.isNaN(d.getTime())) return iso;
+  // getUTCDay: Sunday=0, Monday=1, ..., Saturday=6
+  // Want Monday-based. Sunday → -6, Monday → 0, Tuesday → -1, etc.
+  const dow = d.getUTCDay();
+  const offset = dow === 0 ? -6 : 1 - dow;
+  d.setUTCDate(d.getUTCDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+
+function isoAddDays(iso: string, days: number): string {
+  const d = new Date(iso + 'T00:00:00Z');
+  if (Number.isNaN(d.getTime())) return iso;
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
