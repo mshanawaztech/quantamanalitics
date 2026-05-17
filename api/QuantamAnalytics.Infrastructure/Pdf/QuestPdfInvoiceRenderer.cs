@@ -198,53 +198,35 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
                 c.RelativeColumn(2);   // TOTAL
             });
 
-            table.Header(h =>
+            table.Header(header =>
             {
-                CellHeader(h, "Client Name", accent);
-                CellHeader(h, "Hrs.\nWorked", accent, TextAlignment.Center);
-                CellHeader(h, "Rate", accent, TextAlignment.Center);
-                CellHeader(h, "TOTAL", accent, TextAlignment.Center);
+                // QuestPDF uses chainable .AlignCenter() on the container —
+                // no TextAlignment enum exists. Headers are inlined here
+                // (rather than a helper) so the strongly-typed lambda
+                // parameter doesn't need to escape the local scope.
+                StyleHeaderCell(header.Cell(), accent).Text("Client Name").Bold().FontSize(11);
+                StyleHeaderCell(header.Cell(), accent).AlignCenter().Text("Hrs.\nWorked").Bold().FontSize(11);
+                StyleHeaderCell(header.Cell(), accent).AlignCenter().Text("Rate").Bold().FontSize(11);
+                StyleHeaderCell(header.Cell(), accent).AlignCenter().Text("TOTAL").Bold().FontSize(11);
             });
 
             foreach (var item in invoice.LineItems)
             {
-                CellBody(table.Cell(), item.Description);
-                CellBody(table.Cell(), FormatHours(item.Hours), TextAlignment.Center);
-                CellBody(table.Cell(), FormatCurrency(invoice.Currency, item.Rate), TextAlignment.Center);
-                CellBody(table.Cell(), FormatCurrency(invoice.Currency, item.Amount), TextAlignment.Center);
+                StyleBodyCell(table.Cell()).Text(item.Description).FontSize(10);
+                StyleBodyCell(table.Cell()).AlignCenter().Text(FormatHours(item.Hours)).FontSize(10);
+                StyleBodyCell(table.Cell()).AlignCenter().Text(FormatCurrency(invoice.Currency, item.Rate)).FontSize(10);
+                StyleBodyCell(table.Cell()).AlignCenter().Text(FormatCurrency(invoice.Currency, item.Amount)).FontSize(10);
             }
         });
     }
 
-    private static void CellHeader(
-        TableDescriptor.TableHeaderDescriptor header,
-        string text,
-        string accent,
-        TextAlignment alignment = TextAlignment.Left)
-    {
-        var cell = header.Cell().Background(accent).Padding(8);
-        if (alignment == TextAlignment.Center)
-        {
-            cell.AlignCenter().Text(text).Bold().FontSize(11);
-        }
-        else
-        {
-            cell.Text(text).Bold().FontSize(11);
-        }
-    }
+    /// <summary>Shared header-cell styling: tan background, padded.</summary>
+    private static IContainer StyleHeaderCell(IContainer cell, string accent) =>
+        cell.Background(accent).Padding(8);
 
-    private static void CellBody(IContainer cell, string text, TextAlignment alignment = TextAlignment.Left)
-    {
-        var styled = cell.BorderBottom(0.5f).BorderColor("#e6e8ee").Padding(8);
-        if (alignment == TextAlignment.Center)
-        {
-            styled.AlignCenter().Text(text).FontSize(10);
-        }
-        else
-        {
-            styled.Text(text).FontSize(10);
-        }
-    }
+    /// <summary>Shared body-cell styling: bottom border, padded.</summary>
+    private static IContainer StyleBodyCell(IContainer cell) =>
+        cell.BorderBottom(0.5f).BorderColor("#e6e8ee").Padding(8);
 
     private static void RenderGrandTotal(IContainer container, Invoice invoice, string primary)
     {
