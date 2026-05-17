@@ -37,8 +37,8 @@ public sealed class InvoiceTests
             taxRate: 10m,
             lineItems: new[]
             {
-                new InvoiceLineItemInput("Consulting", 10m, 100m),  // $1000
-                new InvoiceLineItemInput("Workshop",  5m, 200m),     // $1000
+                new InvoiceLineItemInput("Consulting", null, 1m, 10m, 100m, null),  // $1000
+                new InvoiceLineItemInput("Workshop", null, 1m, 5m, 200m, null),     // $1000
             },
             notes: null);
 
@@ -145,7 +145,7 @@ public sealed class InvoiceTests
             periodEndUtc: new DateOnly(2026, 5, 15),
             currency: "USD",
             taxRate: 0m,
-            lineItems: new[] { new InvoiceLineItemInput("Hours", 10m, 100m) },
+            lineItems: new[] { new InvoiceLineItemInput("Hours", null, 1m, 10m, 100m, null) },
             notes: null);
         act.Should().Throw<InvalidOperationException>();
     }
@@ -164,7 +164,7 @@ public sealed class InvoiceTests
             taxRate: 20m,
             lineItems: new[]
             {
-                new InvoiceLineItemInput("Consulting", 5m, 200m), // 1000
+                new InvoiceLineItemInput("Consulting", null, 1m, 5m, 200m, null), // 1000
             },
             notes: null);
 
@@ -189,7 +189,7 @@ public sealed class InvoiceTests
             periodEndUtc: new DateOnly(2026, 5, 4),
             currency: "USD",
             taxRate: 0m,
-            lineItems: new[] { new InvoiceLineItemInput("Hours", 10m, 100m) },
+            lineItems: new[] { new InvoiceLineItemInput("Hours", null, 1m, 10m, 100m, null) },
             notes: null);
 
         act.Should().Throw<ArgumentException>();
@@ -210,7 +210,7 @@ public sealed class InvoiceTests
             periodEndUtc: new DateOnly(2026, 5, 15),
             currency: "USD",
             taxRate: 0m,
-            lineItems: new[] { new InvoiceLineItemInput("Hours", 10m, 100m) },
+            lineItems: new[] { new InvoiceLineItemInput("Hours", null, 1m, 10m, 100m, null) },
             notes: null);
 
         act.Should().Throw<ArgumentException>();
@@ -252,7 +252,7 @@ public sealed class InvoiceTests
             periodEndUtc: new DateOnly(2026, 5, 10),
             currency: "USD",
             taxRate: 0m,
-            lineItems: new[] { new InvoiceLineItemInput("Bad", -1m, 100m) },
+            lineItems: new[] { new InvoiceLineItemInput("Bad", null, -1m, 8m, 100m, null) },
             notes: null);
 
         act.Should().Throw<ArgumentException>();
@@ -282,7 +282,7 @@ public sealed class InvoiceTests
         taxRate: 10m,
         lineItems: new[]
         {
-            new InvoiceLineItemInput("Standard week", 40m, 100m),
+            new InvoiceLineItemInput("Standard week", null, 5m, 8m, 100m, null),
         },
         notes: "Standard week");
 }

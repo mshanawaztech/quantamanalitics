@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Tenancy;
@@ -20,10 +21,14 @@ namespace QuantamAnalytics.Api.Tenancy;
 public sealed class TenantResolutionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<TenantResolutionMiddleware> _logger;
 
-    public TenantResolutionMiddleware(RequestDelegate next)
+    public TenantResolutionMiddleware(
+        RequestDelegate next,
+        ILogger<TenantResolutionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
 
     public async Task InvokeAsync(
@@ -47,6 +52,24 @@ public sealed class TenantResolutionMiddleware
             ?? context.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
             ?? context.User.FindFirstValue("sub");
         currentUser.SetAuthSubject(subject);
+
+        // Diagnostic: if the user is authenticated but we still couldn't
+        // find a subject claim, log the claim types that DID come through
+        // so we can see in App Insights / container logs exactly what
+        // shape the JWT delivered. Without this it's "guess and ship".
+        if (context.User.Identity?.IsAuthenticated == true &&
+            string.IsNullOrWhiteSpace(subject))
+        {
+            var claimTypes = context.User.Claims
+                .Select(c => c.Type)
+                .Distinct()
+                .OrderBy(t => t)
+                .ToArray();
+            _logger.LogWarning(
+                "Authenticated principal arrived with no resolvable subject claim. " +
+                "Claim types present: {ClaimTypes}",
+                string.Join(", ", claimTypes));
+        }
 
         // Fallback: JWT carried no tenant_id but we DO have an authenticated
         // subject — look up their membership. Keeps the bootstrap path

@@ -33,6 +33,7 @@ public static class InvoiceEndpoint
         contractor.MapPut("/{id:guid}", UpdateMineAsync);
         contractor.MapPost("/{id:guid}/submit", SubmitMineAsync);
         contractor.MapGet("/{id:guid}/pdf", DownloadPdfAsync);
+        contractor.MapGet("/{id:guid}/csv", DownloadCsvAsync);
 
         var recruiter = app.MapGroup("/api/v1/recruiter/invoices")
             .WithTags("Invoices · Recruiter")
@@ -95,25 +96,46 @@ public static class InvoiceEndpoint
             return BadRequestProblem("An invoice must have at least one line item.");
         }
 
-        // Mint the human-readable invoice number inside the same transaction
-        // that inserts the invoice. The row lock on invoice_number_sequences
-        // serializes concurrent inserts so two contractors on the same tenant
-        // can't be issued the same number.
+        // Resolve the invoice number: user-provided takes precedence (after
+        // a uniqueness check), otherwise we mint the next sequential number.
+        // Both paths run inside the same transaction as the insert so two
+        // concurrent submits can't collide on the same human-readable code.
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        var year = body.IssueDateUtc.Year;
-        var sequence = await db.InvoiceNumberSequences
-            .SingleOrDefaultAsync(
-                x => x.TenantId == currentTenant.TenantId.Value && x.Year == year,
-                cancellationToken);
-
-        if (sequence is null)
+        string invoiceNumber;
+        var customNumber = body.InvoiceNumber?.Trim();
+        if (!string.IsNullOrWhiteSpace(customNumber))
         {
-            sequence = new InvoiceNumberSequence(currentTenant.TenantId.Value, year);
-            db.InvoiceNumberSequences.Add(sequence);
+            // Custom-numbered: enforce per-tenant uniqueness ourselves so the
+            // contractor gets a friendly 409, not a Postgres unique-index 23505.
+            var exists = await db.Invoices
+                .AnyAsync(
+                    x => x.TenantId == currentTenant.TenantId.Value &&
+                         x.InvoiceNumber == customNumber,
+                    cancellationToken);
+            if (exists)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return BadRequestProblem(
+                    $"Invoice number '{customNumber}' is already in use for this tenant.");
+            }
+            invoiceNumber = customNumber;
         }
+        else
+        {
+            var year = body.IssueDateUtc.Year;
+            var sequence = await db.InvoiceNumberSequences
+                .SingleOrDefaultAsync(
+                    x => x.TenantId == currentTenant.TenantId.Value && x.Year == year,
+                    cancellationToken);
 
-        var invoiceNumber = sequence.MintNext();
+            if (sequence is null)
+            {
+                sequence = new InvoiceNumberSequence(currentTenant.TenantId.Value, year);
+                db.InvoiceNumberSequences.Add(sequence);
+            }
+            invoiceNumber = sequence.MintNext();
+        }
 
         try
         {
@@ -263,6 +285,72 @@ public static class InvoiceEndpoint
             fileDownloadName: $"Invoice-{invoice.InvoiceNumber}.pdf");
     }
 
+    private static async Task<Results<FileContentHttpResult, NotFound, ProblemHttpResult>> DownloadCsvAsync(
+        Guid id,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null) return TenantRequired();
+        var subject = currentUser.AuthSubject;
+        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+
+        var invoice = await db.Invoices
+            .Include(x => x.LineItems)
+            .SingleOrDefaultAsync(
+                x => x.Id == id && x.ContractorAuthSubject == subject,
+                cancellationToken);
+
+        if (invoice is null) return TypedResults.NotFound();
+
+        // Plain-CSV (RFC 4180) — header + one row per line item. Fields with
+        // commas/quotes/newlines are double-quote-wrapped with internal quotes
+        // doubled. Good enough for QuickBooks / Excel imports.
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("invoice_number,issue_date,due_date,period_start,period_end,client,line_no,description,week_start,week_end,days,hours_per_day,hours,rate,amount,currency,notes");
+        var n = 1;
+        foreach (var li in invoice.LineItems.OrderBy(li => li.SortOrder))
+        {
+            sb.Append(EscapeCsv(invoice.InvoiceNumber)).Append(',');
+            sb.Append(invoice.IssueDateUtc.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(invoice.DueDateUtc.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(invoice.PeriodStartUtc.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(invoice.PeriodEndUtc.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(EscapeCsv(invoice.ClientName)).Append(',');
+            sb.Append(n++).Append(',');
+            sb.Append(EscapeCsv(li.Description)).Append(',');
+            sb.Append(li.WeekStartUtc?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? "").Append(',');
+            sb.Append(li.WeekEndUtc?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? "").Append(',');
+            sb.Append(li.DaysWorked.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(li.HoursPerDay.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(li.Hours.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(li.Rate.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(li.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(',');
+            sb.Append(invoice.Currency).Append(',');
+            sb.Append(EscapeCsv(li.Notes ?? ""));
+            sb.AppendLine();
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetPreamble()
+            .Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString()))
+            .ToArray();
+
+        return TypedResults.File(
+            fileContents: bytes,
+            contentType: "text/csv; charset=utf-8",
+            fileDownloadName: $"Invoice-{invoice.InvoiceNumber}.csv");
+    }
+
+    /// <summary>RFC 4180 CSV field escaping.</summary>
+    private static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        var needsQuotes = value.IndexOfAny(['"', ',', '\n', '\r']) >= 0;
+        var escaped = value.Replace("\"", "\"\"");
+        return needsQuotes ? $"\"{escaped}\"" : escaped;
+    }
+
     // ── Recruiter / admin handlers ─────────────────────────────────────
 
     private static async Task<Results<Ok<InvoiceListResponse>, ProblemHttpResult>> ListAcrossTenantAsync(
@@ -404,12 +492,16 @@ public static class InvoiceEndpoint
         return lineItems
             .Where(x =>
                 !string.IsNullOrWhiteSpace(x.Description) ||
-                x.Hours > 0 ||
+                x.DaysWorked > 0 ||
+                x.HoursPerDay > 0 ||
                 x.Rate > 0)
             .Select(x => new InvoiceLineItemInput(
                 Description: string.IsNullOrWhiteSpace(x.Description) ? "—" : x.Description,
-                Hours: x.Hours,
-                Rate: x.Rate))
+                WeekStartUtc: x.WeekStartUtc,
+                DaysWorked: x.DaysWorked,
+                HoursPerDay: x.HoursPerDay,
+                Rate: x.Rate,
+                Notes: x.Notes))
             .ToList();
     }
 
@@ -440,9 +532,14 @@ public static class InvoiceEndpoint
             .Select(li => new InvoiceLineItemResponse(
                 li.Id,
                 li.Description,
+                li.WeekStartUtc,
+                li.WeekEndUtc,
+                li.DaysWorked,
+                li.HoursPerDay,
                 li.Hours,
                 li.Rate,
                 li.Amount,
+                li.Notes,
                 li.SortOrder))
             .ToArray());
 
@@ -466,6 +563,7 @@ public static class InvoiceEndpoint
 }
 
 public sealed record CreateInvoiceRequest(
+    string? InvoiceNumber,
     string? ClientName,
     DateOnly IssueDateUtc,
     DateOnly DueDateUtc,
@@ -487,10 +585,18 @@ public sealed record UpdateInvoiceRequest(
     InvoiceLineItemRequest[] LineItems,
     string? Notes);
 
+/// <summary>
+/// v4 line-item request. Description + week-of (Monday) + days × hours/day
+/// + rate + optional notes. Server computes <c>Hours = Days × HoursPerDay</c>
+/// and <c>Amount = Hours × Rate</c>.
+/// </summary>
 public sealed record InvoiceLineItemRequest(
     string Description,
-    decimal Hours,
-    decimal Rate);
+    DateOnly? WeekStartUtc,
+    decimal DaysWorked,
+    decimal HoursPerDay,
+    decimal Rate,
+    string? Notes);
 
 public sealed record InvoiceDecisionRequest(string? Note);
 
@@ -523,7 +629,12 @@ public sealed record InvoiceResponse(
 public sealed record InvoiceLineItemResponse(
     Guid Id,
     string Description,
+    DateOnly? WeekStartUtc,
+    DateOnly? WeekEndUtc,
+    decimal DaysWorked,
+    decimal HoursPerDay,
     decimal Hours,
     decimal Rate,
     decimal Amount,
+    string? Notes,
     int SortOrder);
