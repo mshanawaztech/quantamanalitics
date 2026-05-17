@@ -10,9 +10,11 @@ using QuantamAnalytics.Infrastructure.Esign;
 using QuantamAnalytics.Infrastructure.Features;
 using QuantamAnalytics.Infrastructure.Interviews;
 using QuantamAnalytics.Infrastructure.JobBoards;
+using QuantamAnalytics.Infrastructure.Pdf;
 using QuantamAnalytics.Infrastructure.ResumeParsing;
 using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
+using QuantamAnalytics.Domain.Pdf;
 
 namespace QuantamAnalytics.Infrastructure;
 
@@ -57,6 +59,7 @@ public static class DependencyInjection
         services.AddSingleton<ICandidateMatcher, StubCandidateMatcher>();
         services.AddSingleton<ICopilotProvider, StubCopilotProvider>();
         services.AddSingleton<IFeatureGate, AppSettingsFeatureGate>();
+        services.AddSingleton<IInvoicePdfRenderer, QuestPdfInvoiceRenderer>();
 
         // Audit-log interceptor — scoped so it sees the per-request tenant
         // and auth subject. Resolved into the DbContext options below via
