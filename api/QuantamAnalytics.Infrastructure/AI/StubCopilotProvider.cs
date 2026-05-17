@@ -102,13 +102,15 @@ public sealed class StubCopilotProvider : ICopilotProvider
         return Task.FromResult(new CopilotOnboardingChecklist(items));
     }
 
-    private static string Join(IReadOnlyList<string> items) =>
-        items.Count switch
+    // CA1859: private helper is only called with arrays — use the concrete
+    // type so the JIT can skip the interface dispatch.
+    private static string Join(string[] items) =>
+        items.Length switch
         {
             0 => string.Empty,
             1 => items[0],
             2 => $"{items[0]} and {items[1]}",
-            _ => $"{string.Join(", ", items.Take(items.Count - 1))}, and {items[^1]}",
+            _ => $"{string.Join(", ", items.Take(items.Length - 1))}, and {items[^1]}",
         };
 
     private static string FirstSentence(string text)
