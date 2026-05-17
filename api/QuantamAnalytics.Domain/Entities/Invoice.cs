@@ -6,9 +6,10 @@ namespace QuantamAnalytics.Domain.Entities;
 /// Tenant-scoped invoice raised by a contractor for a billing period.
 /// Mirrors the timesheet flow but for direct billing — used when a
 /// contractor bills the staffing firm directly rather than going through
-/// payroll. Phase 6 ships the request shape, the state machine, and the
-/// client-side approval surface; the QuickBooks / Stripe handoff already
-/// has a baseline that this plugs into without further code changes.
+/// payroll. Phase 6 shipped the request shape, the state machine, and the
+/// client-side approval surface; v2 (Invoices polish) extends the entity
+/// with multi-line items, issue/due dates, an auto-minted invoice number,
+/// and a tax line.
 /// </summary>
 /// <remarks>
 /// State machine:
@@ -16,55 +17,86 @@ namespace QuantamAnalytics.Domain.Entities;
 /// Late mutations from a Paid or Rejected terminal state throw —
 /// recovering from a wrong terminal status is an explicit "open a new
 /// invoice" workflow, not an in-place override.
+///
+/// v2 fields are non-nullable on new rows but the migration backfills
+/// existing data so old single-line invoices keep working:
+/// - InvoiceNumber: synthesized for legacy rows during the migration
+/// - IssueDateUtc: defaults to CreatedAtUtc.Date for legacy rows
+/// - DueDateUtc: defaults to IssueDateUtc + 30 days for legacy rows
+/// - ClientName: defaults to "" for legacy rows
+/// - Subtotal / TaxRate / TaxAmount: legacy rows get Subtotal = Amount,
+///   TaxRate = 0, TaxAmount = 0
+/// - LineItems: legacy rows get a single synthetic item on read.
 /// </remarks>
 public sealed class Invoice : ITenantScoped
 {
+    private readonly List<InvoiceLineItem> _lineItems = [];
+
     private Invoice() { }
 
     public Invoice(
         Guid tenantId,
         string contractorAuthSubject,
         string contractorEmail,
+        string invoiceNumber,
+        string clientName,
+        DateOnly issueDateUtc,
+        DateOnly dueDateUtc,
         DateOnly periodStartUtc,
         DateOnly periodEndUtc,
-        decimal hours,
-        decimal amount,
         string currency,
+        decimal taxRate,
+        IReadOnlyCollection<InvoiceLineItemInput> lineItems,
         string? notes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(contractorAuthSubject);
         ArgumentException.ThrowIfNullOrWhiteSpace(contractorEmail);
+        ArgumentException.ThrowIfNullOrWhiteSpace(invoiceNumber);
         ArgumentException.ThrowIfNullOrWhiteSpace(currency);
+        ArgumentNullException.ThrowIfNull(clientName);
+        ArgumentNullException.ThrowIfNull(lineItems);
 
+        if (lineItems.Count == 0)
+        {
+            throw new ArgumentException("An invoice must have at least one line item.", nameof(lineItems));
+        }
         if (periodEndUtc < periodStartUtc)
         {
             throw new ArgumentException(
                 "Invoice period_end must not be earlier than period_start.",
                 nameof(periodEndUtc));
         }
-
-        if (hours < 0)
+        if (dueDateUtc < issueDateUtc)
         {
-            throw new ArgumentException("Hours must not be negative.", nameof(hours));
+            throw new ArgumentException(
+                "Invoice due_date must not be earlier than issue_date.",
+                nameof(dueDateUtc));
         }
-        if (amount < 0)
+        if (taxRate < 0 || taxRate > 100)
         {
-            throw new ArgumentException("Amount must not be negative.", nameof(amount));
+            throw new ArgumentException(
+                "Tax rate must be a percentage between 0 and 100.",
+                nameof(taxRate));
         }
 
         Id = Guid.CreateVersion7();
         TenantId = tenantId;
         ContractorAuthSubject = contractorAuthSubject.Trim();
         ContractorEmail = contractorEmail.Trim().ToLowerInvariant();
+        InvoiceNumber = invoiceNumber.Trim();
+        ClientName = clientName.Trim();
+        IssueDateUtc = issueDateUtc;
+        DueDateUtc = dueDateUtc;
         PeriodStartUtc = periodStartUtc;
         PeriodEndUtc = periodEndUtc;
-        Hours = hours;
-        Amount = amount;
         Currency = currency.Trim().ToUpperInvariant();
+        TaxRate = taxRate;
         Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         Status = InvoiceStatus.Draft;
         CreatedAtUtc = DateTimeOffset.UtcNow;
         UpdatedAtUtc = CreatedAtUtc;
+
+        ReplaceLineItems(lineItems);
     }
 
     public Guid Id { get; private set; }
@@ -72,19 +104,47 @@ public sealed class Invoice : ITenantScoped
     public string ContractorAuthSubject { get; private set; } = default!;
     public string ContractorEmail { get; private set; } = default!;
 
+    /// <summary>Human-readable invoice number (e.g. <c>INV-2026-0001</c>). Per-tenant unique.</summary>
+    public string InvoiceNumber { get; private set; } = default!;
+
+    /// <summary>
+    /// Free-text label for the billed client. v2 ships with this as a
+    /// denormalized string so the v2 endpoint can stay schema-stable while
+    /// the Client entity is built in a later iteration.
+    /// </summary>
+    public string ClientName { get; private set; } = default!;
+
+    /// <summary>Date the invoice is issued. Different from <see cref="PeriodStartUtc"/>.</summary>
+    public DateOnly IssueDateUtc { get; private set; }
+
+    /// <summary>Date payment is due.</summary>
+    public DateOnly DueDateUtc { get; private set; }
+
     public DateOnly PeriodStartUtc { get; private set; }
     public DateOnly PeriodEndUtc { get; private set; }
 
-    /// <summary>Hours billed in the period. Decimal so partial hours work.</summary>
+    /// <summary>Sum of hours across line items. Denormalized for list queries.</summary>
     public decimal Hours { get; private set; }
 
-    /// <summary>Invoice amount in <see cref="Currency"/>.</summary>
+    /// <summary>Sum of line-item amounts before tax. Denormalized.</summary>
+    public decimal Subtotal { get; private set; }
+
+    /// <summary>Tax percentage applied to the subtotal (0–100). 0 means no tax line.</summary>
+    public decimal TaxRate { get; private set; }
+
+    /// <summary>Computed: round(<see cref="Subtotal"/> × <see cref="TaxRate"/> / 100, 2).</summary>
+    public decimal TaxAmount { get; private set; }
+
+    /// <summary>Total billed amount: <see cref="Subtotal"/> + <see cref="TaxAmount"/>.</summary>
     public decimal Amount { get; private set; }
 
     /// <summary>ISO-4217 currency code, uppercased.</summary>
     public string Currency { get; private set; } = default!;
 
     public string? Notes { get; private set; }
+
+    /// <summary>Line items belonging to this invoice. Cascade-deleted with the parent.</summary>
+    public IReadOnlyList<InvoiceLineItem> LineItems => _lineItems;
 
     /// <summary>Auth subject of whoever made the most recent decision.</summary>
     public string? ReviewedByAuthSubject { get; private set; }
@@ -99,26 +159,61 @@ public sealed class Invoice : ITenantScoped
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
-    public void UpdateDraft(decimal hours, decimal amount, string? notes)
+    /// <summary>
+    /// Replaces line items + scalar metadata while the invoice is still a Draft.
+    /// </summary>
+    public void UpdateDraft(
+        string clientName,
+        DateOnly issueDateUtc,
+        DateOnly dueDateUtc,
+        DateOnly periodStartUtc,
+        DateOnly periodEndUtc,
+        string currency,
+        decimal taxRate,
+        IReadOnlyCollection<InvoiceLineItemInput> lineItems,
+        string? notes)
     {
         if (Status != InvoiceStatus.Draft)
         {
             throw new InvalidOperationException(
                 $"Only draft invoices can be edited. Current status: {Status}.");
         }
-        if (hours < 0)
+        ArgumentNullException.ThrowIfNull(clientName);
+        ArgumentNullException.ThrowIfNull(lineItems);
+        ArgumentException.ThrowIfNullOrWhiteSpace(currency);
+
+        if (lineItems.Count == 0)
         {
-            throw new ArgumentException("Hours must not be negative.", nameof(hours));
+            throw new ArgumentException("An invoice must have at least one line item.", nameof(lineItems));
         }
-        if (amount < 0)
+        if (periodEndUtc < periodStartUtc)
         {
-            throw new ArgumentException("Amount must not be negative.", nameof(amount));
+            throw new ArgumentException(
+                "Invoice period_end must not be earlier than period_start.",
+                nameof(periodEndUtc));
+        }
+        if (dueDateUtc < issueDateUtc)
+        {
+            throw new ArgumentException(
+                "Invoice due_date must not be earlier than issue_date.",
+                nameof(dueDateUtc));
+        }
+        if (taxRate < 0 || taxRate > 100)
+        {
+            throw new ArgumentException("Tax rate must be a percentage between 0 and 100.", nameof(taxRate));
         }
 
-        Hours = hours;
-        Amount = amount;
+        ClientName = clientName.Trim();
+        IssueDateUtc = issueDateUtc;
+        DueDateUtc = dueDateUtc;
+        PeriodStartUtc = periodStartUtc;
+        PeriodEndUtc = periodEndUtc;
+        Currency = currency.Trim().ToUpperInvariant();
+        TaxRate = taxRate;
         Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        ReplaceLineItems(lineItems);
     }
 
     public void Submit()
@@ -179,7 +274,37 @@ public sealed class Invoice : ITenantScoped
         PaidAtUtc = DateTimeOffset.UtcNow;
         UpdatedAtUtc = PaidAtUtc.Value;
     }
+
+    /// <summary>
+    /// Replace the line items collection and recompute the denormalized
+    /// totals (<see cref="Hours"/>, <see cref="Subtotal"/>, <see cref="TaxAmount"/>,
+    /// <see cref="Amount"/>) from the new set. Callers pass minimal value
+    /// objects; the entity instantiates the <see cref="InvoiceLineItem"/>
+    /// children itself so it controls their lifecycle and the SortOrder
+    /// stays contiguous.
+    /// </summary>
+    private void ReplaceLineItems(IReadOnlyCollection<InvoiceLineItemInput> inputs)
+    {
+        _lineItems.Clear();
+
+        var sort = 0;
+        foreach (var input in inputs)
+        {
+            _lineItems.Add(new InvoiceLineItem(Id, input.Description, input.Hours, input.Rate, sort++));
+        }
+
+        Hours = _lineItems.Sum(x => x.Hours);
+        Subtotal = _lineItems.Sum(x => x.Amount);
+        TaxAmount = Math.Round(Subtotal * TaxRate / 100m, 2, MidpointRounding.AwayFromZero);
+        Amount = Subtotal + TaxAmount;
+    }
 }
+
+/// <summary>
+/// Value-object input for adding a line item via the Invoice aggregate. The
+/// entity computes <c>Amount</c> and assigns the <c>SortOrder</c> itself.
+/// </summary>
+public sealed record InvoiceLineItemInput(string Description, decimal Hours, decimal Rate);
 
 public enum InvoiceStatus
 {

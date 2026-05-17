@@ -22,15 +22,38 @@ internal sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasMaxLength(320)
             .IsRequired();
 
+        // v2 — human-readable number, per-tenant unique
+        builder.Property(x => x.InvoiceNumber)
+            .HasMaxLength(40)
+            .IsRequired();
+
+        builder.Property(x => x.ClientName)
+            .HasMaxLength(255)
+            .IsRequired();
+
+        builder.Property(x => x.IssueDateUtc).IsRequired();
+        builder.Property(x => x.DueDateUtc).IsRequired();
         builder.Property(x => x.PeriodStartUtc).IsRequired();
         builder.Property(x => x.PeriodEndUtc).IsRequired();
 
         builder.Property(x => x.Hours)
-            .HasPrecision(8, 2)
+            .HasPrecision(10, 2)
+            .IsRequired();
+
+        builder.Property(x => x.Subtotal)
+            .HasPrecision(14, 2)
+            .IsRequired();
+
+        builder.Property(x => x.TaxRate)
+            .HasPrecision(5, 2)
+            .IsRequired();
+
+        builder.Property(x => x.TaxAmount)
+            .HasPrecision(14, 2)
             .IsRequired();
 
         builder.Property(x => x.Amount)
-            .HasPrecision(12, 2)
+            .HasPrecision(14, 2)
             .IsRequired();
 
         builder.Property(x => x.Currency)
@@ -53,11 +76,21 @@ internal sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(x => x.CreatedAtUtc).IsRequired();
         builder.Property(x => x.UpdatedAtUtc).IsRequired();
 
+        // Child collection. Cascade-delete with the parent — line items are
+        // never reachable across tenants; the invoice already enforces the
+        // tenant filter, so the children inherit isolation for free.
+        builder.HasMany(x => x.LineItems)
+            .WithOne()
+            .HasForeignKey(li => li.InvoiceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Most common queries:
         // - "show me my invoices" — by tenant + contractor + recency
-        builder.HasIndex(x => new { x.TenantId, x.ContractorAuthSubject, x.PeriodStartUtc });
+        builder.HasIndex(x => new { x.TenantId, x.ContractorAuthSubject, x.IssueDateUtc });
         // - "show me what's pending review at this tenant" — by tenant + status
         builder.HasIndex(x => new { x.TenantId, x.Status });
+        // - "look up by invoice number" — per-tenant unique
+        builder.HasIndex(x => new { x.TenantId, x.InvoiceNumber }).IsUnique();
 
         builder.HasOne<Tenant>()
             .WithMany()

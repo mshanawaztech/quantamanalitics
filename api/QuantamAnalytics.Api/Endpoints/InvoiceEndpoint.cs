@@ -9,41 +9,35 @@ using QuantamAnalytics.Infrastructure.Tenancy;
 namespace QuantamAnalytics.Api.Endpoints;
 
 /// <summary>
-/// Direct-billing invoices submitted by contractors. Mirrors the
-/// timesheet review flow but for the case where a contractor invoices
-/// the staffing firm directly rather than going through payroll.
+/// Direct-billing invoices submitted by contractors. v2 ships line items,
+/// auto-minted invoice numbers, separate issue/due dates, a tax line, and
+/// a client name. The state machine is unchanged from v1.
 ///
-/// Three audiences:
-/// - Contractor (any authenticated tenant member): create / submit /
-///   list their own invoices. Auth-subject filter inside the endpoint
-///   keeps one contractor from seeing another's invoices on the same
-///   tenant.
+/// Audiences:
+/// - Contractor (any authenticated tenant member): list / create / update /
+///   submit their own invoices. Auth-subject scoping inside each handler.
 /// - Recruiter / PlatformAdmin: read across the tenant.
 /// - Client / PlatformAdmin: approve or reject submitted invoices.
-/// - PlatformAdmin only: mark approved invoices as Paid (this hooks
-///   the existing QuickBooks / Stripe baseline by changing status —
-///   no money moves here, only state).
+/// - PlatformAdmin only: mark approved invoices as Paid.
 /// </summary>
 public static class InvoiceEndpoint
 {
     public static IEndpointRouteBuilder MapInvoiceEndpoints(this IEndpointRouteBuilder app)
     {
-        // Contractor surface — auth-subject scoping happens inside each handler.
         var contractor = app.MapGroup("/api/v1/contractor/invoices")
             .WithTags("Invoices · Contractor")
             .RequireAuthorization();
         contractor.MapGet("/", ListMineAsync);
         contractor.MapPost("/", CreateAsync);
+        contractor.MapPut("/{id:guid}", UpdateMineAsync);
         contractor.MapPost("/{id:guid}/submit", SubmitMineAsync);
 
-        // Recruiter / PlatformAdmin surface — read across the tenant.
         var recruiter = app.MapGroup("/api/v1/recruiter/invoices")
             .WithTags("Invoices · Recruiter")
             .RequireAuthorization(AuthorizationPolicies.RequirePayrollAccess);
         recruiter.MapGet("/", ListAcrossTenantAsync);
         recruiter.MapPost("/{id:guid}/mark-paid", MarkPaidAsync);
 
-        // Client / PlatformAdmin surface — approve or reject.
         var client = app.MapGroup("/api/v1/client/invoices")
             .WithTags("Invoices · Client")
             .RequireAuthorization(AuthorizationPolicies.RequireTimeApprovalAccess);
@@ -66,12 +60,14 @@ public static class InvoiceEndpoint
         var subject = currentUser.AuthSubject;
         if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
 
-        var rows = await db.Invoices
+        var invoices = await db.Invoices
             .Where(x => x.ContractorAuthSubject == subject)
-            .OrderByDescending(x => x.PeriodStartUtc)
-            .Select(x => Project(x))
+            .Include(x => x.LineItems)
+            .OrderByDescending(x => x.IssueDateUtc)
+            .ThenByDescending(x => x.CreatedAtUtc)
             .ToArrayAsync(cancellationToken);
 
+        var rows = invoices.Select(Project).ToArray();
         return TypedResults.Ok(new InvoiceListResponse(rows));
     }
 
@@ -91,21 +87,52 @@ public static class InvoiceEndpoint
             return SubjectRequired();
         }
 
+        var inputs = ProjectLineItemInputs(body.LineItems);
+        if (inputs.Count == 0)
+        {
+            return BadRequestProblem("An invoice must have at least one line item.");
+        }
+
+        // Mint the human-readable invoice number inside the same transaction
+        // that inserts the invoice. The row lock on invoice_number_sequences
+        // serializes concurrent inserts so two contractors on the same tenant
+        // can't be issued the same number.
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var year = body.IssueDateUtc.Year;
+        var sequence = await db.InvoiceNumberSequences
+            .SingleOrDefaultAsync(
+                x => x.TenantId == currentTenant.TenantId.Value && x.Year == year,
+                cancellationToken);
+
+        if (sequence is null)
+        {
+            sequence = new InvoiceNumberSequence(currentTenant.TenantId.Value, year);
+            db.InvoiceNumberSequences.Add(sequence);
+        }
+
+        var invoiceNumber = sequence.MintNext();
+
         try
         {
             var invoice = new Invoice(
                 tenantId: currentTenant.TenantId.Value,
                 contractorAuthSubject: subject,
                 contractorEmail: email,
+                invoiceNumber: invoiceNumber,
+                clientName: body.ClientName ?? string.Empty,
+                issueDateUtc: body.IssueDateUtc,
+                dueDateUtc: body.DueDateUtc,
                 periodStartUtc: body.PeriodStartUtc,
                 periodEndUtc: body.PeriodEndUtc,
-                hours: body.Hours,
-                amount: body.Amount,
                 currency: body.Currency,
+                taxRate: body.TaxRate,
+                lineItems: inputs,
                 notes: body.Notes);
 
             db.Invoices.Add(invoice);
             await db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
 
             return TypedResults.Created(
                 $"/api/v1/contractor/invoices/{invoice.Id}",
@@ -113,7 +140,60 @@ public static class InvoiceEndpoint
         }
         catch (ArgumentException ex)
         {
+            await tx.RollbackAsync(cancellationToken);
             return BadRequestProblem(ex.Message);
+        }
+    }
+
+    private static async Task<Results<Ok<InvoiceResponse>, NotFound, ProblemHttpResult>> UpdateMineAsync(
+        Guid id,
+        UpdateInvoiceRequest body,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null) return TenantRequired();
+        var subject = currentUser.AuthSubject;
+        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+
+        var invoice = await db.Invoices
+            .Include(x => x.LineItems)
+            .SingleOrDefaultAsync(
+                x => x.Id == id && x.ContractorAuthSubject == subject,
+                cancellationToken);
+
+        if (invoice is null) return TypedResults.NotFound();
+
+        var inputs = ProjectLineItemInputs(body.LineItems);
+        if (inputs.Count == 0)
+        {
+            return BadRequestProblem("An invoice must have at least one line item.");
+        }
+
+        try
+        {
+            invoice.UpdateDraft(
+                clientName: body.ClientName ?? string.Empty,
+                issueDateUtc: body.IssueDateUtc,
+                dueDateUtc: body.DueDateUtc,
+                periodStartUtc: body.PeriodStartUtc,
+                periodEndUtc: body.PeriodEndUtc,
+                currency: body.Currency,
+                taxRate: body.TaxRate,
+                lineItems: inputs,
+                notes: body.Notes);
+
+            await db.SaveChangesAsync(cancellationToken);
+            return TypedResults.Ok(Project(invoice));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequestProblem(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return InvalidTransitionProblem(ex.Message);
         }
     }
 
@@ -129,7 +209,10 @@ public static class InvoiceEndpoint
         if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
 
         var invoice = await db.Invoices
-            .SingleOrDefaultAsync(x => x.Id == id && x.ContractorAuthSubject == subject, cancellationToken);
+            .Include(x => x.LineItems)
+            .SingleOrDefaultAsync(
+                x => x.Id == id && x.ContractorAuthSubject == subject,
+                cancellationToken);
 
         if (invoice is null) return TypedResults.NotFound();
 
@@ -154,11 +237,12 @@ public static class InvoiceEndpoint
     {
         if (currentTenant.TenantId is null) return TenantRequired();
 
-        var rows = await db.Invoices
+        var invoices = await db.Invoices
+            .Include(x => x.LineItems)
             .OrderByDescending(x => x.SubmittedAtUtc ?? x.UpdatedAtUtc)
-            .Select(x => Project(x))
             .ToArrayAsync(cancellationToken);
 
+        var rows = invoices.Select(Project).ToArray();
         return TypedResults.Ok(new InvoiceListResponse(rows));
     }
 
@@ -170,7 +254,9 @@ public static class InvoiceEndpoint
     {
         if (currentTenant.TenantId is null) return TenantRequired();
 
-        var invoice = await db.Invoices.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var invoice = await db.Invoices
+            .Include(x => x.LineItems)
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (invoice is null) return TypedResults.NotFound();
 
         try
@@ -194,15 +280,16 @@ public static class InvoiceEndpoint
     {
         if (currentTenant.TenantId is null) return TenantRequired();
 
-        var rows = await db.Invoices
+        var invoices = await db.Invoices
             .Where(x => x.Status == InvoiceStatus.Submitted ||
                         x.Status == InvoiceStatus.Approved ||
                         x.Status == InvoiceStatus.Rejected ||
                         x.Status == InvoiceStatus.Paid)
+            .Include(x => x.LineItems)
             .OrderByDescending(x => x.SubmittedAtUtc ?? x.UpdatedAtUtc)
-            .Select(x => Project(x))
             .ToArrayAsync(cancellationToken);
 
+        var rows = invoices.Select(Project).ToArray();
         return TypedResults.Ok(new InvoiceListResponse(rows));
     }
 
@@ -218,7 +305,9 @@ public static class InvoiceEndpoint
         var subject = currentUser.AuthSubject;
         if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
 
-        var invoice = await db.Invoices.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var invoice = await db.Invoices
+            .Include(x => x.LineItems)
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (invoice is null) return TypedResults.NotFound();
 
         try
@@ -249,7 +338,9 @@ public static class InvoiceEndpoint
             return BadRequestProblem("Reject note is required.");
         }
 
-        var invoice = await db.Invoices.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var invoice = await db.Invoices
+            .Include(x => x.LineItems)
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (invoice is null) return TypedResults.NotFound();
 
         try
@@ -266,12 +357,40 @@ public static class InvoiceEndpoint
 
     // ── Helpers ────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Maps DTO line items to the domain value object, filtering out fully
+    /// blank rows (a contractor pressing "+Add item" then leaving it empty).
+    /// </summary>
+    private static List<InvoiceLineItemInput> ProjectLineItemInputs(
+        IEnumerable<InvoiceLineItemRequest>? lineItems)
+    {
+        if (lineItems is null) return [];
+
+        return lineItems
+            .Where(x =>
+                !string.IsNullOrWhiteSpace(x.Description) ||
+                x.Hours > 0 ||
+                x.Rate > 0)
+            .Select(x => new InvoiceLineItemInput(
+                Description: string.IsNullOrWhiteSpace(x.Description) ? "—" : x.Description,
+                Hours: x.Hours,
+                Rate: x.Rate))
+            .ToList();
+    }
+
     private static InvoiceResponse Project(Invoice x) => new(
         x.Id,
+        x.InvoiceNumber,
         x.ContractorEmail,
+        x.ClientName,
+        x.IssueDateUtc,
+        x.DueDateUtc,
         x.PeriodStartUtc,
         x.PeriodEndUtc,
         x.Hours,
+        x.Subtotal,
+        x.TaxRate,
+        x.TaxAmount,
         x.Amount,
         x.Currency,
         x.Notes,
@@ -280,7 +399,17 @@ public static class InvoiceEndpoint
         x.ReviewedAtUtc,
         x.ReviewerNote,
         x.PaidAtUtc,
-        x.UpdatedAtUtc);
+        x.UpdatedAtUtc,
+        x.LineItems
+            .OrderBy(li => li.SortOrder)
+            .Select(li => new InvoiceLineItemResponse(
+                li.Id,
+                li.Description,
+                li.Hours,
+                li.Rate,
+                li.Amount,
+                li.SortOrder))
+            .ToArray());
 
     private static ProblemHttpResult TenantRequired() => TypedResults.Problem(
         title: "Tenant assignment required",
@@ -302,12 +431,31 @@ public static class InvoiceEndpoint
 }
 
 public sealed record CreateInvoiceRequest(
+    string? ClientName,
+    DateOnly IssueDateUtc,
+    DateOnly DueDateUtc,
     DateOnly PeriodStartUtc,
     DateOnly PeriodEndUtc,
-    decimal Hours,
-    decimal Amount,
     string Currency,
+    decimal TaxRate,
+    InvoiceLineItemRequest[] LineItems,
     string? Notes);
+
+public sealed record UpdateInvoiceRequest(
+    string? ClientName,
+    DateOnly IssueDateUtc,
+    DateOnly DueDateUtc,
+    DateOnly PeriodStartUtc,
+    DateOnly PeriodEndUtc,
+    string Currency,
+    decimal TaxRate,
+    InvoiceLineItemRequest[] LineItems,
+    string? Notes);
+
+public sealed record InvoiceLineItemRequest(
+    string Description,
+    decimal Hours,
+    decimal Rate);
 
 public sealed record InvoiceDecisionRequest(string? Note);
 
@@ -315,10 +463,17 @@ public sealed record InvoiceListResponse(InvoiceResponse[] Items);
 
 public sealed record InvoiceResponse(
     Guid Id,
+    string InvoiceNumber,
     string ContractorEmail,
+    string ClientName,
+    DateOnly IssueDateUtc,
+    DateOnly DueDateUtc,
     DateOnly PeriodStartUtc,
     DateOnly PeriodEndUtc,
     decimal Hours,
+    decimal Subtotal,
+    decimal TaxRate,
+    decimal TaxAmount,
     decimal Amount,
     string Currency,
     string? Notes,
@@ -327,4 +482,13 @@ public sealed record InvoiceResponse(
     DateTimeOffset? ReviewedAtUtc,
     string? ReviewerNote,
     DateTimeOffset? PaidAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    InvoiceLineItemResponse[] LineItems);
+
+public sealed record InvoiceLineItemResponse(
+    Guid Id,
+    string Description,
+    decimal Hours,
+    decimal Rate,
+    decimal Amount,
+    int SortOrder);

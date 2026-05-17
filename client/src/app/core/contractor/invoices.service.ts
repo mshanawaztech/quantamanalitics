@@ -4,10 +4,14 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 /**
- * Wrapper for the contractor-side invoice endpoints shipped in Phase 6
- * Story 48. Endpoints under /api/v1/contractor/invoices:
+ * Wrapper for the contractor-side invoice endpoints. v2 adds line items,
+ * issue/due dates, a tax line, and auto-minted invoice numbers. The state
+ * machine (Draft → Submitted → Approved/Rejected → Paid) is unchanged.
+ *
+ * Endpoints under /api/v1/contractor/invoices:
  *   GET  /            list-mine — recipient-filtered server-side
- *   POST /            create draft
+ *   POST /            create draft (server mints invoice number)
+ *   PUT  /{id}        update a draft (line items, dates, tax, client)
  *   POST /{id}/submit transition Draft → Submitted (locks editing)
  */
 @Injectable({ providedIn: 'root' })
@@ -23,37 +27,76 @@ export class ContractorInvoicesService {
     return this.http.post<InvoiceResponse>(this.base, request);
   }
 
+  update(id: string, request: UpdateInvoiceRequest): Observable<InvoiceResponse> {
+    return this.http.put<InvoiceResponse>(`${this.base}/${id}`, request);
+  }
+
   submit(id: string): Observable<InvoiceResponse> {
     return this.http.post<InvoiceResponse>(`${this.base}/${id}/submit`, null);
   }
 }
 
+export interface InvoiceLineItemRequest {
+  description: string;
+  hours: number;
+  rate: number;
+}
+
 export interface CreateInvoiceRequest {
+  clientName: string | null;
+  issueDateUtc: string;
+  dueDateUtc: string;
   periodStartUtc: string;
   periodEndUtc: string;
-  hours: number;
-  amount: number;
   currency: string;
+  taxRate: number;
+  lineItems: InvoiceLineItemRequest[];
   notes: string | null;
+}
+
+export type UpdateInvoiceRequest = CreateInvoiceRequest;
+
+export interface InvoiceLineItemResponse {
+  id: string;
+  description: string;
+  hours: number;
+  rate: number;
+  amount: number;
+  sortOrder: number;
 }
 
 export interface InvoiceListResponse {
   items: InvoiceResponse[];
 }
 
+export type InvoiceStatus =
+  | 'Draft'
+  | 'Submitted'
+  | 'Approved'
+  | 'Rejected'
+  | 'Paid';
+
 export interface InvoiceResponse {
   id: string;
+  invoiceNumber: string;
   contractorEmail: string;
+  clientName: string;
+  issueDateUtc: string;
+  dueDateUtc: string;
   periodStartUtc: string;
   periodEndUtc: string;
   hours: number;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
   amount: number;
   currency: string;
   notes: string | null;
-  status: string;
+  status: InvoiceStatus;
   submittedAtUtc: string | null;
   reviewedAtUtc: string | null;
   reviewerNote: string | null;
   paidAtUtc: string | null;
   updatedAtUtc: string;
+  lineItems: InvoiceLineItemResponse[];
 }
