@@ -1058,8 +1058,43 @@ export class ContractorInvoicesComponent {
   private brandingSvc = inject(TenantBrandingService);
   private sanitizer = inject(DomSanitizer);
 
-  /** Loaded once on init; backend falls back to Quantam defaults for blanks. */
-  protected readonly branding = signal<TenantBrandingResponse | null>(null);
+  /**
+   * Hard-coded fallback so the letterhead preview ALWAYS renders, even
+   * when /api/v1/tenant/branding returns 500 / 401 or hasn't loaded yet.
+   * Mirrors the server-side BrandingDefaults static so the form preview
+   * and the rendered PDF stay in lockstep.
+   */
+  private static readonly QUANTAM_DEFAULTS: TenantBrandingResponse = {
+    displayName: 'Mohammed Khan',
+    legalName: 'Quantamanalytics LLC',
+    contactEmail: 'mohammed.khan@quantamanalytics.com',
+    contactPhone: '909-560-3095',
+    addressLine1: null,
+    addressLine2: null,
+    city: null,
+    stateRegion: null,
+    postalCode: null,
+    country: null,
+    bankName: 'Chase',
+    bankAccountNumber: '993681185',
+    bankRoutingNumber: '021202337',
+    defaultHourlyRate: 55,
+    defaultCurrency: 'USD',
+    defaultPaymentTermsDays: 14,
+    primaryColorHex: '#1a2d5a',
+    accentColorHex: '#e6c9a8',
+    hasLogo: false,
+    updatedAtUtc: new Date().toISOString(),
+  };
+
+  /**
+   * Loaded once on init; starts with QUANTAM_DEFAULTS so the preview
+   * is never empty even before the API call lands. If the call returns
+   * a populated branding row, we swap to that.
+   */
+  protected readonly branding = signal<TenantBrandingResponse>(
+    ContractorInvoicesComponent.QUANTAM_DEFAULTS,
+  );
 
   protected readonly invoices = signal<InvoiceResponse[]>([]);
   protected readonly loading = signal(false);
@@ -1184,8 +1219,14 @@ export class ContractorInvoicesComponent {
     // the letterhead that'll appear on the saved invoice / PDF. Backend
     // fills in Quantam defaults for any unset field.
     this.brandingSvc.get().subscribe({
-      next: (b) => this.branding.set(b),
-      error: () => this.branding.set(null), // silent — preview just hides
+      // Merge API response over defaults so any blank fields keep the
+      // Quantam fallback (server already does this, but be defensive).
+      next: (b) => this.branding.set({
+        ...ContractorInvoicesComponent.QUANTAM_DEFAULTS,
+        ...Object.fromEntries(Object.entries(b).filter(([, v]) => v !== null && v !== undefined)),
+      }),
+      // On error: keep the defaults — preview still renders.
+      error: () => { /* no-op, defaults already set */ },
     });
 
     // Clear the "Draft saved." banner a few seconds after it appears.
