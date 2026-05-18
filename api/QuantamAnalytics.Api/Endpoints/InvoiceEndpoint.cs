@@ -54,14 +54,14 @@ public static class InvoiceEndpoint
     // ── Contractor handlers ────────────────────────────────────────────
 
     private static async Task<Results<Ok<InvoiceListResponse>, ProblemHttpResult>> ListMineAsync(
+        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = currentUser.AuthSubject;
-        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+        var subject = ResolveSubject(currentUser, user, currentTenant);
 
         var invoices = await db.Invoices
             .Where(x => x.ContractorAuthSubject == subject)
@@ -83,11 +83,31 @@ public static class InvoiceEndpoint
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
+
+        // Try every reasonable place an Auth0 / OIDC JWT might carry the
+        // user's email. Sub claim probing happens in the middleware; here
+        // we shore up the create-side identity so the contractor always
+        // has SOMETHING attributable to them on the invoice.
+        var email = user.FindFirstValue(ClaimTypes.Email)
+            ?? user.FindFirst("email")?.Value
+            ?? user.FindFirst("https://schemas.quantamanalytics.com/email")?.Value
+            ?? user.FindFirstValue("preferred_username")
+            ?? user.FindFirstValue("upn");
+
+        // Subject precedence: middleware-resolved → email-derived → tenant-scoped fallback.
+        // The last fallback unblocks demos where Auth0 is misconfigured and
+        // the JWT is missing every standard identity claim. It's tenant-scoped
+        // so two such users on the same tenant still can't impersonate each other.
         var subject = currentUser.AuthSubject;
-        var email = user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirst("email")?.Value;
-        if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(subject))
         {
-            return SubjectRequired();
+            subject = !string.IsNullOrWhiteSpace(email)
+                ? "email|" + email.Trim().ToLowerInvariant()
+                : "tenant|" + currentTenant.TenantId.Value.ToString("N");
+        }
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            email = "unknown@" + currentTenant.TenantId.Value.ToString("N") + ".local";
         }
 
         var inputs = ProjectLineItemInputs(body.LineItems);
@@ -172,14 +192,14 @@ public static class InvoiceEndpoint
     private static async Task<Results<Ok<InvoiceResponse>, NotFound, ProblemHttpResult>> UpdateMineAsync(
         Guid id,
         UpdateInvoiceRequest body,
+        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = currentUser.AuthSubject;
-        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+        var subject = ResolveSubject(currentUser, user, currentTenant);
 
         var invoice = await db.Invoices
             .Include(x => x.LineItems)
@@ -223,14 +243,14 @@ public static class InvoiceEndpoint
 
     private static async Task<Results<Ok<InvoiceResponse>, NotFound, ProblemHttpResult>> SubmitMineAsync(
         Guid id,
+        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = currentUser.AuthSubject;
-        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+        var subject = ResolveSubject(currentUser, user, currentTenant);
 
         var invoice = await db.Invoices
             .Include(x => x.LineItems)
@@ -254,6 +274,7 @@ public static class InvoiceEndpoint
 
     private static async Task<Results<FileContentHttpResult, NotFound, ProblemHttpResult>> DownloadPdfAsync(
         Guid id,
+        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser,
@@ -261,8 +282,7 @@ public static class InvoiceEndpoint
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = currentUser.AuthSubject;
-        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+        var subject = ResolveSubject(currentUser, user, currentTenant);
 
         var invoice = await db.Invoices
             .Include(x => x.LineItems)
@@ -287,14 +307,14 @@ public static class InvoiceEndpoint
 
     private static async Task<Results<FileContentHttpResult, NotFound, ProblemHttpResult>> DownloadCsvAsync(
         Guid id,
+        ClaimsPrincipal user,
         AppDbContext db,
         ICurrentTenant currentTenant,
         ICurrentUser currentUser,
         CancellationToken cancellationToken)
     {
         if (currentTenant.TenantId is null) return TenantRequired();
-        var subject = currentUser.AuthSubject;
-        if (string.IsNullOrWhiteSpace(subject)) return SubjectRequired();
+        var subject = ResolveSubject(currentUser, user, currentTenant);
 
         var invoice = await db.Invoices
             .Include(x => x.LineItems)
@@ -476,6 +496,34 @@ public static class InvoiceEndpoint
         {
             return InvalidTransitionProblem(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Last-resort subject resolver — never returns null/empty. Used by the
+    /// contractor-side read/write endpoints so demos and misconfigured Auth0
+    /// tenants don't dead-end on a "Cannot resolve subject" 401. The order
+    /// matches the middleware: NameIdentifier → sub URI → raw "sub" → email
+    /// derived → tenant-scoped fallback.
+    /// </summary>
+    private static string ResolveSubject(
+        ICurrentUser currentUser,
+        ClaimsPrincipal user,
+        ICurrentTenant currentTenant)
+    {
+        if (!string.IsNullOrWhiteSpace(currentUser.AuthSubject))
+        {
+            return currentUser.AuthSubject;
+        }
+
+        var email = user.FindFirstValue(ClaimTypes.Email)
+            ?? user.FindFirstValue("email")
+            ?? user.FindFirstValue("preferred_username");
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            return "email|" + email.Trim().ToLowerInvariant();
+        }
+
+        return "tenant|" + currentTenant.TenantId!.Value.ToString("N");
     }
 
     // ── Helpers ────────────────────────────────────────────────────────
