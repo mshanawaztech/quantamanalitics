@@ -10,6 +10,8 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { RouterLink } from '@angular/router';
+import { TenantBrandingResponse, TenantBrandingService } from './core/tenant/branding.service';
 import {
   ContractorInvoicesService,
   CreateInvoiceRequest,
@@ -50,6 +52,7 @@ import {
   imports: [
     DecimalPipe,
     FormsModule,
+    RouterLink,
     QaAlertComponent,
     QaButtonComponent,
     QaEmptyStateComponent,
@@ -63,6 +66,12 @@ import {
           <p class="lede">Create, manage and track your invoices</p>
         </div>
         <div class="page__head-actions">
+          <qa-button
+            variant="ghost"
+            (click)="toggleInvoicesPanel()"
+          >{{ showInvoicesPanel() ? 'Hide invoices' : 'Your invoices' }}
+            ({{ invoices().length }})
+          </qa-button>
           <qa-button variant="ghost" [disabled]="true">Download report</qa-button>
           <qa-button variant="primary" (click)="startNewInvoice()">+ New invoice</qa-button>
         </div>
@@ -79,8 +88,9 @@ import {
       }
 
       <form class="layout" (submit)="$event.preventDefault()">
-        <!-- ─────────────── Left rail ─────────────── -->
-        <section class="rail" aria-labelledby="rail-heading">
+        <!-- ─────────────── Invoices panel (toggle) ─────────────── -->
+        @if (showInvoicesPanel()) {
+        <section class="rail rail--panel" aria-labelledby="rail-heading">
           <header class="rail__head">
             <h2 id="rail-heading">Your invoices</h2>
             <select
@@ -171,8 +181,9 @@ import {
             }
           }
         </section>
+        }
 
-        <!-- ─────────────── Middle form ─────────────── -->
+        <!-- ─────────────── Form (full width) ─────────────── -->
         <section class="form" aria-labelledby="form-heading">
           <header class="form__head">
             <div>
@@ -187,6 +198,26 @@ import {
               <qa-button variant="ghost" (click)="startNewInvoice()">Cancel</qa-button>
             }
           </header>
+
+          @if (branding(); as b) {
+            <section class="letterhead-preview" aria-label="Your invoice letterhead">
+              <div class="letterhead-preview__banner" [style.background]="b.primaryColorHex || '#1a2d5a'">
+                <div class="letterhead-preview__identity">
+                  <strong>{{ b.displayName || b.legalName || 'Your Company' }}</strong>
+                  @if (b.legalName && b.legalName !== b.displayName) {
+                    <span class="letterhead-preview__sub">{{ b.legalName }}</span>
+                  }
+                  @if (b.contactEmail) { <span class="letterhead-preview__sub">{{ b.contactEmail }}</span> }
+                  @if (b.contactPhone) { <span class="letterhead-preview__sub">Cell: {{ b.contactPhone }}</span> }
+                </div>
+                <div class="letterhead-preview__strip" [style.background]="b.accentColorHex || '#e6c9a8'"></div>
+              </div>
+              <div class="letterhead-preview__meta">
+                <span>This appears at the top of every invoice PDF you generate.</span>
+                <a routerLink="/settings/branding" class="letterhead-preview__link">Edit in Branding settings →</a>
+              </div>
+            </section>
+          }
 
           <fieldset class="section" [disabled]="isReadOnly()">
             <legend>Invoice details</legend>
@@ -532,15 +563,22 @@ import {
     .lede { color: var(--color-fg-muted, #5d6577); margin: 0; font-size: 0.95rem; }
     .page__head-actions { display: flex; gap: 0.625rem; flex-wrap: wrap; align-items: center; }
 
-    /* ── Layout ──────────────────────────────────────────────────── */
+    /* ── Layout: stacked single column ───────────────────────────── */
     .layout {
       display: grid;
-      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr) minmax(280px, 340px);
+      grid-template-columns: 1fr;
       gap: 1.25rem;
       align-items: start;
     }
-    @media (max-width: 1200px) { .layout { grid-template-columns: 1fr 1fr; } .summary { grid-column: 1 / -1; } }
-    @media (max-width: 800px)  { .layout { grid-template-columns: 1fr; } .summary { grid-column: auto; } }
+    .rail--panel {
+      /* Toggleable invoices panel renders above the form. Cap its height
+         so the form stays in view; vertically scroll inside if needed. */
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .summary {
+      position: static !important;   /* override sticky from earlier scope */
+    }
 
     /* ── Card shell ──────────────────────────────────────────────── */
     section.rail, section.form, aside.summary {
@@ -818,6 +856,48 @@ import {
     .hint { color: var(--color-fg-muted, #5d6577); }
     .section__hint { margin: 0 0 1rem; color: var(--color-fg-muted, #5d6577); font-size: 0.85rem; }
 
+    /* Letterhead preview at the top of the form so the user always sees
+       what their invoice's banner will look like. Pulls from /settings/branding
+       (backend falls back to Quantam defaults for unset fields). */
+    .letterhead-preview {
+      margin: 0 0 1.5rem;
+      border-radius: 12px;
+      border: 1px solid var(--color-border, #e2e6ee);
+      overflow: hidden;
+      background: #fff;
+    }
+    .letterhead-preview__banner {
+      position: relative;
+      padding: 1rem 1.25rem 1.5rem;
+      color: #fff;
+    }
+    .letterhead-preview__strip {
+      position: absolute; inset: auto 0 0 0;
+      height: 5px;
+    }
+    .letterhead-preview__identity {
+      display: flex; flex-direction: column; gap: 0.125rem;
+    }
+    .letterhead-preview__identity strong {
+      font-size: 1.15rem; font-weight: 700;
+    }
+    .letterhead-preview__sub {
+      font-size: 0.825rem; opacity: 0.9;
+    }
+    .letterhead-preview__meta {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 0.75rem; flex-wrap: wrap;
+      padding: 0.625rem 1rem;
+      background: #f8fafc;
+      font-size: 0.78rem;
+      color: var(--color-fg-muted, #5d6577);
+    }
+    .letterhead-preview__link {
+      color: var(--color-primary, #1a3a8f);
+      font-weight: 600; text-decoration: none;
+    }
+    .letterhead-preview__link:hover { text-decoration: underline; }
+
     /* ── Week cards (replace old items table) ────────────────────── */
     .weeks { display: grid; gap: 1rem; }
     .week {
@@ -967,7 +1047,11 @@ import {
 })
 export class ContractorInvoicesComponent {
   private svc = inject(ContractorInvoicesService);
+  private brandingSvc = inject(TenantBrandingService);
   private sanitizer = inject(DomSanitizer);
+
+  /** Loaded once on init; backend falls back to Quantam defaults for blanks. */
+  protected readonly branding = signal<TenantBrandingResponse | null>(null);
 
   protected readonly invoices = signal<InvoiceResponse[]>([]);
   protected readonly loading = signal(false);
@@ -1000,6 +1084,12 @@ export class ContractorInvoicesComponent {
 
   /** Status filter on the left rail. 'All' means no filter. */
   protected statusFilter: 'All' | InvoiceStatus = 'All';
+
+  /** Invoices panel is hidden by default — form gets the focus on load. */
+  protected readonly showInvoicesPanel = signal(false);
+  protected toggleInvoicesPanel(): void {
+    this.showInvoicesPanel.update((v) => !v);
+  }
 
   // ── Form state ────────────────────────────────────────────────────
   protected formClientName = '';
@@ -1079,6 +1169,14 @@ export class ContractorInvoicesComponent {
   constructor() {
     this.startNewInvoice();
     this.refresh();
+
+    // Pre-load the tenant's branding so the form can show a preview of
+    // the letterhead that'll appear on the saved invoice / PDF. Backend
+    // fills in Quantam defaults for any unset field.
+    this.brandingSvc.get().subscribe({
+      next: (b) => this.branding.set(b),
+      error: () => this.branding.set(null), // silent — preview just hides
+    });
 
     // Clear the "Draft saved." banner a few seconds after it appears.
     effect(() => {
