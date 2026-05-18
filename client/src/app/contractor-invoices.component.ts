@@ -104,7 +104,7 @@ import {
           } @else if (filteredInvoices().length === 0) {
             <qa-empty-state
               title="No invoices yet"
-              description="Use the form to draft your first invoice."
+              description="Fill the form on the right and save a draft. Once saved, you can preview the PDF, download it, or export to CSV."
             />
           } @else {
             <ul class="rows">
@@ -470,6 +470,11 @@ import {
                 (click)="downloadCsv()"
               >{{ downloadingCsv() ? 'Exporting CSV…' : 'Export to CSV' }}</qa-button>
             </div>
+          } @else if (!isReadOnly()) {
+            <p class="summary__after-save">
+              <span class="summary__after-save-icon" aria-hidden="true">✦</span>
+              After saving: Preview, Download PDF, and Export CSV unlock here.
+            </p>
           }
         </aside>
       </form>
@@ -480,9 +485,25 @@ import {
           <div class="preview-modal__panel">
             <header class="preview-modal__head">
               <h2>Invoice preview</h2>
-              <button type="button" class="preview-modal__close" (click)="closePreview()" aria-label="Close preview">×</button>
+              <div class="preview-modal__head-actions">
+                <a
+                  class="preview-modal__open-tab"
+                  [href]="previewUrl()"
+                  target="_blank"
+                  rel="noopener"
+                >Open in new tab ↗</a>
+                <button type="button" class="preview-modal__close" (click)="closePreview()" aria-label="Close preview">×</button>
+              </div>
             </header>
-            <iframe class="preview-modal__frame" [src]="previewSafeUrl()" title="Invoice PDF"></iframe>
+            <iframe
+              class="preview-modal__frame"
+              [src]="previewSafeUrl()"
+              title="Invoice PDF"
+            ></iframe>
+            <p class="preview-modal__hint">
+              If the preview doesn't render below, use "Open in new tab" above —
+              some browsers block inline PDF embeds.
+            </p>
             <footer class="preview-modal__foot">
               <qa-button variant="primary" (click)="downloadPdf()">Download PDF</qa-button>
               <qa-button variant="ghost" (click)="closePreview()">Close</qa-button>
@@ -493,7 +514,13 @@ import {
     </main>
   `,
   styles: `
-    :host { display: block; }
+    :host {
+      display: block;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(26, 58, 143, 0.06), transparent),
+        #f7f9fc;
+      min-height: 100vh;
+    }
     .page { width: min(1480px, 100%); margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
 
     /* ── Header ──────────────────────────────────────────────────── */
@@ -517,11 +544,16 @@ import {
 
     /* ── Card shell ──────────────────────────────────────────────── */
     section.rail, section.form, aside.summary {
-      background: var(--color-surface, #fff);
-      border: 1px solid var(--color-border, #d8dde7);
+      background: #ffffff;
+      border: 1px solid var(--color-border, #e2e6ee);
       border-radius: 16px;
       padding: 1.5rem;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05),
+                  0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    /* Headlines in primary blue so each card has a clear identity */
+    section.rail h2, section.form h2, aside.summary h2 {
+      color: var(--color-primary, #1a3a8f);
     }
 
     /* ── Rail ────────────────────────────────────────────────────── */
@@ -541,19 +573,24 @@ import {
     .row {
       width: 100%;
       display: grid; gap: 0.5rem;
-      padding: 0.875rem;
-      border: 1px solid var(--color-border, #d8dde7);
-      border-radius: 10px;
-      background: var(--color-surface, #fff);
+      padding: 0.875rem 1rem;
+      border: 1px solid var(--color-border, #e2e6ee);
+      border-radius: 12px;
+      background: #ffffff;
       text-align: left;
       cursor: pointer;
-      transition: border-color 0.12s, background 0.12s;
+      transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
     }
-    .row:hover { border-color: var(--color-primary, #1a3a8f); }
+    .row:hover {
+      border-color: var(--color-primary, #1a3a8f);
+      box-shadow: 0 2px 8px rgba(26, 58, 143, 0.08);
+    }
     .row--selected {
       border-color: var(--color-primary, #1a3a8f);
       background: var(--color-primary-soft, #e7ecf6);
+      box-shadow: 0 2px 8px rgba(26, 58, 143, 0.12);
     }
+    .row__number { color: var(--color-primary, #1a3a8f); }
     .row__head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
     .row__number { font-weight: 700; font-size: 0.95rem; }
     .row__status {
@@ -596,14 +633,27 @@ import {
     .section { border: 0; padding: 0; margin: 0 0 1.75rem; }
     .section:last-of-type { margin-bottom: 0; }
     .section legend {
-      font-size: 0.7rem; font-weight: 700; margin-bottom: 0.875rem; padding: 0;
-      color: var(--color-fg-muted, #5d6577);
-      text-transform: uppercase; letter-spacing: 0.08em;
+      font-size: 0.72rem; font-weight: 800; margin-bottom: 0.875rem; padding: 0;
+      color: var(--color-primary, #1a3a8f);
+      text-transform: uppercase; letter-spacing: 0.1em;
     }
     .grid { display: grid; gap: 1rem; }
     .grid--2 { grid-template-columns: 1fr 1fr; }
-    .grid--3 { grid-template-columns: 1.2fr 1fr 1fr; }
-    @media (max-width: 700px) { .grid--3, .grid--2 { grid-template-columns: 1fr; } }
+    /* Invoice details: number takes a full row at narrow widths so its
+       hint text doesn't wrap into a useless single-word column. Issue +
+       Due dates share the second row. At wider widths everything is on
+       one row. */
+    .grid--3 {
+      grid-template-columns: minmax(180px, 1.4fr) minmax(140px, 1fr) minmax(140px, 1fr);
+    }
+    @media (max-width: 880px) {
+      .grid--3 { grid-template-columns: 1fr 1fr; }
+      .grid--3 > :first-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 540px) {
+      .grid--3, .grid--2 { grid-template-columns: 1fr; }
+      .grid--3 > :first-child { grid-column: auto; }
+    }
 
     /* ── Items table ─────────────────────────────────────────────── */
     .items {
@@ -754,6 +804,16 @@ import {
     }
     .summary__actions { display: grid; gap: 0.5rem; margin-top: 1.25rem; }
     .summary__actions--pdf { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--color-border, #d8dde7); }
+    .summary__after-save {
+      margin: 1.25rem 0 0;
+      padding: 0.75rem 0.875rem;
+      border-radius: 10px;
+      background: var(--color-primary-soft, #e7ecf6);
+      color: var(--color-primary, #1a3a8f);
+      font-size: 0.825rem; line-height: 1.4;
+      display: flex; align-items: flex-start; gap: 0.5rem;
+    }
+    .summary__after-save-icon { font-size: 0.95rem; }
 
     .hint { color: var(--color-fg-muted, #5d6577); }
     .section__hint { margin: 0 0 1rem; color: var(--color-fg-muted, #5d6577); font-size: 0.85rem; }
@@ -878,6 +938,21 @@ import {
       color: var(--color-fg-muted, #5d6577);
     }
     .preview-modal__close:hover { background: var(--color-bg-muted, #f4f6fa); }
+    .preview-modal__head-actions { display: flex; align-items: center; gap: 0.625rem; }
+    .preview-modal__open-tab {
+      color: var(--color-primary, #1a3a8f);
+      font-size: 0.85rem; font-weight: 600;
+      text-decoration: none;
+      padding: 0.35rem 0.625rem; border-radius: 7px;
+      transition: background 0.12s;
+    }
+    .preview-modal__open-tab:hover { background: var(--color-primary-soft, #e7ecf6); }
+    .preview-modal__hint {
+      margin: 0; padding: 0.625rem 1.25rem;
+      font-size: 0.78rem; color: var(--color-fg-muted, #5d6577);
+      background: #f8fafc;
+      border-top: 1px solid var(--color-border, #e2e6ee);
+    }
     .preview-modal__frame {
       flex: 1 1 auto; width: 100%; border: 0;
       background: #f4f6fa;
@@ -1029,7 +1104,16 @@ export class ContractorInvoicesComponent {
         }
       },
       error: (e: unknown) => {
-        this.loadError.set(toMessage(e));
+        // Soft-fail: a 401/412 here means the user isn't fully bootstrapped
+        // (no tenant, no subject claim yet). Don't dominate the page with
+        // a red banner — show the empty state instead and let them create
+        // their first invoice. The create call has its own error handling.
+        if (e instanceof HttpErrorResponse && (e.status === 401 || e.status === 412)) {
+          this.invoices.set([]);
+          this.loadError.set(null);
+        } else {
+          this.loadError.set(toMessage(e));
+        }
         this.loading.set(false);
       },
     });
