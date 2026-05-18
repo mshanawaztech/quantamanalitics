@@ -262,12 +262,20 @@ import {
 
           <fieldset class="section" [disabled]="isReadOnly()">
             <legend>Client</legend>
-            <qa-input
-              label="Client name"
-              [(ngModel)]="formClientName"
-              name="clientName"
-              hint="The company you are billing. A Client picker is coming in v3."
-            ></qa-input>
+            <div class="grid grid--2">
+              <qa-input
+                label="Client name"
+                [(ngModel)]="formClientName"
+                name="clientName"
+                hint="The end company you are billing (e.g., NYS-State of New York)."
+              ></qa-input>
+              <qa-input
+                label="Vendor"
+                [(ngModel)]="formVendorName"
+                name="vendorName"
+                hint="Sub-department or vendor reference, if any (e.g., DOCCS)."
+              ></qa-input>
+            </div>
           </fieldset>
 
           <fieldset class="section" [disabled]="isReadOnly()">
@@ -1093,6 +1101,8 @@ export class ContractorInvoicesComponent {
 
   // ── Form state ────────────────────────────────────────────────────
   protected formClientName = '';
+  /** Sub-department / vendor reference, appended to the client line on the PDF. */
+  protected formVendorName = '';
   protected formIssueDate = '';
   protected formDueDate = '';
   protected formPeriodStart = '';
@@ -1206,7 +1216,11 @@ export class ContractorInvoicesComponent {
         // (no tenant, no subject claim yet). Don't dominate the page with
         // a red banner — show the empty state instead and let them create
         // their first invoice. The create call has its own error handling.
-        if (e instanceof HttpErrorResponse && (e.status === 401 || e.status === 412)) {
+        // Soft-fail any backend error on initial list — show empty state
+        // instead of a scary banner. The user can still create a new
+        // invoice; create has its own error handling that surfaces the
+        // real problem if it persists.
+        if (e instanceof HttpErrorResponse) {
           this.invoices.set([]);
           this.loadError.set(null);
         } else {
@@ -1232,7 +1246,16 @@ export class ContractorInvoicesComponent {
     this.selectedInvoiceId.set(inv.id);
     this.formInvoiceNumber.set(inv.invoiceNumber);
     this.formInvoiceNumberInput = inv.invoiceNumber;
-    this.formClientName = inv.clientName;
+    // Persisted ClientName is "Client - Vendor" when a vendor was set.
+    // Split back on the first " - " so both fields repopulate cleanly.
+    const sep = inv.clientName.indexOf(' - ');
+    if (sep > 0) {
+      this.formClientName = inv.clientName.slice(0, sep);
+      this.formVendorName = inv.clientName.slice(sep + 3);
+    } else {
+      this.formClientName = inv.clientName;
+      this.formVendorName = '';
+    }
     this.formIssueDate = inv.issueDateUtc;
     this.formDueDate = inv.dueDateUtc;
     this.formPeriodStart = inv.periodStartUtc;
@@ -1264,6 +1287,7 @@ export class ContractorInvoicesComponent {
     this.formInvoiceNumber.set('');
     this.formInvoiceNumberInput = '';
     this.formClientName = '';
+    this.formVendorName = '';
     this.formIssueDate = today;
     this.formDueDate = due;
     this.formPeriodStart = monday;
@@ -1558,9 +1582,17 @@ export class ContractorInvoicesComponent {
       }
     }
 
+    // Combine Client + Vendor into a single string so the existing backend
+    // shape (one ClientName column) carries both. Split happens on load.
+    const client = this.formClientName.trim();
+    const vendor = this.formVendorName.trim();
+    const combinedClient = vendor
+      ? (client ? `${client} - ${vendor}` : vendor)
+      : client;
+
     return {
       invoiceNumber: this.formInvoiceNumberInput.trim() || null,
-      clientName: this.formClientName.trim() || null,
+      clientName: combinedClient || null,
       issueDateUtc: issue,
       dueDateUtc: due,
       periodStartUtc: start,
