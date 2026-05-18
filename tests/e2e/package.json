@@ -1,0 +1,19 @@
+{
+  "name": "quantamanalitics-e2e",
+  "version": "0.1.0",
+  "description": "Quantam Analytics — Playwright end-to-end smoke + regression suite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "typescript": "~5.9.2"
+  }
+}
