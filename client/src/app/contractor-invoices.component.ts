@@ -212,33 +212,8 @@ import {
                 </div>
                 <div class="letterhead-preview__strip" [style.background]="b.accentColorHex || '#e6c9a8'"></div>
               </div>
-
-              <!-- Bank / payment block — mirrors what appears on the PDF -->
-              <dl class="letterhead-preview__bank">
-                <div>
-                  <dt>Bank Name</dt>
-                  <dd>{{ b.bankName || '—' }}</dd>
-                </div>
-                <div>
-                  <dt>Name</dt>
-                  <dd>{{ b.legalName || '—' }}</dd>
-                </div>
-                <div>
-                  <dt>Account number</dt>
-                  <dd>{{ b.bankAccountNumber || '—' }}</dd>
-                </div>
-                <div>
-                  <dt>Routing number</dt>
-                  <dd>{{ b.bankRoutingNumber || '—' }}</dd>
-                </div>
-                <div>
-                  <dt>Phone number</dt>
-                  <dd>{{ b.contactPhone || '—' }}</dd>
-                </div>
-              </dl>
-
               <div class="letterhead-preview__meta">
-                <span>This identity + bank block appears on every invoice PDF you generate.</span>
+                <span>This appears at the top of every invoice PDF you generate.</span>
                 <a routerLink="/settings/branding" class="letterhead-preview__link">Edit in Branding settings →</a>
               </div>
             </section>
@@ -917,26 +892,6 @@ import {
     .letterhead-preview__sub {
       font-size: 0.825rem; opacity: 0.9;
     }
-    .letterhead-preview__bank {
-      margin: 0; padding: 0.875rem 1rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 0.625rem 1.25rem;
-      background: #fff;
-      border-top: 1px solid var(--color-border, #e2e6ee);
-    }
-    .letterhead-preview__bank div { display: flex; flex-direction: column; gap: 0.125rem; }
-    .letterhead-preview__bank dt {
-      font-size: 0.7rem; font-weight: 700;
-      color: var(--color-fg-muted, #5d6577);
-      text-transform: uppercase; letter-spacing: 0.06em;
-    }
-    .letterhead-preview__bank dd {
-      margin: 0; font-size: 0.9rem; font-weight: 600;
-      color: var(--color-fg, #1a1f2c);
-      font-variant-numeric: tabular-nums;
-    }
-
     .letterhead-preview__meta {
       display: flex; justify-content: space-between; align-items: center;
       gap: 0.75rem; flex-wrap: wrap;
@@ -944,7 +899,6 @@ import {
       background: #f8fafc;
       font-size: 0.78rem;
       color: var(--color-fg-muted, #5d6577);
-      border-top: 1px solid var(--color-border, #e2e6ee);
     }
     .letterhead-preview__link {
       color: var(--color-primary, #1a3a8f);
