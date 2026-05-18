@@ -31,8 +31,8 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
     {
         ArgumentNullException.ThrowIfNull(invoice);
 
-        var primary = branding?.PrimaryColorHex ?? DefaultPrimaryHex;
-        var accent = branding?.AccentColorHex ?? DefaultAccentHex;
+        var primary = branding?.PrimaryColorHex ?? BrandingDefaults.PrimaryColorHex;
+        var accent = branding?.AccentColorHex ?? BrandingDefaults.AccentColorHex;
 
         var document = Document.Create(container =>
         {
@@ -80,27 +80,32 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
             // Accent stripe across the bottom
             layers.Layer().AlignBottom().Height(6).Background(accent);
 
-            // Identity text
+            // Identity text — fall back to platform defaults (Quantam) so a
+            // brand-new tenant gets a usable letterhead even before they
+            // visit /settings/branding.
+            var displayName = branding?.DisplayName ?? BrandingDefaults.DisplayName;
+            var legalName = branding?.LegalName ?? BrandingDefaults.LegalName;
+            var contactEmail = branding?.ContactEmail ?? BrandingDefaults.ContactEmail;
+            var contactPhone = branding?.ContactPhone ?? BrandingDefaults.ContactPhone;
+
             layers.PrimaryLayer().PaddingLeft(40).PaddingTop(28).Column(c =>
             {
-                c.Item().Text(branding?.DisplayName ?? branding?.LegalName ?? "Your Company")
-                    .FontSize(20).Bold().FontColor(Colors.White);
+                c.Item().Text(displayName).FontSize(20).Bold().FontColor(Colors.White);
 
-                if (!string.IsNullOrWhiteSpace(branding?.LegalName) &&
-                    !string.Equals(branding.LegalName, branding.DisplayName, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(legalName, displayName, StringComparison.OrdinalIgnoreCase))
                 {
-                    c.Item().PaddingTop(2).Text(branding.LegalName)
+                    c.Item().PaddingTop(2).Text(legalName)
                         .FontSize(13).Bold().FontColor(Colors.White);
                 }
 
-                if (!string.IsNullOrWhiteSpace(branding?.ContactEmail))
+                if (!string.IsNullOrWhiteSpace(contactEmail))
                 {
-                    c.Item().PaddingTop(4).Text(branding.ContactEmail!)
+                    c.Item().PaddingTop(4).Text(contactEmail)
                         .FontSize(11).FontColor(Colors.White);
                 }
-                if (!string.IsNullOrWhiteSpace(branding?.ContactPhone))
+                if (!string.IsNullOrWhiteSpace(contactPhone))
                 {
-                    c.Item().PaddingTop(2).Text("Cell: " + branding.ContactPhone!)
+                    c.Item().PaddingTop(2).Text("Cell: " + contactPhone)
                         .FontSize(11).FontColor(Colors.White);
                 }
 
@@ -128,35 +133,35 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
 
     private static void RenderBankBlock(IContainer container, TenantBranding? branding)
     {
-        if (branding is null ||
-            string.IsNullOrWhiteSpace(branding.BankName) &&
-            string.IsNullOrWhiteSpace(branding.BankAccountNumber) &&
-            string.IsNullOrWhiteSpace(branding.BankRoutingNumber))
-        {
-            return; // No bank details configured — skip the block entirely.
-        }
+        // Fall back to platform defaults so a freshly onboarded tenant
+        // still gets a usable remit-to block before they fill in
+        // /settings/branding.
+        var bankName = branding?.BankName ?? BrandingDefaults.BankName;
+        var legalName = branding?.LegalName ?? BrandingDefaults.LegalName;
+        var account = branding?.BankAccountNumber ?? BrandingDefaults.BankAccountNumber;
+        var routing = branding?.BankRoutingNumber ?? BrandingDefaults.BankRoutingNumber;
 
         container.Column(col =>
         {
             col.Item().Text("Bank Details").FontSize(13).Bold();
 
-            if (!string.IsNullOrWhiteSpace(branding.BankName))
+            if (!string.IsNullOrWhiteSpace(bankName))
             {
-                col.Item().PaddingTop(6).Text("Bank Name: " + branding.BankName).FontSize(11).Bold();
+                col.Item().PaddingTop(6).Text("Bank Name: " + bankName).FontSize(11).Bold();
             }
-            if (!string.IsNullOrWhiteSpace(branding.LegalName))
+            if (!string.IsNullOrWhiteSpace(legalName))
             {
-                col.Item().PaddingTop(2).Text("Name: " + branding.LegalName).FontSize(11).Bold();
+                col.Item().PaddingTop(2).Text("Name: " + legalName).FontSize(11).Bold();
             }
-            if (!string.IsNullOrWhiteSpace(branding.BankAccountNumber))
+            if (!string.IsNullOrWhiteSpace(account))
             {
                 col.Item().PaddingTop(2).Text("Account number").FontSize(11).Bold();
-                col.Item().Text(branding.BankAccountNumber).FontSize(11).Bold();
+                col.Item().Text(account).FontSize(11).Bold();
             }
-            if (!string.IsNullOrWhiteSpace(branding.BankRoutingNumber))
+            if (!string.IsNullOrWhiteSpace(routing))
             {
                 col.Item().PaddingTop(2).Text("Routing number").FontSize(11).Bold();
-                col.Item().Text(branding.BankRoutingNumber).FontSize(11).Bold();
+                col.Item().Text(routing).FontSize(11).Bold();
             }
         });
     }

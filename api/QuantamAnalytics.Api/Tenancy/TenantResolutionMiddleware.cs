@@ -63,6 +63,23 @@ public sealed partial class TenantResolutionMiddleware
         var subject = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? context.User.FindFirstValue(JwtRegisteredClaimNames.Sub)
             ?? context.User.FindFirstValue("sub");
+
+        // Last-resort fallback: if no subject claim made it through but we
+        // DO have an authenticated email, derive a stable pseudo-subject
+        // from it. This unblocks demos where an Auth0 quirk (custom claim
+        // mapping, missing post-login Action, token type confusion) strips
+        // the sub claim from the JWT. Format mirrors Auth0 social subjects.
+        if (string.IsNullOrWhiteSpace(subject))
+        {
+            var email = context.User.FindFirstValue(ClaimTypes.Email)
+                ?? context.User.FindFirstValue("email")
+                ?? context.User.FindFirstValue(JwtRegisteredClaimNames.Email);
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                subject = "email|" + email.Trim().ToLowerInvariant();
+            }
+        }
+
         currentUser.SetAuthSubject(subject);
 
         // Diagnostic: if the user is authenticated but we still couldn't

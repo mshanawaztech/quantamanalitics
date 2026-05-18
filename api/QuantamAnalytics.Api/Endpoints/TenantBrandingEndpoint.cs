@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using QuantamAnalytics.Domain.Entities;
+using QuantamAnalytics.Domain.Pdf;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
@@ -98,24 +99,24 @@ public static class TenantBrandingEndpoint
     }
 
     private static TenantBrandingResponse Project(TenantBranding b) => new(
-        b.DisplayName,
-        b.LegalName,
-        b.ContactEmail,
-        b.ContactPhone,
+        b.DisplayName ?? BrandingDefaults.DisplayName,
+        b.LegalName ?? BrandingDefaults.LegalName,
+        b.ContactEmail ?? BrandingDefaults.ContactEmail,
+        b.ContactPhone ?? BrandingDefaults.ContactPhone,
         b.AddressLine1,
         b.AddressLine2,
         b.City,
         b.StateRegion,
         b.PostalCode,
         b.Country,
-        b.BankName,
-        b.BankAccountNumber,
-        b.BankRoutingNumber,
-        b.DefaultHourlyRate,
-        b.DefaultCurrency,
-        b.DefaultPaymentTermsDays,
-        b.PrimaryColorHex,
-        b.AccentColorHex,
+        b.BankName ?? BrandingDefaults.BankName,
+        b.BankAccountNumber ?? BrandingDefaults.BankAccountNumber,
+        b.BankRoutingNumber ?? BrandingDefaults.BankRoutingNumber,
+        b.DefaultHourlyRate ?? BrandingDefaults.DefaultHourlyRate,
+        b.DefaultCurrency ?? BrandingDefaults.DefaultCurrency,
+        b.DefaultPaymentTermsDays ?? BrandingDefaults.DefaultPaymentTermsDays,
+        b.PrimaryColorHex ?? BrandingDefaults.PrimaryColorHex,
+        b.AccentColorHex ?? BrandingDefaults.AccentColorHex,
         b.LogoObjectKey is not null,
         b.UpdatedAtUtc);
 
