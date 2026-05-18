@@ -72,7 +72,6 @@ import {
           >{{ showInvoicesPanel() ? 'Hide invoices' : 'Your invoices' }}
             ({{ invoices().length }})
           </qa-button>
-          <qa-button variant="ghost" [disabled]="true">Download report</qa-button>
           <qa-button variant="primary" (click)="startNewInvoice()">+ New invoice</qa-button>
         </div>
       </header>
@@ -473,13 +472,13 @@ import {
               <qa-button
                 variant="primary"
                 [disabled]="saving() || sending()"
-                (click)="onSave(false)"
-              >{{ saving() ? 'Saving…' : 'Save draft' }}</qa-button>
+                (click)="onSave(true)"
+              >{{ sending() ? 'Sending…' : 'Save and send' }}</qa-button>
               <qa-button
                 variant="ghost"
                 [disabled]="saving() || sending()"
-                (click)="onSave(true)"
-              >{{ sending() ? 'Sending…' : 'Save and send' }}</qa-button>
+                (click)="onSave(false)"
+              >{{ saving() ? 'Saving…' : 'Save draft' }}</qa-button>
             </div>
           } @else if (selectedInvoice()?.status === 'Draft') {
             <div class="summary__actions">
@@ -571,7 +570,11 @@ import {
     .lede { color: var(--color-fg-muted, #5d6577); margin: 0; font-size: 0.95rem; }
     .page__head-actions { display: flex; gap: 0.625rem; flex-wrap: wrap; align-items: center; }
 
-    /* ── Layout: stacked single column ───────────────────────────── */
+    /* ── Layout ───────────────────────────────────────────────────
+       Default: stacked single column (mobile + narrow desktops).
+       ≥1100px: form ~74% / summary ~26% side-by-side with summary
+       sticky so the Save / Send action buttons stay reachable as
+       the contractor scrolls the long form. */
     .layout {
       display: grid;
       grid-template-columns: 1fr;
@@ -584,8 +587,22 @@ import {
       max-height: 480px;
       overflow-y: auto;
     }
-    .summary {
-      position: static !important;   /* override sticky from earlier scope */
+    @media (min-width: 1100px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr) 360px;
+        column-gap: 1.5rem;
+      }
+      .layout > section.rail--panel,
+      .layout > section.form { grid-column: 1; }
+      .layout > aside.summary {
+        grid-column: 2;
+        grid-row: 1 / span 99;  /* hold the right column across rows */
+        position: sticky;
+        top: 1rem;
+        align-self: start;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+      }
     }
 
     /* ── Card shell ──────────────────────────────────────────────── */
@@ -819,7 +836,10 @@ import {
     }
 
     /* ── Summary card ────────────────────────────────────────────── */
-    .summary { position: sticky; top: 1rem; }
+    /* Stickiness is applied only at wide widths inside the .layout
+       media query above; on narrow screens summary follows the form
+       normally so the user isn't fighting overlap. */
+    .summary { position: static; }
     .summary h2 {
       margin: 0 0 1.25rem; font-size: 1.25rem; letter-spacing: -0.005em;
       padding-bottom: 0.875rem; border-bottom: 1px solid var(--color-border, #d8dde7);
