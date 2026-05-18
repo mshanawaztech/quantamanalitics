@@ -213,7 +213,7 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
             foreach (var item in invoice.LineItems)
             {
                 StyleBodyCell(table.Cell()).Text(item.Description).FontSize(10);
-                StyleBodyCell(table.Cell()).AlignCenter().Text(FormatHours(item.Hours)).FontSize(10);
+                StyleBodyCell(table.Cell()).AlignCenter().Text(FormatHoursFormula(item)).FontSize(10);
                 StyleBodyCell(table.Cell()).AlignCenter().Text(FormatCurrency(invoice.Currency, item.Rate)).FontSize(10);
                 StyleBodyCell(table.Cell()).AlignCenter().Text(FormatCurrency(invoice.Currency, item.Amount)).FontSize(10);
             }
@@ -264,6 +264,20 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
         return hours == Math.Floor(hours)
             ? hours.ToString("0", CultureInfo.InvariantCulture)
             : hours.ToString("0.##", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Renders the hours column as a "DaysxHours/Day=Total" formula when the
+    /// line item has days × hours-per-day populated (v4 week-based lines).
+    /// Falls back to just the total for legacy lines with no breakdown.
+    /// </summary>
+    private static string FormatHoursFormula(InvoiceLineItem item)
+    {
+        if (item.DaysWorked > 0 && item.HoursPerDay > 0)
+        {
+            return $"{FormatHours(item.DaysWorked)}x{FormatHours(item.HoursPerDay)}={FormatHours(item.Hours)}";
+        }
+        return FormatHours(item.Hours);
     }
 
     private static string FormatDate(DateOnly date) =>

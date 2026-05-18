@@ -44,15 +44,29 @@ export class ContractorInvoicesService {
   downloadPdf(id: string): Observable<Blob> {
     return this.http.get(`${this.base}/${id}/pdf`, { responseType: 'blob' });
   }
+
+  /**
+   * RFC-4180 CSV of the invoice line items. UTF-8 BOM-prefixed so Excel
+   * opens it without prompting for encoding.
+   */
+  downloadCsv(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/${id}/csv`, { responseType: 'blob' });
+  }
 }
 
 export interface InvoiceLineItemRequest {
   description: string;
-  hours: number;
+  /** ISO date (yyyy-MM-dd) of the Monday this line covers, or null for non-weekly. */
+  weekStartUtc: string | null;
+  daysWorked: number;
+  hoursPerDay: number;
   rate: number;
+  notes: string | null;
 }
 
 export interface CreateInvoiceRequest {
+  /** Optional override; server mints INV-{year}-NNNN when blank. */
+  invoiceNumber: string | null;
   clientName: string | null;
   issueDateUtc: string;
   dueDateUtc: string;
@@ -64,14 +78,19 @@ export interface CreateInvoiceRequest {
   notes: string | null;
 }
 
-export type UpdateInvoiceRequest = CreateInvoiceRequest;
+export type UpdateInvoiceRequest = Omit<CreateInvoiceRequest, 'invoiceNumber'>;
 
 export interface InvoiceLineItemResponse {
   id: string;
   description: string;
+  weekStartUtc: string | null;
+  weekEndUtc: string | null;
+  daysWorked: number;
+  hoursPerDay: number;
   hours: number;
   rate: number;
   amount: number;
+  notes: string | null;
   sortOrder: number;
 }
 

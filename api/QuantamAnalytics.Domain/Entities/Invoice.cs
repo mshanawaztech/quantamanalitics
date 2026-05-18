@@ -290,7 +290,15 @@ public sealed class Invoice : ITenantScoped
         var sort = 0;
         foreach (var input in inputs)
         {
-            _lineItems.Add(new InvoiceLineItem(Id, input.Description, input.Hours, input.Rate, sort++));
+            _lineItems.Add(new InvoiceLineItem(
+                invoiceId: Id,
+                description: input.Description,
+                weekStartUtc: input.WeekStartUtc,
+                daysWorked: input.DaysWorked,
+                hoursPerDay: input.HoursPerDay,
+                rate: input.Rate,
+                notes: input.Notes,
+                sortOrder: sort++));
         }
 
         Hours = _lineItems.Sum(x => x.Hours);
@@ -301,10 +309,20 @@ public sealed class Invoice : ITenantScoped
 }
 
 /// <summary>
-/// Value-object input for adding a line item via the Invoice aggregate. The
-/// entity computes <c>Amount</c> and assigns the <c>SortOrder</c> itself.
+/// Value-object input for adding a line item via the Invoice aggregate. v4
+/// is week-based: callers specify <see cref="DaysWorked"/> × <see cref="HoursPerDay"/>
+/// and the entity computes Hours, Amount, and the Sunday end-of-week date.
+/// Pre-v4 callers can pass <see cref="WeekStartUtc"/> = null and stuff the
+/// total hours into <see cref="HoursPerDay"/> with <see cref="DaysWorked"/> = 1
+/// to keep backward compatibility.
 /// </summary>
-public sealed record InvoiceLineItemInput(string Description, decimal Hours, decimal Rate);
+public sealed record InvoiceLineItemInput(
+    string Description,
+    DateOnly? WeekStartUtc,
+    decimal DaysWorked,
+    decimal HoursPerDay,
+    decimal Rate,
+    string? Notes);
 
 public enum InvoiceStatus
 {
