@@ -212,8 +212,33 @@ import {
                 </div>
                 <div class="letterhead-preview__strip" [style.background]="b.accentColorHex || '#e6c9a8'"></div>
               </div>
+
+              <!-- Bank / payment block — mirrors what appears on the PDF -->
+              <dl class="letterhead-preview__bank">
+                <div>
+                  <dt>Bank Name</dt>
+                  <dd>{{ b.bankName || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Name</dt>
+                  <dd>{{ b.legalName || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Account number</dt>
+                  <dd>{{ b.bankAccountNumber || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Routing number</dt>
+                  <dd>{{ b.bankRoutingNumber || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Phone number</dt>
+                  <dd>{{ b.contactPhone || '—' }}</dd>
+                </div>
+              </dl>
+
               <div class="letterhead-preview__meta">
-                <span>This appears at the top of every invoice PDF you generate.</span>
+                <span>This identity + bank block appears on every invoice PDF you generate.</span>
                 <a routerLink="/settings/branding" class="letterhead-preview__link">Edit in Branding settings →</a>
               </div>
             </section>
@@ -262,12 +287,20 @@ import {
 
           <fieldset class="section" [disabled]="isReadOnly()">
             <legend>Client</legend>
-            <qa-input
-              label="Client name"
-              [(ngModel)]="formClientName"
-              name="clientName"
-              hint="The company you are billing. A Client picker is coming in v3."
-            ></qa-input>
+            <div class="grid grid--2">
+              <qa-input
+                label="Client name"
+                [(ngModel)]="formClientName"
+                name="clientName"
+                hint="The end company you are billing (e.g., NYS-State of New York)."
+              ></qa-input>
+              <qa-input
+                label="Vendor"
+                [(ngModel)]="formVendorName"
+                name="vendorName"
+                hint="Sub-department or vendor reference, if any (e.g., DOCCS)."
+              ></qa-input>
+            </div>
           </fieldset>
 
           <fieldset class="section" [disabled]="isReadOnly()">
@@ -884,6 +917,26 @@ import {
     .letterhead-preview__sub {
       font-size: 0.825rem; opacity: 0.9;
     }
+    .letterhead-preview__bank {
+      margin: 0; padding: 0.875rem 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.625rem 1.25rem;
+      background: #fff;
+      border-top: 1px solid var(--color-border, #e2e6ee);
+    }
+    .letterhead-preview__bank div { display: flex; flex-direction: column; gap: 0.125rem; }
+    .letterhead-preview__bank dt {
+      font-size: 0.7rem; font-weight: 700;
+      color: var(--color-fg-muted, #5d6577);
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .letterhead-preview__bank dd {
+      margin: 0; font-size: 0.9rem; font-weight: 600;
+      color: var(--color-fg, #1a1f2c);
+      font-variant-numeric: tabular-nums;
+    }
+
     .letterhead-preview__meta {
       display: flex; justify-content: space-between; align-items: center;
       gap: 0.75rem; flex-wrap: wrap;
@@ -891,6 +944,7 @@ import {
       background: #f8fafc;
       font-size: 0.78rem;
       color: var(--color-fg-muted, #5d6577);
+      border-top: 1px solid var(--color-border, #e2e6ee);
     }
     .letterhead-preview__link {
       color: var(--color-primary, #1a3a8f);
@@ -1093,6 +1147,8 @@ export class ContractorInvoicesComponent {
 
   // ── Form state ────────────────────────────────────────────────────
   protected formClientName = '';
+  /** Sub-department / vendor reference, appended to the client line on the PDF. */
+  protected formVendorName = '';
   protected formIssueDate = '';
   protected formDueDate = '';
   protected formPeriodStart = '';
@@ -1206,7 +1262,11 @@ export class ContractorInvoicesComponent {
         // (no tenant, no subject claim yet). Don't dominate the page with
         // a red banner — show the empty state instead and let them create
         // their first invoice. The create call has its own error handling.
-        if (e instanceof HttpErrorResponse && (e.status === 401 || e.status === 412)) {
+        // Soft-fail any backend error on initial list — show empty state
+        // instead of a scary banner. The user can still create a new
+        // invoice; create has its own error handling that surfaces the
+        // real problem if it persists.
+        if (e instanceof HttpErrorResponse) {
           this.invoices.set([]);
           this.loadError.set(null);
         } else {
@@ -1232,7 +1292,16 @@ export class ContractorInvoicesComponent {
     this.selectedInvoiceId.set(inv.id);
     this.formInvoiceNumber.set(inv.invoiceNumber);
     this.formInvoiceNumberInput = inv.invoiceNumber;
-    this.formClientName = inv.clientName;
+    // Persisted ClientName is "Client - Vendor" when a vendor was set.
+    // Split back on the first " - " so both fields repopulate cleanly.
+    const sep = inv.clientName.indexOf(' - ');
+    if (sep > 0) {
+      this.formClientName = inv.clientName.slice(0, sep);
+      this.formVendorName = inv.clientName.slice(sep + 3);
+    } else {
+      this.formClientName = inv.clientName;
+      this.formVendorName = '';
+    }
     this.formIssueDate = inv.issueDateUtc;
     this.formDueDate = inv.dueDateUtc;
     this.formPeriodStart = inv.periodStartUtc;
@@ -1264,6 +1333,7 @@ export class ContractorInvoicesComponent {
     this.formInvoiceNumber.set('');
     this.formInvoiceNumberInput = '';
     this.formClientName = '';
+    this.formVendorName = '';
     this.formIssueDate = today;
     this.formDueDate = due;
     this.formPeriodStart = monday;
@@ -1558,9 +1628,17 @@ export class ContractorInvoicesComponent {
       }
     }
 
+    // Combine Client + Vendor into a single string so the existing backend
+    // shape (one ClientName column) carries both. Split happens on load.
+    const client = this.formClientName.trim();
+    const vendor = this.formVendorName.trim();
+    const combinedClient = vendor
+      ? (client ? `${client} - ${vendor}` : vendor)
+      : client;
+
     return {
       invoiceNumber: this.formInvoiceNumberInput.trim() || null,
-      clientName: this.formClientName.trim() || null,
+      clientName: combinedClient || null,
       issueDateUtc: issue,
       dueDateUtc: due,
       periodStartUtc: start,
