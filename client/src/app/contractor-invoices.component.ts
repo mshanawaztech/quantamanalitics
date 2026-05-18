@@ -303,7 +303,7 @@ import {
             <p class="section__hint">One row per work-week. Pick the Monday and we'll compute the Sunday end. Hours = Days × Hours/day. Amount = Hours × Rate.</p>
 
             <div class="weeks">
-              @for (item of formLineItems(); track $index; let i = $index; let last = $last) {
+              @for (item of formLineItems(); track $index; let i = $index) {
                 <article class="week">
                   <header class="week__head">
                     <span class="week__num">Week {{ i + 1 }}</span>
@@ -1248,12 +1248,13 @@ export class ContractorInvoicesComponent {
     this.formInvoiceNumberInput = inv.invoiceNumber;
     // Persisted ClientName is "Client - Vendor" when a vendor was set.
     // Split back on the first " - " so both fields repopulate cleanly.
-    const sep = inv.clientName.indexOf(' - ');
+    const clientName = inv.clientName ?? '';
+    const sep = clientName.indexOf(' - ');
     if (sep > 0) {
-      this.formClientName = inv.clientName.slice(0, sep);
-      this.formVendorName = inv.clientName.slice(sep + 3);
+      this.formClientName = clientName.slice(0, sep);
+      this.formVendorName = clientName.slice(sep + 3);
     } else {
-      this.formClientName = inv.clientName;
+      this.formClientName = clientName;
       this.formVendorName = '';
     }
     this.formIssueDate = inv.issueDateUtc;
