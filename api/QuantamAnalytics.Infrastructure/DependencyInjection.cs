@@ -3,6 +3,7 @@ using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using QuantamAnalytics.Domain.Pdf;
 using QuantamAnalytics.Infrastructure.AI;
 using QuantamAnalytics.Infrastructure.BackgroundChecks;
 using QuantamAnalytics.Infrastructure.Data;
@@ -14,7 +15,6 @@ using QuantamAnalytics.Infrastructure.Pdf;
 using QuantamAnalytics.Infrastructure.ResumeParsing;
 using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
-using QuantamAnalytics.Domain.Pdf;
 
 namespace QuantamAnalytics.Infrastructure;
 
