@@ -6,7 +6,7 @@
     @if (health.loading()) {
       <p>Probing <code>/health</code>…</p>
     } @else if (health.error()) {
-      <p class="error">
+      <p class="error" role="alert" aria-live="assertive">
         Could not reach the API: <code>{{ health.error() }}</code>
       </p>
     } @else if (health.data(); as data) {
@@ -36,7 +36,7 @@
       @if (me.loading()) {
         <p>Loading <code>/me</code>…</p>
       } @else if (me.error()) {
-        <p class="error"><code>/me</code> failed: <code>{{ me.error() }}</code></p>
+        <p class="error" role="alert" aria-live="assertive"><code>/me</code> failed: <code>{{ me.error() }}</code></p>
       } @else if (me.data(); as profile) {
         <dl class="profile">
           <dt>Role</dt><dd>{{ profile.roles.join(', ') || 'none' }}</dd>

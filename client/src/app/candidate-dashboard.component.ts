@@ -59,7 +59,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
             </div>
 
             @if (error()) {
-              <p class="error">{{ error() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ error() }}</p>
             }
 
             <form class="profile-form" (ngSubmit)="saveProfile()">
@@ -217,7 +217,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
           </div>
 
           @if (applicationsError()) {
-            <p class="error">{{ applicationsError() }}</p>
+            <p class="error" role="alert" aria-live="assertive">{{ applicationsError() }}</p>
           } @else {
             <div class="history-list">
               @for (application of applications(); track application.id) {
@@ -261,7 +261,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
           </div>
 
           @if (timelineError()) {
-            <p class="error">{{ timelineError() }}</p>
+            <p class="error" role="alert" aria-live="assertive">{{ timelineError() }}</p>
           } @else {
             <div class="timeline-list">
               @for (item of timeline(); track item.id) {

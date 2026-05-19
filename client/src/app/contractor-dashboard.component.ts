@@ -88,7 +88,7 @@ interface DayRow {
             </div>
 
             @if (error()) {
-              <p class="error">{{ error() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ error() }}</p>
             }
 
             @if (timesheet()?.reviewNote) {
@@ -169,7 +169,6 @@ interface DayRow {
             <p>
               Pay rules scaffold: {{ payRulesLabel() }}
             </p>
-            <a routerLink="/recruiter">See recruiter side</a>
           </aside>
         </section>
       }

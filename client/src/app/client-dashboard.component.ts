@@ -59,7 +59,7 @@ import {
             </div>
 
             @if (error()) {
-              <p class="error">{{ error() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ error() }}</p>
             } @else {
               <div class="queue-list">
                 @for (timesheet of submittedTimesheets(); track timesheet.id) {
