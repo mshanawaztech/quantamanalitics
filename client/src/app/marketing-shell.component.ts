@@ -197,12 +197,21 @@ const ROUTE_LABELS: Record<string, string> = {
         @if (mobileNavOpen()) {
           <nav id="mobile-nav" class="shell__mobile-nav" aria-label="Mobile">
             @for (item of primaryNav; track item.href) {
-              <a [routerLink]="item.href" (click)="closeMobileNav()">{{ item.label }}</a>
+              <a
+                [routerLink]="item.href"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: item.href === '/' }"
+                (click)="closeMobileNav()"
+              >{{ item.label }}</a>
             }
             @if (auth.isAuthenticated()) {
               <hr />
               @for (item of portalNav(); track item.href) {
-                <a [routerLink]="item.href" (click)="closeMobileNav()">{{ item.label }}</a>
+                <a
+                  [routerLink]="item.href"
+                  routerLinkActive="active"
+                  (click)="closeMobileNav()"
+                >{{ item.label }}</a>
               }
             }
           </nav>
@@ -690,8 +699,8 @@ export class MarketingShellComponent {
 
   constructor() {
     this.router.events
-      .pipe(filter(e => e instanceof NavigationEnd))
-      .subscribe((e: any) => {
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(e => {
         this.currentUrl.set(e.urlAfterRedirects);
         this.mobileNavOpen.set(false);
         this.userMenuOpen.set(false);

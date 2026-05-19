@@ -112,7 +112,7 @@ import { RouterLink } from '@angular/router';
       <section class="row" aria-labelledby="ai-heading">
         <header>
           <h2 id="ai-heading">AI copilot</h2>
-          <a routerLink="/recruiter" class="open">Open recruiter →</a>
+          <a routerLink="/recruiter/pipeline" class="open">Open recruiter pipeline →</a>
         </header>
         <ul>
           <li>Candidate ↔ job match scorecard with overall, skills coverage, seniority fit, and gap analysis.</li>
