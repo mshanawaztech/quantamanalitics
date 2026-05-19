@@ -12,6 +12,7 @@ import { AccessService } from './core/auth/access.service';
 import { AuthService } from './core/auth/auth.service';
 import { NotificationsBellComponent } from './core/notifications/notifications-bell.component';
 import { TenantBootstrapBannerComponent } from './core/auth/tenant-bootstrap-banner.component';
+import { QaLogoComponent } from './core/ui';
 
 interface Crumb {
   label: string;
@@ -92,7 +93,7 @@ const ROUTE_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-marketing-shell',
   standalone: true,
-  imports: [NotificationsBellComponent, RouterLink, RouterLinkActive, RouterOutlet, TenantBootstrapBannerComponent],
+  imports: [NotificationsBellComponent, QaLogoComponent, RouterLink, RouterLinkActive, RouterOutlet, TenantBootstrapBannerComponent],
   template: `
     <a class="skip-link" href="#main">Skip to main content</a>
 
@@ -100,7 +101,7 @@ const ROUTE_LABELS: Record<string, string> = {
       <header class="shell__header" role="banner">
         <div class="shell__header-inner">
           <a class="brand" routerLink="/" aria-label="Quantam Analytics — home">
-            <span class="brand__mark" aria-hidden="true">QA</span>
+            <qa-logo size="36" alt=""></qa-logo>
             <span class="brand__copy">
               <strong>Quantam Analytics</strong>
               <span>Staffing platform</span>
@@ -326,16 +327,10 @@ const ROUTE_LABELS: Record<string, string> = {
       flex-shrink: 0;
     }
 
-    .brand__mark {
-      display: grid;
-      place-items: center;
-      width: 2.25rem;
-      height: 2.25rem;
-      background: var(--color-primary);
-      color: var(--color-ink-onblue);
-      font-weight: var(--font-weight-bold);
-      border-radius: var(--radius-md);
-      letter-spacing: 0.04em;
+    .brand qa-logo {
+      /* Match the previous brand__mark footprint so existing nav heights
+         stay constant — qa-logo is sized via its "size" input. */
+      display: inline-flex;
     }
 
     .brand__copy {

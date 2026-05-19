@@ -1,41 +1,55 @@
 <main class="page">
-  <!-- ─── Hero ────────────────────────────────────────────────────── -->
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">Multi-tenant staffing platform</p>
-      <h1>The operating layer for staffing teams — sourcing through invoicing, on one tenant-safe platform.</h1>
-      <p class="lede">
-        Quantam Analytics replaces the spreadsheet stack with a real ATS,
-        candidate portal, client approval flow, contractor timesheet + invoice,
-        and recruiter dashboards — all behind a single sign-in and a tenant-safe
-        data layer.
-      </p>
+  <!-- ─── Hero banner — full-width navy with accent stripe.
+       Mirrors the invoice letterhead so the product feels of-a-piece. ─── -->
+  <section class="banner">
+    <div class="banner__inner">
+      <div class="banner__identity">
+        <qa-logo size="56" alt=""></qa-logo>
+        <div class="banner__identity-copy">
+          <strong>Quantam Analytics</strong>
+          <span>Multi-tenant staffing platform</span>
+        </div>
+      </div>
 
-      <div class="hero-actions">
-        <a routerLink="/recruiter" class="cta cta--primary">Open recruiter portal</a>
-        <a routerLink="/jobs" class="cta cta--ghost">Browse jobs</a>
-        <a routerLink="/trust" class="cta cta--ghost">Trust &amp; security</a>
+      <div class="banner__copy">
+        <p class="eyebrow eyebrow--onbanner">For staffing teams</p>
+        <h1>The operating layer for staffing — sourcing through invoicing, on one tenant-safe platform.</h1>
+        <p class="lede lede--onbanner">
+          Quantam Analytics replaces the spreadsheet stack with a real ATS,
+          candidate portal, client approval flow, contractor timesheet + invoice,
+          and recruiter dashboards — all behind a single sign-in and a tenant-safe
+          data layer.
+        </p>
+
+        <div class="hero-actions">
+          <a routerLink="/recruiter" class="cta cta--primary">Open recruiter portal</a>
+          <a routerLink="/jobs" class="cta cta--onbanner">Browse jobs</a>
+          <a routerLink="/trust" class="cta cta--onbanner">Trust &amp; security</a>
+        </div>
       </div>
     </div>
 
-    <aside class="hero-stats">
-      <div>
-        <p class="stat-value">9</p>
-        <p class="stat-label">phases shipped end to end</p>
-      </div>
-      <div>
-        <p class="stat-value">12 + 30</p>
-        <p class="stat-label">demo jobs and candidates seeded</p>
-      </div>
-      <div>
-        <p class="stat-value">WCAG 2.1 AA</p>
-        <p class="stat-label">accessibility verified</p>
-      </div>
-      <div>
-        <p class="stat-value">SOC 2 baseline</p>
-        <p class="stat-label">audit log on every mutation</p>
-      </div>
-    </aside>
+    <div class="banner__stripe" aria-hidden="true"></div>
+  </section>
+
+  <!-- ─── Proof-bar — quick facts under the banner ─────────────────── -->
+  <section class="proof-bar" aria-label="Platform highlights">
+    <div>
+      <p class="proof-value">9</p>
+      <p class="proof-label">phases shipped end to end</p>
+    </div>
+    <div>
+      <p class="proof-value">12 + 30</p>
+      <p class="proof-label">demo jobs and candidates seeded</p>
+    </div>
+    <div>
+      <p class="proof-value">WCAG 2.1 AA</p>
+      <p class="proof-label">accessibility verified</p>
+    </div>
+    <div>
+      <p class="proof-value">SOC 2 baseline</p>
+      <p class="proof-label">audit log on every mutation</p>
+    </div>
   </section>
 
   <!-- ─── Portals ─────────────────────────────────────────────────── -->

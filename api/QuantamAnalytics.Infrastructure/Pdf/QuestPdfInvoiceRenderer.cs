@@ -60,6 +60,21 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
     }
 
     // ── Banner letterhead (angled navy + accent stripe + identity) ──
+    /// <summary>
+    /// Inline brand mark — identical glyph to the SPA's qa-logo component
+    /// (Q ring + upward analytics tick). Inlined as SVG so the PDF carries
+    /// the mark without us shipping a binary asset; colors hard-coded
+    /// white-on-accent so the mark reads against the navy banner.
+    /// </summary>
+    private const string BrandMarkSvg = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="#ffffff" stroke-width="6"/>
+          <line x1="48" y1="48" x2="58" y2="58" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+          <polyline points="18,40 27,32 35,36 46,22" fill="none" stroke="#e6c9a8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="46" cy="22" r="3" fill="#e6c9a8"/>
+        </svg>
+        """;
+
     private static void RenderBanner(
         IContainer container,
         Invoice invoice,
@@ -68,9 +83,9 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
         string primary,
         string accent)
     {
-        // The "angled" look in the reference is faked with two stacked
-        // rectangles and a thin accent stripe between them. Cheaper than a
-        // SVG clip path and looks identical at letter size.
+        // Banner: full-width navy fill, thin accent stripe along the
+        // bottom, brand mark + identity text on the left, optional
+        // tenant-uploaded logo on the right.
         container.Height(140).Layers(layers =>
         {
             // Full-width navy background
@@ -90,35 +105,44 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
             var contactPhone = invoice.RemitContactPhone
                 ?? branding?.ContactPhone ?? BrandingDefaults.ContactPhone;
 
-            layers.PrimaryLayer().PaddingLeft(40).PaddingTop(28).Column(c =>
+            layers.PrimaryLayer().PaddingLeft(40).PaddingTop(24).PaddingBottom(20).Row(row =>
             {
-                c.Item().Text(displayName).FontSize(20).Bold().FontColor(Colors.White);
+                // Brand mark on the left so the platform identity is
+                // visible even when the tenant hasn't uploaded a logo.
+                row.ConstantItem(56).Height(56).AlignTop().Svg(BrandMarkSvg);
+                row.ConstantItem(16); // gutter
 
-                if (!string.Equals(legalName, displayName, StringComparison.OrdinalIgnoreCase))
+                row.RelativeItem().Column(c =>
                 {
-                    c.Item().PaddingTop(2).Text(legalName)
-                        .FontSize(13).Bold().FontColor(Colors.White);
-                }
+                    c.Item().Text(displayName).FontSize(20).Bold().FontColor(Colors.White);
 
-                if (!string.IsNullOrWhiteSpace(contactEmail))
-                {
-                    c.Item().PaddingTop(4).Text(contactEmail)
-                        .FontSize(11).FontColor(Colors.White);
-                }
-                if (!string.IsNullOrWhiteSpace(contactPhone))
-                {
-                    c.Item().PaddingTop(2).Text("Cell: " + contactPhone)
-                        .FontSize(11).FontColor(Colors.White);
-                }
+                    if (!string.Equals(legalName, displayName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        c.Item().PaddingTop(2).Text(legalName)
+                            .FontSize(13).Bold().FontColor(Colors.White);
+                    }
 
-                var address = FormatAddress(branding);
-                if (!string.IsNullOrWhiteSpace(address))
-                {
-                    c.Item().PaddingTop(4).Text(address!).FontSize(10).FontColor(Colors.White);
-                }
+                    if (!string.IsNullOrWhiteSpace(contactEmail))
+                    {
+                        c.Item().PaddingTop(4).Text(contactEmail)
+                            .FontSize(11).FontColor(Colors.White);
+                    }
+                    if (!string.IsNullOrWhiteSpace(contactPhone))
+                    {
+                        c.Item().PaddingTop(2).Text("Cell: " + contactPhone)
+                            .FontSize(11).FontColor(Colors.White);
+                    }
+
+                    var address = FormatAddress(branding);
+                    if (!string.IsNullOrWhiteSpace(address))
+                    {
+                        c.Item().PaddingTop(4).Text(address!).FontSize(10).FontColor(Colors.White);
+                    }
+                });
             });
 
-            // Optional logo, top-right
+            // Optional tenant logo, top-right — sits alongside the
+            // platform mark and identity, doesn't replace them.
             if (logoBytes is not null && logoBytes.Length > 0)
             {
                 layers.Layer().AlignRight().AlignTop().PaddingTop(24).PaddingRight(40)
