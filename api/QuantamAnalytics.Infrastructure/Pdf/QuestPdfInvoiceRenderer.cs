@@ -21,10 +21,9 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
     private const string MutedTextHex = "#5d6577";
     private const string BodyTextHex = "#1a1f2c";
 
-    // License is registered once per process by QuestPdfLicense.Initialize()
-    // (a [ModuleInitializer] in this assembly). Doing it in the constructor
-    // is too late if WebApplicationFactory builds a host that touches QuestPDF
-    // before the renderer is resolved.
+    // License is registered once per process at the top of Program.cs in
+    // QuantamAnalytics.Api. WebApplicationFactory<Program> re-enters that
+    // file so the integration tests get the same registration.
 
     public byte[] Render(Invoice invoice, TenantBranding? branding, byte[]? logoBytes)
     {
