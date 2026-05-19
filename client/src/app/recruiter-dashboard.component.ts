@@ -1425,7 +1425,7 @@ Best,
         const url = URL.createObjectURL(response.body);
         const anchor = document.createElement('a');
         const disposition = response.headers.get('content-disposition');
-        const fileName = disposition?.match(/filename=\"?([^\";]+)\"?/)?.[1] ?? 'qbo-timesheets.csv';
+        const fileName = disposition?.match(/filename="?([^";]+)"?/)?.[1] ?? 'qbo-timesheets.csv';
 
         anchor.href = url;
         anchor.download = fileName;

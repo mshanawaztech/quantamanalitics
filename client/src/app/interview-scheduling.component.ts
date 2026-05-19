@@ -10,11 +10,11 @@ import {
   InterviewSchedulingService,
 } from './core/interviews/interview-scheduling.service';
 
-type ScorecardTemplate = {
+interface ScorecardTemplate {
   title: string;
   audience: string;
   sections: string[];
-};
+}
 
 @Component({
   selector: 'app-interview-scheduling',

@@ -135,7 +135,7 @@ describe('RecruiterPipelineComponent', () => {
 
     const component = fixture.componentInstance as unknown as {
       onDrop(event: DragEvent, status: string): void;
-      applications: { (): RecruiterApplication[] };
+      applications: () => RecruiterApplication[];
     };
 
     // Build a minimal DragEvent stub — DragEvent isn't constructable in
@@ -195,8 +195,8 @@ describe('RecruiterPipelineComponent', () => {
 
     const component = fixture.componentInstance as unknown as {
       onDrop(event: DragEvent, status: string): void;
-      applications: { (): RecruiterApplication[] };
-      errorMessage: { (): string | null };
+      applications: () => RecruiterApplication[];
+      errorMessage: () => string | null;
     };
 
     const fakeEvent = {
