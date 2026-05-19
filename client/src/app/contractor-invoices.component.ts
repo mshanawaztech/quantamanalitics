@@ -24,6 +24,7 @@ import {
   QaButtonComponent,
   QaEmptyStateComponent,
   QaInputComponent,
+  QaLogoComponent,
 } from './core/ui';
 
 /**
@@ -57,6 +58,7 @@ import {
     QaButtonComponent,
     QaEmptyStateComponent,
     QaInputComponent,
+    QaLogoComponent,
   ],
   template: `
     <main class="page">
@@ -200,19 +202,32 @@ import {
 
           @if (branding(); as b) {
             <section class="letterhead-preview" aria-label="Your invoice letterhead">
-              <div class="letterhead-preview__banner" [style.background]="b.primaryColorHex || '#1a2d5a'">
+              <div
+                class="letterhead-preview__banner"
+                [style.background]="bannerBackground(b.primaryColorHex)"
+              >
                 <div class="letterhead-preview__identity">
-                  <strong>{{ b.displayName || b.legalName || 'Your Company' }}</strong>
-                  @if (b.legalName && b.legalName !== b.displayName) {
-                    <span class="letterhead-preview__sub">{{ b.legalName }}</span>
-                  }
-                  @if (b.contactEmail) { <span class="letterhead-preview__sub">{{ b.contactEmail }}</span> }
-                  @if (b.contactPhone) { <span class="letterhead-preview__sub">Cell: {{ b.contactPhone }}</span> }
+                  <qa-logo
+                    size="44"
+                    alt=""
+                    class="letterhead-preview__mark"
+                  ></qa-logo>
+                  <div class="letterhead-preview__identity-text">
+                    <strong>{{ b.displayName || b.legalName || 'Your Company' }}</strong>
+                    @if (b.legalName && b.legalName !== b.displayName) {
+                      <span class="letterhead-preview__sub">{{ b.legalName }}</span>
+                    }
+                    @if (b.contactEmail) { <span class="letterhead-preview__sub">{{ b.contactEmail }}</span> }
+                    @if (b.contactPhone) { <span class="letterhead-preview__sub">Cell: {{ b.contactPhone }}</span> }
+                  </div>
                 </div>
-                <div class="letterhead-preview__strip" [style.background]="b.accentColorHex || '#e6c9a8'"></div>
+                <div
+                  class="letterhead-preview__strip"
+                  [style.background]="b.accentColorHex || '#e6c9a8'"
+                ></div>
               </div>
               <div class="letterhead-preview__meta">
-                <span>This appears at the top of every invoice PDF you generate.</span>
+                <span>Matches the banner at the top of every invoice PDF.</span>
                 <a routerLink="/settings/branding" class="letterhead-preview__link">Edit in Branding settings →</a>
               </div>
             </section>
@@ -987,21 +1002,32 @@ import {
     }
     .letterhead-preview__banner {
       position: relative;
-      padding: 1rem 1.25rem 1.5rem;
+      padding: 1.25rem 1.5rem 1.75rem;
       color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
     .letterhead-preview__strip {
       position: absolute; inset: auto 0 0 0;
-      height: 5px;
+      height: 6px;
     }
     .letterhead-preview__identity {
-      display: flex; flex-direction: column; gap: 0.125rem;
+      display: flex; align-items: center; gap: 1rem;
     }
-    .letterhead-preview__identity strong {
-      font-size: 1.15rem; font-weight: 700;
+    /* Make the logo's ring white and keep the tick accent so it pops
+       against the navy banner — same treatment as the home hero. */
+    .letterhead-preview__mark {
+      --color-primary: #ffffff;
+      --color-accent: #e6c9a8;
+      flex-shrink: 0;
+    }
+    .letterhead-preview__identity-text {
+      display: flex; flex-direction: column; gap: 0.125rem; min-width: 0;
+    }
+    .letterhead-preview__identity-text strong {
+      font-size: 1.15rem; font-weight: 700; letter-spacing: -0.005em;
     }
     .letterhead-preview__sub {
-      font-size: 0.825rem; opacity: 0.9;
+      font-size: 0.825rem; opacity: 0.88;
     }
     .letterhead-preview__meta {
       display: flex; justify-content: space-between; align-items: center;
@@ -1256,6 +1282,16 @@ export class ContractorInvoicesComponent {
   protected readonly showInvoicesPanel = signal(false);
   protected toggleInvoicesPanel(): void {
     this.showInvoicesPanel.update((v) => !v);
+  }
+
+  /**
+   * Build a subtle two-stop gradient for the letterhead preview banner.
+   * Matches the home-page hero banner so the invoice feels like the
+   * same product — a flat fill looks cheap; a gradient gives it depth.
+   */
+  protected bannerBackground(primaryHex: string | null | undefined): string {
+    const base = primaryHex || '#1a2d5a';
+    return `radial-gradient(900px 360px at 20% 0%, rgba(255,255,255,0.08), transparent 70%), linear-gradient(135deg, ${base} 0%, ${base} 60%, #0d2155 100%)`;
   }
 
   // ── Form state ────────────────────────────────────────────────────

@@ -15,3 +15,4 @@ export { QaButtonComponent } from './qa-button.component';
 export { QaCardComponent } from './qa-card.component';
 export { QaEmptyStateComponent } from './qa-empty-state.component';
 export { QaInputComponent } from './qa-input.component';
+export { QaLogoComponent } from './qa-logo.component';
