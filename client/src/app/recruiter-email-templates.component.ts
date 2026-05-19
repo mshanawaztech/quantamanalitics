@@ -159,7 +159,7 @@ import {
                 <button
                   type="button"
                   class="merge-fields__chip"
-                  (click)="insertMergeField(field)"
+                  (click)="insertMergeField(field, bodyTextarea)"
                 >{{ formatToken(field) }}</button>
               }
             </div>
@@ -167,6 +167,7 @@ import {
             <label class="body-label" for="body-md">Body (markdown)</label>
             <textarea
               id="body-md"
+              #bodyTextarea
               rows="14"
               [(ngModel)]="draftBody"
               spellcheck="true"
@@ -478,11 +479,32 @@ export class RecruiterEmailTemplatesComponent {
     });
   }
 
-  protected insertMergeField(field: string): void {
-    // Drop at end — full cursor-aware insertion would require a textarea
-    // ref and selectionStart tracking; the chip pattern below is the
-    // simplest thing that lets a recruiter discover the token names.
-    this.draftBody = this.draftBody + this.formatToken(field);
+  protected insertMergeField(
+    field: string,
+    textarea?: HTMLTextAreaElement,
+  ): void {
+    const token = this.formatToken(field);
+
+    // If we have the textarea ref, splice the token at the caret.
+    // Falls back to "append at end" when no ref is provided (older
+    // callers / tests).
+    if (textarea) {
+      const start = textarea.selectionStart ?? this.draftBody.length;
+      const end = textarea.selectionEnd ?? start;
+      const before = this.draftBody.slice(0, start);
+      const after = this.draftBody.slice(end);
+      this.draftBody = before + token + after;
+      // Restore focus + place the caret AFTER the inserted token so
+      // the recruiter can keep typing.
+      const newCaret = start + token.length;
+      queueMicrotask(() => {
+        textarea.focus();
+        textarea.setSelectionRange(newCaret, newCaret);
+      });
+      return;
+    }
+
+    this.draftBody = this.draftBody + token;
   }
 
   /**
