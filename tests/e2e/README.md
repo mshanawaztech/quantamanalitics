@@ -38,10 +38,10 @@ Auth0 session because the app guards those routes behind
 ### Generate `storage-state.json` locally
 
 ```bash
-npx playwright codegen https://ambitious-dune-099500b0f.7.azurestaticapps.net
-# 1. Click "Log in", complete Auth0 universal login with your test user.
-# 2. Once you land on /dashboard, in the codegen window: File → Save storage state...
-# 3. Save it as tests/e2e/storage-state.json (already gitignored).
+npm run auth:save
+# Chromium opens. Complete Auth0 login with your test user.
+# Script detects the post-login redirect and saves storage-state.json
+# automatically. Close the window if it gets stuck.
 ```
 
 Then:
@@ -69,6 +69,8 @@ tests/e2e/
 ├── package.json
 ├── playwright.config.ts
 ├── tsconfig.json
+├── scripts/
+│   └── save-auth-state.ts        # `npm run auth:save` — interactive Auth0 capture
 └── tests/
     ├── site-loads.smoke.spec.ts   # public smoke
     └── invoices.auth.spec.ts      # contractor invoices + branding (authed)
