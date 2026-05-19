@@ -3,6 +3,7 @@ using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using QuantamAnalytics.Domain.Pdf;
 using QuantamAnalytics.Infrastructure.AI;
 using QuantamAnalytics.Infrastructure.BackgroundChecks;
@@ -43,8 +44,11 @@ public static class DependencyInjection
 
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
+        ArgumentNullException.ThrowIfNull(environment);
+
         var connectionString = configuration.GetConnectionString(PostgresConnectionStringName);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -53,13 +57,18 @@ public static class DependencyInjection
             // placeholder would 500 every request instead of crashing on
             // startup where the failure is loud.
             //
-            // Non-production (Development, Staging, "Testing"): use a
-            // placeholder so the host can build for unit / integration tests
-            // and dev scenarios that don't need the database. Any code path
-            // that actually touches the DB will still fail at the first
+            // Non-production (Development, Staging, integration-test hosts):
+            // use a placeholder so the host can build for unit / integration
+            // tests and dev scenarios that don't need the database. Any code
+            // path that actually touches the DB will still fail at the first
             // query — caller gets a real "connection refused" error.
-            var envName = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
-            if (string.Equals(envName, "Production", StringComparison.OrdinalIgnoreCase))
+            //
+            // We resolve the environment via IHostEnvironment (set by
+            // WebApplicationFactory and CreateBuilder), NOT via
+            // configuration[ASPNETCORE_ENVIRONMENT], because the test host
+            // sets the IHostEnvironment property directly without touching
+            // the env var.
+            if (environment.IsProduction())
             {
                 throw new InvalidOperationException(
                     $"Connection string '{PostgresConnectionStringName}' is not configured. " +
