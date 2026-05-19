@@ -28,6 +28,19 @@ public static class DependencyInjection
     /// <summary>Connection string key in appsettings / user-secrets / env vars.</summary>
     public const string PostgresConnectionStringName = "Postgres";
 
+    /// <summary>
+    /// Placeholder connection string used when no real one is configured
+    /// AND we're not running in Production. EF Core accepts this at
+    /// container build time but every query against it fails with a
+    /// clear "connection refused" error — that's the desired
+    /// failure mode for integration tests that don't actually touch
+    /// the DB (e.g. <c>HealthEndpointTests</c>, the email-template
+    /// preview tests). Production keeps fail-fast behavior so a
+    /// misconfigured deploy can't silently 500 every request.
+    /// </summary>
+    private const string DevPlaceholderConnectionString =
+        "Host=localhost;Port=1;Database=quantamanalitics_unconfigured;Username=none;Password=none";
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -35,13 +48,27 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString(PostgresConnectionStringName);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            // Fail fast in dev: a missing connection string is almost always a
-            // forgotten `dotnet user-secrets set ConnectionStrings:Postgres`.
-            throw new InvalidOperationException(
-                $"Connection string '{PostgresConnectionStringName}' is not configured. " +
-                "In dev, run: " +
-                "dotnet user-secrets set \"ConnectionStrings:Postgres\" \"<your-neon-conn-string>\" " +
-                "--project api/QuantamAnalytics.Api");
+            // Production: fail fast. A missing connection string in prod is
+            // almost always a deploy misconfig, and falling through to a
+            // placeholder would 500 every request instead of crashing on
+            // startup where the failure is loud.
+            //
+            // Non-production (Development, Staging, "Testing"): use a
+            // placeholder so the host can build for unit / integration tests
+            // and dev scenarios that don't need the database. Any code path
+            // that actually touches the DB will still fail at the first
+            // query — caller gets a real "connection refused" error.
+            var envName = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
+            if (string.Equals(envName, "Production", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Connection string '{PostgresConnectionStringName}' is not configured. " +
+                    "In dev, run: " +
+                    "dotnet user-secrets set \"ConnectionStrings:Postgres\" \"<your-neon-conn-string>\" " +
+                    "--project api/QuantamAnalytics.Api");
+            }
+
+            connectionString = DevPlaceholderConnectionString;
         }
 
         services.AddScoped<CurrentTenant>();
