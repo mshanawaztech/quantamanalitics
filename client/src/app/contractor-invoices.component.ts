@@ -571,7 +571,12 @@ import {
 
       @if (previewUrl()) {
         <div class="preview-modal" role="dialog" aria-modal="true" aria-label="Invoice preview">
-          <div class="preview-modal__shroud" (click)="closePreview()"></div>
+          <button
+            type="button"
+            class="preview-modal__shroud"
+            (click)="closePreview()"
+            aria-label="Close preview"
+          ></button>
           <div class="preview-modal__panel">
             <header class="preview-modal__head">
               <h2>Invoice preview</h2>
@@ -1113,6 +1118,15 @@ import {
     .preview-modal__shroud {
       position: absolute; inset: 0;
       background: rgba(15, 23, 42, 0.6);
+      /* Reset default <button> styling so the shroud looks like a plain
+         backdrop. Lives as a button (not a div) so keyboard users can
+         dismiss the modal — see WCAG 2.1.1 keyboard accessibility. */
+      border: 0; padding: 0; appearance: none;
+      cursor: pointer;
+    }
+    .preview-modal__shroud:focus-visible {
+      outline: 2px dashed rgba(255, 255, 255, 0.7);
+      outline-offset: -8px;
     }
     .preview-modal__panel {
       position: relative; z-index: 1;

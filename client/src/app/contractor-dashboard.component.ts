@@ -9,12 +9,12 @@ import {
   ContractorTimesheetService,
 } from './core/contractor/contractor-timesheet.service';
 
-type DayRow = {
+interface DayRow {
   date: string;
   label: string;
   workHours: number | null;
   paidTimeOffHours: number | null;
-};
+}
 
 @Component({
   selector: 'app-contractor-dashboard',

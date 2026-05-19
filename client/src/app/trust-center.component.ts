@@ -124,12 +124,14 @@ const TRUST_LAST_REVIEWED = 'May 2026';
         </p>
       </section>
 
-      <p class="meta">Last reviewed: ${TRUST_LAST_REVIEWED}.</p>
+      <p class="meta">Last reviewed: {{ trustLastReviewed }}.</p>
     </main>
   `,
   styles: SHARED_STYLES,
 })
-export class TrustCenterComponent {}
+export class TrustCenterComponent {
+  protected readonly trustLastReviewed = TRUST_LAST_REVIEWED;
+}
 
 @Component({
   selector: 'app-privacy',
@@ -185,12 +187,14 @@ export class TrustCenterComponent {}
         <a routerLink="/dpa">DPA</a>
       </div>
 
-      <p class="meta">Last reviewed: ${TRUST_LAST_REVIEWED}.</p>
+      <p class="meta">Last reviewed: {{ trustLastReviewed }}.</p>
     </main>
   `,
   styles: SHARED_STYLES,
 })
-export class PrivacyComponent {}
+export class PrivacyComponent {
+  protected readonly trustLastReviewed = TRUST_LAST_REVIEWED;
+}
 
 @Component({
   selector: 'app-terms',
@@ -243,12 +247,14 @@ export class PrivacyComponent {}
         <a routerLink="/dpa">DPA</a>
       </div>
 
-      <p class="meta">Last reviewed: ${TRUST_LAST_REVIEWED}.</p>
+      <p class="meta">Last reviewed: {{ trustLastReviewed }}.</p>
     </main>
   `,
   styles: SHARED_STYLES,
 })
-export class TermsComponent {}
+export class TermsComponent {
+  protected readonly trustLastReviewed = TRUST_LAST_REVIEWED;
+}
 
 @Component({
   selector: 'app-security',
@@ -322,12 +328,14 @@ export class TermsComponent {}
         <a routerLink="/dpa">DPA</a>
       </div>
 
-      <p class="meta">Last reviewed: ${TRUST_LAST_REVIEWED}.</p>
+      <p class="meta">Last reviewed: {{ trustLastReviewed }}.</p>
     </main>
   `,
   styles: SHARED_STYLES,
 })
-export class SecurityComponent {}
+export class SecurityComponent {
+  protected readonly trustLastReviewed = TRUST_LAST_REVIEWED;
+}
 
 @Component({
   selector: 'app-dpa',
@@ -397,9 +405,11 @@ export class SecurityComponent {}
         <a routerLink="/security">Security</a>
       </div>
 
-      <p class="meta">Last reviewed: ${TRUST_LAST_REVIEWED}.</p>
+      <p class="meta">Last reviewed: {{ trustLastReviewed }}.</p>
     </main>
   `,
   styles: SHARED_STYLES,
 })
-export class DpaComponent {}
+export class DpaComponent {
+  protected readonly trustLastReviewed = TRUST_LAST_REVIEWED;
+}
