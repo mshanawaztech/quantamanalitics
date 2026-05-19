@@ -109,11 +109,8 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
             {
                 // Brand mark on the left so the platform identity is
                 // visible even when the tenant hasn't uploaded a logo.
-                // PaddingRight on this item provides the gutter between
-                // the mark and the identity column — avoids the IDE0058
-                // "discarded return value" hit that an empty gutter
-                // element would trigger under EnforceCodeStyleInBuild.
-                row.ConstantItem(72).Height(56).AlignTop().PaddingRight(16).Svg(BrandMarkSvg);
+                row.ConstantItem(56).Height(56).AlignTop().Svg(BrandMarkSvg);
+                row.ConstantItem(16); // gutter
 
                 row.RelativeItem().Column(c =>
                 {
