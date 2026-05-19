@@ -42,7 +42,7 @@ builder.Services.Configure<DemoDataOptions>(builder.Configuration.GetSection("De
 
 // EF Core, Postgres, health checks. Reads ConnectionStrings:Postgres from
 // configuration (appsettings, user-secrets in dev, env vars in prod).
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<DemoDataSeeder>();
 
 // JWT bearer + role policies. Returns false if Auth0:Domain / Auth0:Audience
