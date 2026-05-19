@@ -260,6 +260,58 @@ import {
             </div>
           </fieldset>
 
+          @if (branding(); as b) {
+            <fieldset class="section section--remit" [disabled]="isReadOnly()">
+              <legend>Remit-to (your bank)</legend>
+              <p class="section__hint section__hint--remit">
+                Defaults come from your <a routerLink="/settings/branding">branding settings</a>.
+                Leave a field blank to inherit; type to override just for this invoice.
+              </p>
+              <div class="grid grid--4">
+                <label class="field">
+                  <span class="field__label">Bank name</span>
+                  <input
+                    class="field__input"
+                    type="text"
+                    [(ngModel)]="formRemitBankName"
+                    name="remitBankName"
+                    [placeholder]="b.bankName || '—'"
+                  />
+                </label>
+                <label class="field">
+                  <span class="field__label">Account number</span>
+                  <input
+                    class="field__input field__input--mono"
+                    type="text"
+                    [(ngModel)]="formRemitAccountNumber"
+                    name="remitAccountNumber"
+                    [placeholder]="b.bankAccountNumber || '—'"
+                  />
+                </label>
+                <label class="field">
+                  <span class="field__label">Routing number</span>
+                  <input
+                    class="field__input field__input--mono"
+                    type="text"
+                    [(ngModel)]="formRemitRoutingNumber"
+                    name="remitRoutingNumber"
+                    [placeholder]="b.bankRoutingNumber || '—'"
+                  />
+                </label>
+                <label class="field">
+                  <span class="field__label">Phone</span>
+                  <input
+                    class="field__input"
+                    type="tel"
+                    [(ngModel)]="formRemitContactPhone"
+                    name="remitContactPhone"
+                    [placeholder]="b.contactPhone || '—'"
+                  />
+                </label>
+              </div>
+            </fieldset>
+          }
+
           <fieldset class="section" [disabled]="isReadOnly()">
             <legend>Client</legend>
             <div class="grid grid--2">
@@ -685,6 +737,40 @@ import {
     }
     .grid { display: grid; gap: 1rem; }
     .grid--2 { grid-template-columns: 1fr 1fr; }
+    .grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (max-width: 880px) {
+      .grid--4 { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 540px) {
+      .grid--4 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Remit-to override section (qa005) ──────────────────────
+       Soft blue card that visually separates the per-invoice
+       overrides from the regular billing details. Inputs use the
+       branding default as placeholder so the user can see what
+       leaving the field blank will produce. */
+    .section--remit {
+      background: var(--color-primary-soft, #e7ecf6);
+      border: 1px dashed rgba(26, 58, 143, 0.25);
+      border-radius: 12px;
+      padding: 1rem 1.125rem 1.125rem;
+      margin-bottom: 1.5rem;
+    }
+    .section--remit legend {
+      padding: 0 0.5rem; background: transparent;
+      color: var(--color-primary, #1a3a8f);
+    }
+    .section--remit .field__input {
+      background: #ffffff;
+    }
+    .section__hint--remit {
+      margin: 0 0 0.875rem;
+      font-size: 0.78rem; color: var(--color-fg-muted, #5d6577);
+    }
+    .section__hint--remit a {
+      color: var(--color-primary, #1a3a8f); text-decoration: underline;
+    }
     /* Invoice details: number takes a full row at narrow widths so its
        hint text doesn't wrap into a useless single-word column. Issue +
        Due dates share the second row. At wider widths everything is on
@@ -957,6 +1043,10 @@ import {
       background: var(--color-surface, #fff);
     }
     .field__input--num { text-align: right; font-variant-numeric: tabular-nums; }
+    .field__input--mono {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      letter-spacing: 0.02em;
+    }
     .field__input:focus-visible {
       outline: 3px solid var(--color-primary, #1a3a8f);
       outline-offset: 1px;
@@ -1147,6 +1237,16 @@ export class ContractorInvoicesComponent {
   protected formNotes = '';
   /** User's custom override; if blank on save, server mints. */
   protected formInvoiceNumberInput = '';
+  /**
+   * qa005 — per-invoice Remit-to overrides. Empty string means "inherit
+   * the tenant's branding default" — the inputs render with the
+   * branding value as placeholder so the user sees what they'd get if
+   * they leave it blank.
+   */
+  protected formRemitBankName = '';
+  protected formRemitAccountNumber = '';
+  protected formRemitRoutingNumber = '';
+  protected formRemitContactPhone = '';
   protected readonly formLineItems = signal<DraftLineItem[]>([]);
   /** Server-minted number — only present when editing an existing invoice. */
   protected readonly formInvoiceNumber = signal('');
@@ -1287,16 +1387,22 @@ export class ContractorInvoicesComponent {
     this.selectedInvoiceId.set(inv.id);
     this.formInvoiceNumber.set(inv.invoiceNumber);
     this.formInvoiceNumberInput = inv.invoiceNumber;
-    // Persisted ClientName is "Client - Vendor" when a vendor was set.
-    // Split back on the first " - " so both fields repopulate cleanly.
-    const clientName = inv.clientName ?? '';
-    const sep = clientName.indexOf(' - ');
-    if (sep > 0) {
-      this.formClientName = clientName.slice(0, sep);
-      this.formVendorName = clientName.slice(sep + 3);
+    // Prefer the explicit vendorName from qa005. Fall back to the legacy
+    // "Client - Vendor" combined string for invoices created before
+    // vendorName was a real column on the entity.
+    if (inv.vendorName) {
+      this.formClientName = inv.clientName ?? '';
+      this.formVendorName = inv.vendorName;
     } else {
-      this.formClientName = clientName;
-      this.formVendorName = '';
+      const clientName = inv.clientName ?? '';
+      const sep = clientName.indexOf(' - ');
+      if (sep > 0) {
+        this.formClientName = clientName.slice(0, sep);
+        this.formVendorName = clientName.slice(sep + 3);
+      } else {
+        this.formClientName = clientName;
+        this.formVendorName = '';
+      }
     }
     this.formIssueDate = inv.issueDateUtc;
     this.formDueDate = inv.dueDateUtc;
@@ -1305,6 +1411,12 @@ export class ContractorInvoicesComponent {
     this.formCurrency = inv.currency;
     this.formTaxRate = String(inv.taxRate);
     this.formNotes = inv.notes ?? '';
+    // qa005 — hydrate Remit-to overrides. Empty string means "no
+    // override; placeholder will show the branding default."
+    this.formRemitBankName = inv.remitBankName ?? '';
+    this.formRemitAccountNumber = inv.remitAccountNumber ?? '';
+    this.formRemitRoutingNumber = inv.remitRoutingNumber ?? '';
+    this.formRemitContactPhone = inv.remitContactPhone ?? '';
     this.formLineItems.set(
       inv.lineItems.length > 0
         ? inv.lineItems.map((li) => ({
@@ -1337,6 +1449,10 @@ export class ContractorInvoicesComponent {
     this.formCurrency = 'USD';
     this.formTaxRate = '0';
     this.formNotes = '';
+    this.formRemitBankName = '';
+    this.formRemitAccountNumber = '';
+    this.formRemitRoutingNumber = '';
+    this.formRemitContactPhone = '';
     this.formLineItems.set([{ ...emptyLineItem(), weekStart: monday }]);
     this.formError.set(null);
   }
@@ -1624,17 +1740,16 @@ export class ContractorInvoicesComponent {
       }
     }
 
-    // Combine Client + Vendor into a single string so the existing backend
-    // shape (one ClientName column) carries both. Split happens on load.
+    // Send Client and Vendor as separate fields now that qa005 added
+    // VendorName as a first-class column. We keep clientName as the
+    // raw client text only — the backend stores VendorName separately
+    // and the PDF renderer concatenates them on the "Billed to" line.
     const client = this.formClientName.trim();
     const vendor = this.formVendorName.trim();
-    const combinedClient = vendor
-      ? (client ? `${client} - ${vendor}` : vendor)
-      : client;
 
     return {
       invoiceNumber: this.formInvoiceNumberInput.trim() || null,
-      clientName: combinedClient || null,
+      clientName: client || null,
       issueDateUtc: issue,
       dueDateUtc: due,
       periodStartUtc: start,
@@ -1643,6 +1758,13 @@ export class ContractorInvoicesComponent {
       taxRate,
       lineItems: items,
       notes: this.formNotes.trim() || null,
+      // qa005 — per-invoice overrides. null on the wire = inherit
+      // tenant branding default at render time.
+      remitBankName: this.formRemitBankName.trim() || null,
+      remitAccountNumber: this.formRemitAccountNumber.trim() || null,
+      remitRoutingNumber: this.formRemitRoutingNumber.trim() || null,
+      remitContactPhone: this.formRemitContactPhone.trim() || null,
+      vendorName: vendor || null,
     };
   }
 }

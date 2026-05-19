@@ -76,6 +76,18 @@ export interface CreateInvoiceRequest {
   taxRate: number;
   lineItems: InvoiceLineItemRequest[];
   notes: string | null;
+  /**
+   * qa005 — optional per-invoice Remit-to + vendor overrides. Send null
+   * (or omit) to inherit the tenant's branding default at PDF render
+   * time. Letting these be per-invoice lets a contractor route a
+   * single bill through a different bank without rebranding their
+   * whole tenant.
+   */
+  remitBankName?: string | null;
+  remitAccountNumber?: string | null;
+  remitRoutingNumber?: string | null;
+  remitContactPhone?: string | null;
+  vendorName?: string | null;
 }
 
 export type UpdateInvoiceRequest = Omit<CreateInvoiceRequest, 'invoiceNumber'>;
@@ -128,4 +140,9 @@ export interface InvoiceResponse {
   paidAtUtc: string | null;
   updatedAtUtc: string;
   lineItems: InvoiceLineItemResponse[];
+  remitBankName: string | null;
+  remitAccountNumber: string | null;
+  remitRoutingNumber: string | null;
+  remitContactPhone: string | null;
+  vendorName: string | null;
 }

@@ -48,7 +48,7 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
                     col.Item().PaddingHorizontal(40).PaddingTop(20).Column(body =>
                     {
                         body.Item().Element(c => RenderInvoiceNumber(c, invoice, primary));
-                        body.Item().PaddingTop(16).Element(c => RenderBankBlock(c, branding));
+                        body.Item().PaddingTop(16).Element(c => RenderBankBlock(c, invoice, branding));
                         body.Item().PaddingTop(16).Element(c => RenderRatePeriodStrip(c, invoice, branding, primary));
                         body.Item().PaddingTop(24).Element(c => RenderItemsTable(c, invoice, accent));
                         body.Item().PaddingTop(8).Element(c => RenderGrandTotal(c, invoice, primary));
@@ -86,7 +86,11 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
             var displayName = branding?.DisplayName ?? BrandingDefaults.DisplayName;
             var legalName = branding?.LegalName ?? BrandingDefaults.LegalName;
             var contactEmail = branding?.ContactEmail ?? BrandingDefaults.ContactEmail;
-            var contactPhone = branding?.ContactPhone ?? BrandingDefaults.ContactPhone;
+            // qa005 — per-invoice contact phone wins over branding's phone
+            // so a contractor can route a specific invoice to a different
+            // contact without rebranding their tenant.
+            var contactPhone = invoice.RemitContactPhone
+                ?? branding?.ContactPhone ?? BrandingDefaults.ContactPhone;
 
             layers.PrimaryLayer().PaddingLeft(40).PaddingTop(28).Column(c =>
             {
@@ -131,15 +135,22 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
             .FontSize(22).Bold().FontColor(primary);
     }
 
-    private static void RenderBankBlock(IContainer container, TenantBranding? branding)
+    private static void RenderBankBlock(IContainer container, Invoice invoice, TenantBranding? branding)
     {
-        // Fall back to platform defaults so a freshly onboarded tenant
-        // still gets a usable remit-to block before they fill in
-        // /settings/branding.
-        var bankName = branding?.BankName ?? BrandingDefaults.BankName;
+        // Resolution order for each remit-to field:
+        //   1. Per-invoice override on the Invoice entity (qa005)
+        //   2. Tenant's TenantBranding row (if set in /settings/branding)
+        //   3. Platform-owner defaults (BrandingDefaults) — Quantam's own values
+        //
+        // Per-invoice overrides let a contractor bill one client through a
+        // different bank account without changing their tenant-wide branding.
+        var bankName = invoice.RemitBankName
+            ?? branding?.BankName ?? BrandingDefaults.BankName;
         var legalName = branding?.LegalName ?? BrandingDefaults.LegalName;
-        var account = branding?.BankAccountNumber ?? BrandingDefaults.BankAccountNumber;
-        var routing = branding?.BankRoutingNumber ?? BrandingDefaults.BankRoutingNumber;
+        var account = invoice.RemitAccountNumber
+            ?? branding?.BankAccountNumber ?? BrandingDefaults.BankAccountNumber;
+        var routing = invoice.RemitRoutingNumber
+            ?? branding?.BankRoutingNumber ?? BrandingDefaults.BankRoutingNumber;
 
         container.Column(col =>
         {
@@ -173,7 +184,23 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
 
         container.Column(col =>
         {
-            col.Item().Text(t =>
+            // "Billed to" — surfaces the client name + optional vendor
+            // reference so the recipient sees who the invoice was raised
+            // against, not just an opaque invoice number. Skipped if
+            // ClientName is empty (legacy/partial invoices).
+            if (!string.IsNullOrWhiteSpace(invoice.ClientName))
+            {
+                col.Item().Text(t =>
+                {
+                    t.Span("Billed to: ").Bold().FontColor(primary);
+                    t.Span(invoice.ClientName).Bold();
+                    if (!string.IsNullOrWhiteSpace(invoice.VendorName))
+                    {
+                        t.Span($" / {invoice.VendorName}").FontColor(MutedTextHex);
+                    }
+                });
+            }
+            col.Item().PaddingTop(2).Text(t =>
             {
                 t.Span("Hourly Rate: ").Bold().FontColor(primary);
                 t.Span(FormatCurrency(invoice.Currency, hourlyRate)).Bold();
