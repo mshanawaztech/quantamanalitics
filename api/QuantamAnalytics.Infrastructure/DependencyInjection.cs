@@ -30,17 +30,12 @@ public static class DependencyInjection
     public const string PostgresConnectionStringName = "Postgres";
 
     /// <summary>
-    /// Placeholder connection string used when no real one is configured
-    /// AND we're not running in Production. EF Core accepts this at
-    /// container build time but every query against it fails with a
-    /// clear "connection refused" error — that's the desired
-    /// failure mode for integration tests that don't actually touch
-    /// the DB (e.g. <c>HealthEndpointTests</c>, the email-template
-    /// preview tests). Production keeps fail-fast behavior so a
-    /// misconfigured deploy can't silently 500 every request.
+    /// Name used for the in-memory EF Core database when no real Postgres
+    /// connection string is configured and we're in a non-Production
+    /// environment. Constant so multiple resolutions inside one process
+    /// share the same in-memory store.
     /// </summary>
-    private const string DevPlaceholderConnectionString =
-        "Host=localhost;Port=1;Database=quantamanalitics_unconfigured;Username=none;Password=none";
+    private const string DevInMemoryDatabaseName = "quantamanalitics_unconfigured";
 
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
@@ -50,18 +45,23 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(environment);
 
         var connectionString = configuration.GetConnectionString(PostgresConnectionStringName);
-        if (string.IsNullOrWhiteSpace(connectionString))
+        var useInMemoryFallback = string.IsNullOrWhiteSpace(connectionString);
+
+        if (useInMemoryFallback)
         {
             // Production: fail fast. A missing connection string in prod is
-            // almost always a deploy misconfig, and falling through to a
-            // placeholder would 500 every request instead of crashing on
-            // startup where the failure is loud.
+            // almost always a deploy misconfig, and falling through to an
+            // in-memory DB would silently lose every write instead of
+            // crashing on startup where the failure is loud.
             //
             // Non-production (Development, Staging, integration-test hosts):
-            // use a placeholder so the host can build for unit / integration
-            // tests and dev scenarios that don't need the database. Any code
-            // path that actually touches the DB will still fail at the first
-            // query — caller gets a real "connection refused" error.
+            // fall back to EF Core's in-memory provider so the host can
+            // build for unit / integration tests and dev scenarios that
+            // don't need real Postgres. Queries return empty results;
+            // endpoints exercising auth / validation / status-code paths
+            // (e.g. tenant-claim precondition checks) still produce their
+            // intended response codes instead of 500s from a timed-out
+            // Npgsql connect.
             //
             // We resolve the environment via IHostEnvironment (set by
             // WebApplicationFactory and CreateBuilder), NOT via
@@ -76,8 +76,6 @@ public static class DependencyInjection
                     "dotnet user-secrets set \"ConnectionStrings:Postgres\" \"<your-neon-conn-string>\" " +
                     "--project api/QuantamAnalytics.Api");
             }
-
-            connectionString = DevPlaceholderConnectionString;
         }
 
         services.AddScoped<CurrentTenant>();
@@ -108,17 +106,34 @@ public static class DependencyInjection
         // pooled DbContext across requests risks stale TenantId leaking into the
         // global query filter. Snake_case naming converts PascalCase model names
         // to postgres conventions (Tenant -> tenants, CreatedAtUtc -> created_at_utc).
-        services.AddDbContext<AppDbContext>((sp, options) => options
-            .UseNpgsql(connectionString, npgsql => npgsql
-                .MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
-            .UseSnakeCaseNamingConvention()
-            // Interceptor is scoped, same as DbContext — resolve from the
-            // current request's service provider so it sees the per-request
-            // tenant + auth subject rather than a stale snapshot.
-            .AddInterceptors(sp.GetRequiredService<AuditLogSaveChangesInterceptor>()));
+        services.AddDbContext<AppDbContext>((sp, options) =>
+        {
+            if (useInMemoryFallback)
+            {
+                // No real connection string + non-Production: use EF's
+                // in-memory provider. Snake_case + interceptors aren't
+                // applicable here; the in-memory provider has no SQL to
+                // shape and no SaveChanges hooks beyond what EF runs
+                // natively. This is strictly a "let the host start"
+                // fallback for tests / dev — production fails fast above.
+                options.UseInMemoryDatabase(DevInMemoryDatabaseName);
+                return;
+            }
+
+            options
+                .UseNpgsql(connectionString, npgsql => npgsql
+                    .MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
+                .UseSnakeCaseNamingConvention()
+                // Interceptor is scoped, same as DbContext — resolve from the
+                // current request's service provider so it sees the per-request
+                // tenant + auth subject rather than a stale snapshot.
+                .AddInterceptors(sp.GetRequiredService<AuditLogSaveChangesInterceptor>());
+        });
 
         // /ready endpoint pings this. Returns Healthy only when EF can open
-        // a connection and execute a trivial query.
+        // a connection and execute a trivial query. The in-memory provider
+        // always reports Healthy, which is what we want for the no-config
+        // fallback path — readiness in tests shouldn't depend on Postgres.
         services.AddHealthChecks()
             .AddDbContextCheck<AppDbContext>(name: "postgres");
 

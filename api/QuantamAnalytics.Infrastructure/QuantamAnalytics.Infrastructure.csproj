@@ -27,6 +27,15 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.1" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
 
+    <!--
+      In-memory EF provider used ONLY as the non-production fallback when
+      no Postgres connection string is configured (e.g. integration tests
+      that exercise endpoint pipelines via plain WebApplicationFactory<Program>
+      without spinning up a testcontainer). See AddInfrastructure() in
+      DependencyInjection.cs.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+
     <!-- Snake_case naming so generated SQL matches Postgres conventions -->
     <PackageReference Include="EFCore.NamingConventions" Version="10.0.0" />
 
