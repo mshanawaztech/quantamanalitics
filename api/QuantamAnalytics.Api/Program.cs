@@ -5,6 +5,19 @@ using QuantamAnalytics.Api.Demo;
 using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Api.Tenancy;
 using QuantamAnalytics.Infrastructure;
+using QuestPDF.Infrastructure;
+
+// QuestPDF community license — must be set once per process before any
+// document is rendered. Setting it here (in the app entry point) rather
+// than inside the renderer's constructor avoids two failure modes:
+//   1. Constructor side-effects fire on first DI resolution, which can
+//      happen mid-request after license-aware code paths have already
+//      run elsewhere.
+//   2. Putting [ModuleInitializer] in a class library trips analyzer
+//      rule CA2255 ("intended for app code or source generators").
+// WebApplicationFactory<Program> in the integration test suite
+// re-enters this file, so tests get the license set too.
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
