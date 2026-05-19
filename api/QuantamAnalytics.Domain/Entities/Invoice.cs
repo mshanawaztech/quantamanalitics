@@ -47,7 +47,12 @@ public sealed class Invoice : ITenantScoped
         string currency,
         decimal taxRate,
         IReadOnlyCollection<InvoiceLineItemInput> lineItems,
-        string? notes)
+        string? notes,
+        string? remitBankName = null,
+        string? remitAccountNumber = null,
+        string? remitRoutingNumber = null,
+        string? remitContactPhone = null,
+        string? vendorName = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(contractorAuthSubject);
         ArgumentException.ThrowIfNullOrWhiteSpace(contractorEmail);
@@ -92,12 +97,20 @@ public sealed class Invoice : ITenantScoped
         Currency = currency.Trim().ToUpperInvariant();
         TaxRate = taxRate;
         Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        RemitBankName = TrimOrNull(remitBankName);
+        RemitAccountNumber = TrimOrNull(remitAccountNumber);
+        RemitRoutingNumber = TrimOrNull(remitRoutingNumber);
+        RemitContactPhone = TrimOrNull(remitContactPhone);
+        VendorName = TrimOrNull(vendorName);
         Status = InvoiceStatus.Draft;
         CreatedAtUtc = DateTimeOffset.UtcNow;
         UpdatedAtUtc = CreatedAtUtc;
 
         ReplaceLineItems(lineItems);
     }
+
+    private static string? TrimOrNull(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public Guid Id { get; private set; }
     public Guid TenantId { get; private set; }
@@ -143,6 +156,30 @@ public sealed class Invoice : ITenantScoped
 
     public string? Notes { get; private set; }
 
+    /// <summary>
+    /// Optional per-invoice remit-to override for the bank name. NULL means
+    /// "fall back to the tenant's branding default" at PDF-render time. This
+    /// lets a contractor invoice a single client through a different account
+    /// without changing their tenant-wide branding.
+    /// </summary>
+    public string? RemitBankName { get; private set; }
+
+    /// <summary>Optional per-invoice override for the receiving account number.</summary>
+    public string? RemitAccountNumber { get; private set; }
+
+    /// <summary>Optional per-invoice override for the ABA / routing number.</summary>
+    public string? RemitRoutingNumber { get; private set; }
+
+    /// <summary>Optional per-invoice override for the contact phone shown in the letterhead.</summary>
+    public string? RemitContactPhone { get; private set; }
+
+    /// <summary>
+    /// Optional sub-department or vendor reference (e.g. <c>DOCCS</c> under
+    /// the parent <see cref="ClientName"/> <c>NYS-State of New York</c>). Free-text,
+    /// shown alongside ClientName on the rendered invoice.
+    /// </summary>
+    public string? VendorName { get; private set; }
+
     /// <summary>Line items belonging to this invoice. Cascade-deleted with the parent.</summary>
     public IReadOnlyList<InvoiceLineItem> LineItems => _lineItems;
 
@@ -171,7 +208,12 @@ public sealed class Invoice : ITenantScoped
         string currency,
         decimal taxRate,
         IReadOnlyCollection<InvoiceLineItemInput> lineItems,
-        string? notes)
+        string? notes,
+        string? remitBankName = null,
+        string? remitAccountNumber = null,
+        string? remitRoutingNumber = null,
+        string? remitContactPhone = null,
+        string? vendorName = null)
     {
         if (Status != InvoiceStatus.Draft)
         {
@@ -211,6 +253,11 @@ public sealed class Invoice : ITenantScoped
         Currency = currency.Trim().ToUpperInvariant();
         TaxRate = taxRate;
         Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        RemitBankName = TrimOrNull(remitBankName);
+        RemitAccountNumber = TrimOrNull(remitAccountNumber);
+        RemitRoutingNumber = TrimOrNull(remitRoutingNumber);
+        RemitContactPhone = TrimOrNull(remitContactPhone);
+        VendorName = TrimOrNull(vendorName);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         ReplaceLineItems(lineItems);

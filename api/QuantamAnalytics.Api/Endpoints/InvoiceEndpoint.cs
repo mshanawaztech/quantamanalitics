@@ -172,7 +172,12 @@ public static class InvoiceEndpoint
                 currency: body.Currency,
                 taxRate: body.TaxRate,
                 lineItems: inputs,
-                notes: body.Notes);
+                notes: body.Notes,
+                remitBankName: body.RemitBankName,
+                remitAccountNumber: body.RemitAccountNumber,
+                remitRoutingNumber: body.RemitRoutingNumber,
+                remitContactPhone: body.RemitContactPhone,
+                vendorName: body.VendorName);
 
             db.Invoices.Add(invoice);
             await db.SaveChangesAsync(cancellationToken);
@@ -226,7 +231,12 @@ public static class InvoiceEndpoint
                 currency: body.Currency,
                 taxRate: body.TaxRate,
                 lineItems: inputs,
-                notes: body.Notes);
+                notes: body.Notes,
+                remitBankName: body.RemitBankName,
+                remitAccountNumber: body.RemitAccountNumber,
+                remitRoutingNumber: body.RemitRoutingNumber,
+                remitContactPhone: body.RemitContactPhone,
+                vendorName: body.VendorName);
 
             await db.SaveChangesAsync(cancellationToken);
             return TypedResults.Ok(Project(invoice));
@@ -589,7 +599,12 @@ public static class InvoiceEndpoint
                 li.Amount,
                 li.Notes,
                 li.SortOrder))
-            .ToArray());
+            .ToArray(),
+        x.RemitBankName,
+        x.RemitAccountNumber,
+        x.RemitRoutingNumber,
+        x.RemitContactPhone,
+        x.VendorName);
 
     private static ProblemHttpResult TenantRequired() => TypedResults.Problem(
         title: "Tenant assignment required",
@@ -620,7 +635,14 @@ public sealed record CreateInvoiceRequest(
     string Currency,
     decimal TaxRate,
     InvoiceLineItemRequest[] LineItems,
-    string? Notes);
+    string? Notes,
+    // qa005 — per-invoice Remit-to override. Send NULL to inherit
+    // the tenant's branding default at PDF render time.
+    string? RemitBankName = null,
+    string? RemitAccountNumber = null,
+    string? RemitRoutingNumber = null,
+    string? RemitContactPhone = null,
+    string? VendorName = null);
 
 public sealed record UpdateInvoiceRequest(
     string? ClientName,
@@ -631,7 +653,12 @@ public sealed record UpdateInvoiceRequest(
     string Currency,
     decimal TaxRate,
     InvoiceLineItemRequest[] LineItems,
-    string? Notes);
+    string? Notes,
+    string? RemitBankName = null,
+    string? RemitAccountNumber = null,
+    string? RemitRoutingNumber = null,
+    string? RemitContactPhone = null,
+    string? VendorName = null);
 
 /// <summary>
 /// v4 line-item request. Description + week-of (Monday) + days × hours/day
@@ -672,7 +699,16 @@ public sealed record InvoiceResponse(
     string? ReviewerNote,
     DateTimeOffset? PaidAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    InvoiceLineItemResponse[] LineItems);
+    InvoiceLineItemResponse[] LineItems,
+    // qa005 — null means "no per-invoice override; PDF will use
+    // the tenant's branding default." The client can show these
+    // as placeholder text in form fields to make the inheritance
+    // visible to the user.
+    string? RemitBankName = null,
+    string? RemitAccountNumber = null,
+    string? RemitRoutingNumber = null,
+    string? RemitContactPhone = null,
+    string? VendorName = null);
 
 public sealed record InvoiceLineItemResponse(
     Guid Id,

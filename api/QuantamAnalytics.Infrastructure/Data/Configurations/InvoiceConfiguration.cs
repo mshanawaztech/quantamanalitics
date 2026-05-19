@@ -62,6 +62,18 @@ internal sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
 
         builder.Property(x => x.Notes).HasMaxLength(2000);
 
+        // qa005 — optional per-invoice Remit-to overrides. NULL means
+        // "fall back to TenantBranding" at PDF render time. Lengths
+        // mirror the branding entity so a value valid in one is valid
+        // in the other.
+        builder.Property(x => x.RemitBankName).HasMaxLength(120);
+        builder.Property(x => x.RemitAccountNumber).HasMaxLength(40);
+        builder.Property(x => x.RemitRoutingNumber).HasMaxLength(40);
+        builder.Property(x => x.RemitContactPhone).HasMaxLength(40);
+
+        // Vendor reference — denormalized free-text sub-department label.
+        builder.Property(x => x.VendorName).HasMaxLength(255);
+
         builder.Property(x => x.Status)
             .HasConversion<string>()
             .HasMaxLength(16)
