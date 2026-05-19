@@ -136,7 +136,12 @@ interface EntitySummary {
                 </select>
               </label>
               <div class="actions full-width">
-                <button type="submit" class="primary" [disabled]="loading()">
+                <button
+                  type="submit"
+                  class="primary"
+                  [disabled]="loading()"
+                  [attr.aria-busy]="loading() || null"
+                >
                   {{ loading() ? 'Refreshing…' : 'Run query' }}
                 </button>
                 <button type="button" class="secondary" (click)="resetFilters()" [disabled]="loading()">
@@ -271,6 +276,14 @@ export class AdminAuditConsoleComponent {
   readonly loading = signal(false);
   readonly error = signal('');
 
+  // Coalesce rapid-fire chip clicks (focusSubject / focusEntityType /
+  // focusEntity) into a single query. Without this, clicking three chips
+  // in a row fires three back-to-back queries; this collapses them to
+  // one after a short quiet window. Cleared by runQuery() so an explicit
+  // submit goes through immediately.
+  private chipQueryHandle: ReturnType<typeof setTimeout> | null = null;
+  private static readonly CHIP_DEBOUNCE_MS = 200;
+
   authSubject = '';
   action = '';
   entityType = '';
@@ -338,6 +351,13 @@ export class AdminAuditConsoleComponent {
       return;
     }
 
+    // Cancel any pending debounced chip-click query — an explicit Run
+    // beats a still-pending coalesce.
+    if (this.chipQueryHandle !== null) {
+      clearTimeout(this.chipQueryHandle);
+      this.chipQueryHandle = null;
+    }
+
     this.loading.set(true);
     this.error.set('');
 
@@ -375,18 +395,28 @@ export class AdminAuditConsoleComponent {
 
   focusSubject(subject: string): void {
     this.authSubject = subject;
-    this.runQuery();
+    this.scheduleChipQuery();
   }
 
   focusEntityType(entityType: string): void {
     this.entityType = entityType;
-    this.runQuery();
+    this.scheduleChipQuery();
   }
 
   focusEntity(entityType: string, entityId: string): void {
     this.entityType = entityType;
     this.entityId = entityId;
-    this.runQuery();
+    this.scheduleChipQuery();
+  }
+
+  private scheduleChipQuery(): void {
+    if (this.chipQueryHandle !== null) {
+      clearTimeout(this.chipQueryHandle);
+    }
+    this.chipQueryHandle = setTimeout(() => {
+      this.chipQueryHandle = null;
+      this.runQuery();
+    }, AdminAuditConsoleComponent.CHIP_DEBOUNCE_MS);
   }
 
   formatUtc(value: string): string {

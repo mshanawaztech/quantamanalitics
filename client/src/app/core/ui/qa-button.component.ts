@@ -19,6 +19,7 @@ import { Component, Input } from '@angular/core';
     <button
       [attr.type]="type"
       [attr.aria-label]="ariaLabel || null"
+      [attr.aria-busy]="loading || null"
       [disabled]="disabled"
       [class]="'qa-btn qa-btn--' + variant + (block ? ' qa-btn--block' : '')"
     >
@@ -106,4 +107,10 @@ export class QaButtonComponent {
   @Input() disabled = false;
   @Input() block = false;
   @Input() ariaLabel?: string;
+  /**
+   * When true, sets `aria-busy="true"` so screen readers announce the
+   * "working" state. Doesn't itself disable the button — wire `disabled`
+   * alongside if you want to block additional clicks during the operation.
+   */
+  @Input() loading = false;
 }

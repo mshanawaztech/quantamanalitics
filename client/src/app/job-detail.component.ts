@@ -28,7 +28,11 @@ import { PublicJobDetail, PublicJobsService } from './core/jobs/public-jobs.serv
         <section class="missing-card">
           <h1>We could not load this job right now</h1>
           <p>{{ loadError() }}</p>
-          <button type="button" (click)="reload()">Try again</button>
+          <button
+            type="button"
+            (click)="reload()"
+            aria-label="Retry loading job details"
+          >Try again</button>
         </section>
       } @else if (job(); as role) {
         <section class="detail-grid">
@@ -66,7 +70,11 @@ import { PublicJobDetail, PublicJobsService } from './core/jobs/public-jobs.serv
               @if (applyMessage()) {
                 <p class="success">{{ applyMessage() }}</p>
               }
-              <button type="submit" [disabled]="submitting()">
+              <button
+                type="submit"
+                [disabled]="submitting()"
+                [attr.aria-busy]="submitting() || null"
+              >
                 {{ submitting() ? 'Submitting…' : 'Submit application' }}
               </button>
             </form>

@@ -162,6 +162,7 @@ import {
               variant="primary"
               type="submit"
               [disabled]="saving()"
+              [loading]="saving()"
             >{{ saving() ? 'Saving…' : 'Save branding' }}</qa-button>
           </div>
         </form>

@@ -274,10 +274,20 @@ export class ClientDashboardComponent {
   }
 
   protected reject(timesheet: ClientApprovalTimesheet): void {
+    const reason = (this.reviewNotes[timesheet.id] ?? '').trim();
+    if (reason.length === 0) {
+      // Silent rejects are bad audit trail — force the reviewer to say
+      // why so the contractor sees a real reason in their feedback.
+      this.error.set(
+        'Add a review note explaining why this timesheet is being rejected before sending it back.',
+      );
+      return;
+    }
+
     this.actingId.set(timesheet.id);
     this.error.set(null);
 
-    this.approvals.reject(timesheet.id, this.reviewNotes[timesheet.id] || '').subscribe({
+    this.approvals.reject(timesheet.id, reason).subscribe({
       next: (updated) => {
         this.applyUpdatedTimesheet(updated);
       },

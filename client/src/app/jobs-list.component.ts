@@ -27,7 +27,12 @@ import { PublicJobListItem, PublicJobsService } from './core/jobs/public-jobs.se
           <article class="job-card state-card empty">
             <h2>Could not load jobs right now</h2>
             <p>{{ error() }}</p>
-            <button type="button" class="retry" (click)="loadJobs()">Try again</button>
+            <button
+              type="button"
+              class="retry"
+              (click)="loadJobs()"
+              aria-label="Retry loading jobs"
+            >Try again</button>
           </article>
         } @else {
           @for (job of jobs(); track job.id) {
