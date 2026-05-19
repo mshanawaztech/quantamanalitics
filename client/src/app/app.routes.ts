@@ -99,6 +99,10 @@ export const routes: Routes = [
         component: RecruiterEmailTemplatesComponent,
       },
       {
+        path: 'recruiter/recycle-bin',
+        component: RecruiterRecycleBinComponent,
+      },
+      {
         path: 'interviews',
         component: InterviewSchedulingComponent,
       },
