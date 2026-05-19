@@ -21,11 +21,10 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
     private const string MutedTextHex = "#5d6577";
     private const string BodyTextHex = "#1a1f2c";
 
-    public QuestPdfInvoiceRenderer()
-    {
-        // QuestPDF community license — set once at process start. Idempotent.
-        QuestPDF.Settings.License = LicenseType.Community;
-    }
+    // License is registered once per process by QuestPdfLicense.Initialize()
+    // (a [ModuleInitializer] in this assembly). Doing it in the constructor
+    // is too late if WebApplicationFactory builds a host that touches QuestPDF
+    // before the renderer is resolved.
 
     public byte[] Render(Invoice invoice, TenantBranding? branding, byte[]? logoBytes)
     {
