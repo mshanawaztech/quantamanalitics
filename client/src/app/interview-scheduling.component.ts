@@ -106,7 +106,7 @@ interface ScorecardTemplate {
             </div>
 
             @if (overviewError()) {
-              <p class="error">{{ overviewError() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ overviewError() }}</p>
             }
 
             <div class="provider-list">

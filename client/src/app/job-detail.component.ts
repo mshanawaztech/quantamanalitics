@@ -61,7 +61,7 @@ import { PublicJobDetail, PublicJobsService } from './core/jobs/public-jobs.serv
                 <textarea rows="5" name="note" [(ngModel)]="note" placeholder="Tell us why this role fits."></textarea>
               </label>
               @if (applyError()) {
-                <p class="error">{{ applyError() }}</p>
+                <p class="error" role="alert" aria-live="assertive">{{ applyError() }}</p>
               }
               @if (applyMessage()) {
                 <p class="success">{{ applyMessage() }}</p>

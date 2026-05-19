@@ -146,7 +146,7 @@ interface EntitySummary {
             </form>
 
             @if (error()) {
-              <p class="error">{{ error() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ error() }}</p>
             }
           </article>
 

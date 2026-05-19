@@ -87,7 +87,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
             </div>
 
             @if (notificationsError()) {
-              <p class="error">{{ notificationsError() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ notificationsError() }}</p>
               <button type="button" class="secondary" (click)="fetchNotifications()">Retry notifications</button>
             } @else {
               <div class="activity-list">
@@ -173,7 +173,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
             </form>
 
             @if (jobsError()) {
-              <p class="error">{{ jobsError() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ jobsError() }}</p>
             }
 
             <div class="jobs-list">
@@ -236,7 +236,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
             </div>
 
             @if (applicationsError()) {
-              <p class="error">{{ applicationsError() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ applicationsError() }}</p>
             }
 
             <div class="board">
@@ -345,7 +345,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
               }
 
               @if (resumeParseError()) {
-                <p class="error">{{ resumeParseError() }}</p>
+                <p class="error" role="alert" aria-live="assertive">{{ resumeParseError() }}</p>
               }
             </div>
 
@@ -470,7 +470,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
               }
 
               @if (emailTemplateError()) {
-                <p class="error">{{ emailTemplateError() }}</p>
+                <p class="error" role="alert" aria-live="assertive">{{ emailTemplateError() }}</p>
               }
 
               <div class="merge-field-panel">
@@ -576,7 +576,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
           </div>
 
           @if (activityError()) {
-            <p class="error">{{ activityError() }}</p>
+            <p class="error" role="alert" aria-live="assertive">{{ activityError() }}</p>
           } @else {
             <div class="activity-list">
               @for (item of candidateActivity(); track item.id) {
@@ -631,7 +631,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
             </div>
 
             @if (invoiceReadyError()) {
-              <p class="error">{{ invoiceReadyError() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ invoiceReadyError() }}</p>
             } @else {
               <div class="invoice-list">
                 @for (item of invoiceReady(); track item.timesheetId) {
@@ -669,7 +669,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
             </div>
 
             @if (handoffError()) {
-              <p class="error">{{ handoffError() }}</p>
+              <p class="error" role="alert" aria-live="assertive">{{ handoffError() }}</p>
             } @else if (invoiceHandoff()) {
               <div class="handoff-summary">
                 <article class="handoff-stat">

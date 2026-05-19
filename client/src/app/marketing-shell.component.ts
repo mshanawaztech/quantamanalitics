@@ -123,10 +123,13 @@ const ROUTE_LABELS: Record<string, string> = {
               <input
                 id="global-search"
                 type="search"
-                placeholder="Search jobs, candidates, submissions…"
+                placeholder="Search coming soon"
                 [value]="searchQuery()"
                 (input)="onSearchInput($event)"
                 autocomplete="off"
+                disabled
+                aria-disabled="true"
+                title="Global search isn't wired up yet"
               />
             </form>
 
