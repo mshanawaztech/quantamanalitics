@@ -208,17 +208,13 @@ import {
               >
                 <div class="letterhead-preview__identity">
                   <qa-logo
-                    size="44"
+                    size="46"
                     alt=""
                     class="letterhead-preview__mark"
                   ></qa-logo>
                   <div class="letterhead-preview__identity-text">
-                    <strong>{{ b.displayName || b.legalName || 'Your Company' }}</strong>
-                    @if (b.legalName && b.legalName !== b.displayName) {
-                      <span class="letterhead-preview__sub">{{ b.legalName }}</span>
-                    }
-                    @if (b.contactEmail) { <span class="letterhead-preview__sub">{{ b.contactEmail }}</span> }
-                    @if (b.contactPhone) { <span class="letterhead-preview__sub">Cell: {{ b.contactPhone }}</span> }
+                    <strong>{{ b.legalName || b.displayName || 'Your Company' }}</strong>
+                    <span class="letterhead-preview__sub">Invoice</span>
                   </div>
                 </div>
                 <div

@@ -61,17 +61,24 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
 
     // ── Banner letterhead (angled navy + accent stripe + identity) ──
     /// <summary>
-    /// Inline brand mark — identical glyph to the SPA's qa-logo component
-    /// (Q ring + upward analytics tick). Inlined as SVG so the PDF carries
-    /// the mark without us shipping a binary asset; colors hard-coded
-    /// white-on-accent so the mark reads against the navy banner.
+    /// Inline brand mark — the analytics-magnifier glyph from the SPA's
+    /// qa-logo, rendered in its on-dark form (white magnifier ring + white
+    /// chart bars + gold trend line + gold handle, no hexagon) so it reads
+    /// crisply against the navy invoice banner. Inlined as SVG so the PDF
+    /// carries the mark without shipping a binary asset.
     /// </summary>
     private const string BrandMarkSvg = """
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-          <circle cx="32" cy="32" r="26" fill="none" stroke="#ffffff" stroke-width="6"/>
-          <line x1="48" y1="48" x2="58" y2="58" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
-          <polyline points="18,40 27,32 35,36 46,22" fill="none" stroke="#e6c9a8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="46" cy="22" r="3" fill="#e6c9a8"/>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+          <line x1="80" y1="81" x2="93" y2="94" stroke="#F4CE54" stroke-width="12" stroke-linecap="round"/>
+          <circle cx="58" cy="59" r="31" fill="none" stroke="#ffffff" stroke-width="7"/>
+          <rect x="45" y="65" width="8" height="12" rx="2" fill="#ffffff"/>
+          <rect x="56" y="59" width="8" height="18" rx="2" fill="#ffffff"/>
+          <rect x="67" y="53" width="8" height="24" rx="2" fill="#ffffff"/>
+          <polyline points="43,57 53,51 63,54 73,45" fill="none" stroke="#F4CE54" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="43" cy="57" r="3" fill="#F4CE54"/>
+          <circle cx="53" cy="51" r="3" fill="#F4CE54"/>
+          <circle cx="63" cy="54" r="3" fill="#F4CE54"/>
+          <circle cx="73" cy="45" r="3" fill="#F4CE54"/>
         </svg>
         """;
 
@@ -93,54 +100,24 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
             // Accent stripe across the bottom
             layers.Layer().AlignBottom().Height(6).Background(accent);
 
-            // Identity text — fall back to platform defaults (Quantam) so a
-            // brand-new tenant gets a usable letterhead even before they
-            // visit /settings/branding.
-            var displayName = branding?.DisplayName ?? BrandingDefaults.DisplayName;
-            var legalName = branding?.LegalName ?? BrandingDefaults.LegalName;
-            var contactEmail = branding?.ContactEmail ?? BrandingDefaults.ContactEmail;
-            // qa005 — per-invoice contact phone wins over branding's phone
-            // so a contractor can route a specific invoice to a different
-            // contact without rebranding their tenant.
-            var contactPhone = invoice.RemitContactPhone
-                ?? branding?.ContactPhone ?? BrandingDefaults.ContactPhone;
+            // Identity — show the company (legal) name, not a person's name.
+            // Falls back to platform defaults so a brand-new tenant still
+            // gets a usable letterhead before visiting /settings/branding.
+            // The banner stays clean: mark + company name + "INVOICE" label.
+            // Contact + bank details live in the dedicated bank block below.
+            var companyName = branding?.LegalName ?? BrandingDefaults.LegalName;
 
-            layers.PrimaryLayer().PaddingLeft(40).PaddingTop(24).PaddingBottom(20).Row(row =>
+            layers.PrimaryLayer().PaddingLeft(40).PaddingVertical(28).Row(row =>
             {
-                // Brand mark on the left so the platform identity is
-                // visible even when the tenant hasn't uploaded a logo.
-                // PaddingRight on this item provides the gutter between
-                // the mark and the identity column — avoids the IDE0058
-                // "discarded return value" hit that an empty gutter
-                // element would trigger under EnforceCodeStyleInBuild.
-                row.ConstantItem(72).Height(56).AlignTop().PaddingRight(16).Svg(BrandMarkSvg);
+                // Brand mark on the left. PaddingRight provides the gutter
+                // between the mark and the identity column.
+                row.ConstantItem(72).Height(60).AlignMiddle().PaddingRight(16).Svg(BrandMarkSvg);
 
-                row.RelativeItem().Column(c =>
+                row.RelativeItem().AlignMiddle().Column(c =>
                 {
-                    c.Item().Text(displayName).FontSize(20).Bold().FontColor(Colors.White);
-
-                    if (!string.Equals(legalName, displayName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        c.Item().PaddingTop(2).Text(legalName)
-                            .FontSize(13).Bold().FontColor(Colors.White);
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(contactEmail))
-                    {
-                        c.Item().PaddingTop(4).Text(contactEmail)
-                            .FontSize(11).FontColor(Colors.White);
-                    }
-                    if (!string.IsNullOrWhiteSpace(contactPhone))
-                    {
-                        c.Item().PaddingTop(2).Text("Cell: " + contactPhone)
-                            .FontSize(11).FontColor(Colors.White);
-                    }
-
-                    var address = FormatAddress(branding);
-                    if (!string.IsNullOrWhiteSpace(address))
-                    {
-                        c.Item().PaddingTop(4).Text(address!).FontSize(10).FontColor(Colors.White);
-                    }
+                    c.Item().Text(companyName).FontSize(22).Bold().FontColor(Colors.White);
+                    c.Item().PaddingTop(3).Text("INVOICE")
+                        .FontSize(12).Bold().FontColor(accent);
                 });
             });
 
@@ -343,17 +320,4 @@ public sealed class QuestPdfInvoiceRenderer : IInvoicePdfRenderer
     private static string FormatLongDate(DateOnly date) =>
         date.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
 
-    private static string? FormatAddress(TenantBranding? b)
-    {
-        if (b is null) return null;
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(b.AddressLine1)) parts.Add(b.AddressLine1!);
-        if (!string.IsNullOrWhiteSpace(b.AddressLine2)) parts.Add(b.AddressLine2!);
-        var locality = new[] { b.City, b.StateRegion, b.PostalCode }
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .ToArray();
-        if (locality.Length > 0) parts.Add(string.Join(", ", locality));
-        if (!string.IsNullOrWhiteSpace(b.Country)) parts.Add(b.Country!);
-        return parts.Count == 0 ? null : string.Join(" · ", parts);
-    }
 }
