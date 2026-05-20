@@ -725,6 +725,9 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     p { color: var(--color-ink-muted, #4b5a72); line-height: 1.65; }
     .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary, #1a3a8f); font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
+    .hero-card span { display: block; color: var(--color-ink-muted, #4b5a72); }
+    .hero-card a { display: inline-block; margin-top: 0.6rem; color: var(--color-primary, #1a3a8f); font-weight: 700; text-decoration: none; }
+    .hero-card a:hover { text-decoration: underline; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
     .board-copy { margin: 0.45rem 0 0; }
     .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: var(--color-surface-alt, #f0f3f9); color: var(--color-ink, #1a2942); font-size: 0.85rem; font-weight: 700; }
