@@ -640,8 +640,8 @@ const STATUS_DOT_KIND: Record<PipelineStatus, string> = {
     }
     .dot--sm { width: 0.5rem; height: 0.5rem; }
     .dot[data-kind='applied']   { background: #2563eb; }
-    .dot[data-kind='interview'] { background: #7c3aed; }
-    .dot[data-kind='offer']     { background: #d97706; }
+    .dot[data-kind='interview'] { background: #4f46e5; }
+    .dot[data-kind='offer']     { background: #0891b2; }
     .dot[data-kind='hired']     { background: var(--color-success); }
     .dot[data-kind='rejected']  { background: var(--color-danger); }
     @media (max-width: 1100px) {

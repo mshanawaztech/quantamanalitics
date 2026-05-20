@@ -4,10 +4,20 @@
   <meta charset="utf-8">
   <title>Quantam Analytics</title>
   <meta name="description" content="Multi-tenant staffing platform — applicant tracking, interviews, onboarding, timesheets, and invoicing.">
-  <meta name="theme-color" content="#1a1a1a">
+  <meta name="theme-color" content="#1a3a8f">
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <!-- Inter — the typeface the design tokens target. Without this the
+       font stack falls through to system fonts (Segoe UI / Arial) and
+       the UI renders off-spec. Preconnect keeps the fetch off the
+       critical path; display=swap avoids invisible-text flash. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
 </head>
 <body>
   <app-root></app-root>

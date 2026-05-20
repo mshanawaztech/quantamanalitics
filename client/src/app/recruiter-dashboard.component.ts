@@ -714,31 +714,31 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .workspace { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); align-items: start; }
     .hero-card, .gate-card, .jobs-card, .board-card, .resume-review-card, .invoice-card, .handoff-card, .activity-card, .column, .application-card, .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty {
       border-radius: 1.5rem;
-      background: rgb(255 251 244 / 0.88);
-      border: 1px solid rgb(87 70 42 / 0.14);
-      box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
+      box-shadow: var(--shadow-md);
     }
     .hero-card, .gate-card, .jobs-card, .board-card, .resume-review-card, .invoice-card, .handoff-card, .activity-card { padding: 1.6rem; }
-    .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
+    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
     h2, h3 { margin: 0; }
-    p { color: #554d41; line-height: 1.65; }
-    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9a3412; font-weight: 800; }
+    p { color: var(--color-ink-muted, #4b5a72); line-height: 1.65; }
+    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary, #1a3a8f); font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
     .board-copy { margin: 0.45rem 0 0; }
-    .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: #e7e5e4; color: #44403c; font-size: 0.85rem; font-weight: 700; }
-    .activity-item[data-severity='warning'] { border-color: #f59e0b; }
+    .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: var(--color-surface-alt, #f0f3f9); color: var(--color-ink, #1a2942); font-size: 0.85rem; font-weight: 700; }
+    .activity-item[data-severity='warning'] { border-color: #0891b2; }
     .activity-item[data-severity='success'] { border-color: #16a34a; }
     .activity-item[data-severity='info'] { border-color: #2563eb; }
     .job-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; margin-bottom: 1.25rem; }
-    label { display: grid; gap: 0.35rem; color: #3f372c; font-weight: 600; }
+    label { display: grid; gap: 0.35rem; color: var(--color-ink, #1a2942); font-weight: 600; }
     input, textarea, select {
       width: 100%;
       padding: 0.85rem 0.95rem;
       border-radius: 0.9rem;
-      border: 1px solid #d8c8b0;
-      background: #fffdf9;
+      border: 1px solid var(--color-border, #d8dee9);
+      background: var(--color-surface, #ffffff);
       font: inherit;
     }
     .checkbox { display: flex; align-items: center; gap: 0.6rem; }
@@ -749,17 +749,17 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       padding: 0.9rem 1rem;
       border: 0;
       border-radius: 999px;
-      background: #1f2937;
-      color: #fff8ee;
+      background: var(--color-primary, #1a3a8f);
+      color: var(--color-ink-onblue, #ffffff);
       font-weight: 700;
       cursor: pointer;
     }
     .secondary {
       padding: 0.9rem 1rem;
       border-radius: 999px;
-      border: 1px solid #d8c8b0;
-      background: #fffdf9;
-      color: #3f372c;
+      border: 1px solid var(--color-border, #d8dee9);
+      background: var(--color-surface, #ffffff);
+      color: var(--color-ink, #1a2942);
       font-weight: 700;
       cursor: pointer;
     }
@@ -776,8 +776,8 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       gap: 0.2rem;
       padding: 0.85rem 1rem;
       border-radius: 1rem;
-      background: #fffdf9;
-      border: 1px solid #eadcc8;
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
     }
     .jobs-list { display: grid; gap: 0.8rem; }
     .resume-review-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: 1rem; align-items: start; }
@@ -785,7 +785,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .template-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr); gap: 1rem; align-items: start; }
     .template-editor, .template-preview { display: grid; gap: 0.9rem; }
     .template-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.95rem; }
-    .template-hint { margin: -0.2rem 0 0; color: #7c6f5e; font-size: 0.92rem; }
+    .template-hint { margin: -0.2rem 0 0; color: var(--color-ink-muted, #4b5a72); font-size: 0.92rem; }
     .merge-field-panel { display: grid; }
     .template-preview-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
     .rendered-preview { display: grid; gap: 0.6rem; padding: 1rem; border-radius: 1rem; }
@@ -793,7 +793,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       margin: 0;
       white-space: pre-wrap;
       font: inherit;
-      color: #554d41;
+      color: var(--color-ink-muted, #4b5a72);
     }
     .saved-template-list { display: grid; gap: 0.8rem; margin-top: 1rem; }
     .saved-template-item {
@@ -802,20 +802,20 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       gap: 1rem;
       padding: 1rem;
       border-radius: 1rem;
-      background: #fffdf9;
-      border: 1px solid #eadcc8;
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
     }
-    .saved-template-item p, .saved-template-item span { margin: 0; color: #6b6255; }
+    .saved-template-item p, .saved-template-item span { margin: 0; color: var(--color-ink-muted, #4b5a72); }
     .invoice-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
     .handoff-actions, .handoff-summary, .handoff-preview { display: grid; gap: 0.9rem; }
     .handoff-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); margin-bottom: 1rem; }
     .handoff-summary, .handoff-preview { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
     .activity-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.9rem; }
     .job-item, .application-card { padding: 1rem; }
-    .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty { padding: 1rem; background: #fffdf9; }
-    .job-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem); align-items: start; gap: 1rem; border-radius: 1.1rem; background: #fffdf9; border: 1px solid #eadcc8; }
+    .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty { padding: 1rem; background: var(--color-surface, #ffffff); }
+    .job-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem); align-items: start; gap: 1rem; border-radius: 1.1rem; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #d8dee9); }
     .job-item strong, .application-card strong { display: block; margin-bottom: 0.45rem; }
-    .slug { font-family: monospace; color: #8b5e34; overflow-wrap: anywhere; text-align: right; }
+    .slug { font-family: monospace; color: var(--color-ink-muted, #4b5a72); overflow-wrap: anywhere; text-align: right; }
     .board-card { overflow: hidden; }
     .board {
       display: grid;
@@ -834,28 +834,28 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       min-width: 15rem;
       transition: background-color 120ms ease, border-color 120ms ease;
     }
-    .column[data-active-drop='true'] { background: rgb(249 245 237 / 0.9); border-color: rgb(154 52 18 / 0.18); }
+    .column[data-active-drop='true'] { background: var(--color-primary-soft, #e7ecf6); border-color: var(--color-primary, #1a3a8f); }
     .column-head {
       display: flex;
       justify-content: space-between;
       gap: 0.8rem;
       align-items: flex-start;
     }
-    .column-head p { margin: 0.35rem 0 0; color: #8b5e34; font-size: 0.92rem; }
+    .column-head p { margin: 0.35rem 0 0; color: var(--color-ink-muted, #4b5a72); font-size: 0.92rem; }
     .stuck-pill, .stuck-tag {
       display: inline-flex;
       align-items: center;
       padding: 0.25rem 0.55rem;
       border-radius: 999px;
-      background: rgb(217 119 6 / 0.12);
-      color: #9a3412;
+      background: var(--color-primary-soft, #e7ecf6);
+      color: var(--color-primary, #1a3a8f);
       font-size: 0.8rem;
       font-weight: 700;
       white-space: nowrap;
     }
     .application-card {
-      background: #fffdf9;
-      border: 1px solid #eadcc8;
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
       display: grid;
       gap: 0.75rem;
       min-width: 0;
@@ -863,8 +863,8 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     }
     .application-card[data-dragging='true'] { opacity: 0.72; transform: rotate(1deg); }
     .application-card[data-selected='true'] {
-      border-color: rgb(124 58 237 / 0.35);
-      box-shadow: 0 0 0 0.18rem rgb(124 58 237 / 0.12);
+      border-color: rgb(26 58 143 / 0.45);
+      box-shadow: 0 0 0 0.18rem rgb(26 58 143 / 0.15);
     }
     .application-card p { margin: 0; overflow-wrap: anywhere; }
     .application-card select { min-width: 0; }
@@ -874,7 +874,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       gap: 0.5rem;
       justify-self: start;
       font-size: 0.88rem;
-      color: #6b6255;
+      color: var(--color-ink-muted, #4b5a72);
       font-weight: 700;
     }
     .card-select input { width: auto; }
@@ -883,7 +883,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       flex-wrap: wrap;
       gap: 0.55rem;
       align-items: center;
-      color: #6b6255;
+      color: var(--color-ink-muted, #4b5a72);
       font-size: 0.9rem;
     }
     .activity-item { display: grid; gap: 0.85rem; }
@@ -893,8 +893,8 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       align-items: center;
       padding: 0.35rem 0.65rem;
       border-radius: 999px;
-      background: rgb(154 52 18 / 0.1);
-      color: #9a3412;
+      background: var(--color-primary-soft, #e7ecf6);
+      color: var(--color-primary, #1a3a8f);
       font-size: 0.9rem;
       font-weight: 700;
     }
@@ -902,14 +902,14 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .work-item {
       padding: 0.9rem 1rem;
       border-radius: 1rem;
-      background: #fffdf9;
-      border: 1px solid #eadcc8;
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
     }
     .work-item strong { display: block; margin-bottom: 0.2rem; }
-    .work-item p, .work-item span { margin: 0; color: #6b6255; }
+    .work-item p, .work-item span { margin: 0; color: var(--color-ink-muted, #4b5a72); }
     .meta-list { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 0.9rem; margin: 0; }
-    .meta-list dt { font-weight: 700; color: #3f372c; }
-    .meta-list dd { margin: 0; color: #554d41; word-break: break-word; }
+    .meta-list dt { font-weight: 700; color: var(--color-ink, #1a2942); }
+    .meta-list dd { margin: 0; color: var(--color-ink-muted, #4b5a72); word-break: break-word; }
     .activity-top {
       display: flex;
       justify-content: space-between;
@@ -924,8 +924,8 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       gap: 0.8rem;
       align-items: start;
     }
-    .activity-detail { color: #6b6255; }
-    .timeline-date { color: #8b5e34; font-size: 0.92rem; white-space: nowrap; }
+    .activity-detail { color: var(--color-ink-muted, #4b5a72); }
+    .timeline-date { color: var(--color-ink-muted, #4b5a72); font-size: 0.92rem; white-space: nowrap; }
     .timeline-marker {
       width: 0.9rem;
       height: 0.9rem;
@@ -935,8 +935,8 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       box-shadow: 0 0 0 0.25rem rgb(156 163 175 / 0.18);
     }
     .timeline-marker[data-kind='applied'] { background: #2563eb; box-shadow: 0 0 0 0.25rem rgb(37 99 235 / 0.15); }
-    .timeline-marker[data-kind='interview'] { background: #7c3aed; box-shadow: 0 0 0 0.25rem rgb(124 58 237 / 0.15); }
-    .timeline-marker[data-kind='offer'] { background: #d97706; box-shadow: 0 0 0 0.25rem rgb(217 119 6 / 0.15); }
+    .timeline-marker[data-kind='interview'] { background: #4f46e5; box-shadow: 0 0 0 0.25rem rgb(79 70 229 / 0.15); }
+    .timeline-marker[data-kind='offer'] { background: #0891b2; box-shadow: 0 0 0 0.25rem rgb(8 145 178 / 0.15); }
     .timeline-marker[data-kind='hired'] { background: #16a34a; box-shadow: 0 0 0 0.25rem rgb(22 163 74 / 0.15); }
     .timeline-marker[data-kind='rejected'] { background: #dc2626; box-shadow: 0 0 0 0.25rem rgb(220 38 38 / 0.15); }
     .error { color: #b91c1c; font-weight: 600; }

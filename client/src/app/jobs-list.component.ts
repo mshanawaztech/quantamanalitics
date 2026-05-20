@@ -55,23 +55,23 @@ import { PublicJobListItem, PublicJobsService } from './core/jobs/public-jobs.se
   styles: `
     .page { width: min(1120px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
     .hero { max-width: 52rem; margin-bottom: 2rem; }
-    .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
+    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0; font-size: clamp(2.2rem, 3.8vw, 4.4rem); line-height: 0.98; }
-    .hero p:last-child { color: #5b5247; line-height: 1.75; font-size: 1.08rem; }
+    .hero p:last-child { color: var(--color-ink-muted, #4b5a72); line-height: 1.75; font-size: 1.08rem; }
     .jobs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
-    .job-card { padding: 1.5rem; border-radius: 1.5rem; background: rgb(255 251 244 / 0.88); border: 1px solid rgb(87 70 42 / 0.14); box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06); }
-    .meta { margin: 0 0 0.8rem; color: #8b5e34; font-size: 0.92rem; }
+    .job-card { padding: 1.5rem; border-radius: 1.5rem; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #d8dee9); box-shadow: var(--shadow-md); }
+    .meta { margin: 0 0 0.8rem; color: var(--color-ink-muted, #4b5a72); font-size: 0.92rem; }
     h2 { margin: 0 0 0.75rem; font-size: 1.35rem; }
-    p { color: #554d41; line-height: 1.7; }
-    a { color: #9a3412; font-weight: 700; text-decoration: none; }
+    p { color: var(--color-ink-muted, #4b5a72); line-height: 1.7; }
+    a { color: var(--color-primary, #1a3a8f); font-weight: 700; text-decoration: none; }
     .state-card { display: grid; gap: 0.8rem; }
     .retry {
       justify-self: start;
       padding: 0.85rem 1rem;
       border: 0;
       border-radius: 999px;
-      background: #1f2937;
-      color: #fff8ee;
+      background: var(--color-primary, #1a3a8f);
+      color: var(--color-ink-onblue, #ffffff);
       font: inherit;
       font-weight: 700;
       cursor: pointer;

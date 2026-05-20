@@ -85,18 +85,18 @@ import { PublicJobDetail, PublicJobsService } from './core/jobs/public-jobs.serv
   `,
   styles: `
     .page { width: min(1120px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
-    .back-link { display: inline-block; margin-bottom: 1rem; color: #9a3412; font-weight: 700; text-decoration: none; }
+    .back-link { display: inline-block; margin-bottom: 1rem; color: var(--color-primary, #1a3a8f); font-weight: 700; text-decoration: none; }
     .detail-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 1.25rem; }
-    .role-card, .apply-card, .missing-card { padding: 1.6rem; border-radius: 1.5rem; background: rgb(255 251 244 / 0.88); border: 1px solid rgb(87 70 42 / 0.14); box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06); }
-    .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
+    .role-card, .apply-card, .missing-card { padding: 1.6rem; border-radius: 1.5rem; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #d8dee9); box-shadow: var(--shadow-md); }
+    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0; font-size: clamp(2.1rem, 3.6vw, 4rem); line-height: 0.98; }
     h2 { margin-top: 0; font-size: 1.3rem; }
-    .meta { color: #8b5e34; }
-    .summary, .description, .apply-card p { color: #554d41; line-height: 1.75; }
+    .meta { color: var(--color-ink-muted, #4b5a72); }
+    .summary, .description, .apply-card p { color: var(--color-ink-muted, #4b5a72); line-height: 1.75; }
     .guest-form { display: grid; gap: 0.9rem; }
-    label { display: grid; gap: 0.35rem; color: #3f372c; font-weight: 600; }
-    input, textarea { width: 100%; padding: 0.85rem 0.95rem; border-radius: 0.9rem; border: 1px solid #d8c8b0; background: #fffdf9; font: inherit; }
-    button { padding: 0.9rem 1rem; border: 0; border-radius: 999px; background: #1f2937; color: #fff8ee; font-weight: 700; }
+    label { display: grid; gap: 0.35rem; color: var(--color-ink, #1a2942); font-weight: 600; }
+    input, textarea { width: 100%; padding: 0.85rem 0.95rem; border-radius: 0.9rem; border: 1px solid var(--color-border, #d8dee9); background: var(--color-surface, #ffffff); font: inherit; }
+    button { padding: 0.9rem 1rem; border: 0; border-radius: 999px; background: var(--color-primary, #1a3a8f); color: var(--color-ink-onblue, #ffffff); font-weight: 700; }
     button[disabled] { opacity: 0.65; cursor: wait; }
     .success { color: #166534; font-weight: 600; }
     .error { color: #b91c1c; font-weight: 600; }
