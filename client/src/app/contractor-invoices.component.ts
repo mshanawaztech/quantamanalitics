@@ -553,29 +553,32 @@ import {
             </div>
           }
 
-          @if (selectedInvoice()) {
+          @if (selectedInvoice() || !isReadOnly()) {
             <div class="summary__actions summary__actions--pdf">
               <qa-button
                 variant="ghost"
                 [disabled]="downloadingPdf() || loadingPreview()"
                 (click)="openPreview()"
               >{{ loadingPreview() ? 'Loading preview…' : 'Preview invoice' }}</qa-button>
-              <qa-button
-                variant="ghost"
-                [disabled]="downloadingPdf()"
-                (click)="downloadPdf()"
-              >{{ downloadingPdf() ? 'Generating PDF…' : 'Download PDF' }}</qa-button>
-              <qa-button
-                variant="ghost"
-                [disabled]="downloadingCsv()"
-                (click)="downloadCsv()"
-              >{{ downloadingCsv() ? 'Exporting CSV…' : 'Export to CSV' }}</qa-button>
+              @if (selectedInvoice()) {
+                <qa-button
+                  variant="ghost"
+                  [disabled]="downloadingPdf()"
+                  (click)="downloadPdf()"
+                >{{ downloadingPdf() ? 'Generating PDF…' : 'Download PDF' }}</qa-button>
+                <qa-button
+                  variant="ghost"
+                  [disabled]="downloadingCsv()"
+                  (click)="downloadCsv()"
+                >{{ downloadingCsv() ? 'Exporting CSV…' : 'Export to CSV' }}</qa-button>
+              }
             </div>
-          } @else if (!isReadOnly()) {
-            <p class="summary__after-save">
-              <span class="summary__after-save-icon" aria-hidden="true">✦</span>
-              After saving: Preview, Download PDF, and Export CSV unlock here.
-            </p>
+            @if (!selectedInvoice()) {
+              <p class="summary__after-save">
+                <span class="summary__after-save-icon" aria-hidden="true">✦</span>
+                Preview reflects your unsaved changes. Download PDF and Export CSV unlock after you save.
+              </p>
+            }
           }
         </aside>
       </form>
@@ -1709,12 +1712,27 @@ export class ContractorInvoicesComponent {
    * URL is revoked when the modal closes (closePreview).
    */
   protected openPreview(): void {
+    // A saved invoice previews its persisted PDF; an unsaved draft renders
+    // a no-persist preview from the current form values so the contractor
+    // can check the letterhead before committing.
     const invoice = this.selectedInvoice();
-    if (!invoice) return;
+    const source$ = invoice
+      ? this.svc.downloadPdf(invoice.id)
+      : (() => {
+          const payload = this.buildPayload();
+          if (typeof payload === 'string') {
+            this.formError.set(payload);
+            return null;
+          }
+          return this.svc.previewDraft(payload);
+        })();
+
+    if (!source$) return;
+
     this.loadingPreview.set(true);
     this.formError.set(null);
 
-    this.svc.downloadPdf(invoice.id).subscribe({
+    source$.subscribe({
       next: (blob) => {
         // Revoke any previous URL before allocating a new one.
         const existing = this.previewUrl();

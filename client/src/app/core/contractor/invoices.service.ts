@@ -46,6 +46,15 @@ export class ContractorInvoicesService {
   }
 
   /**
+   * Renders a PDF from an unsaved draft payload without persisting it, so
+   * the contractor can preview the letterhead before committing. Backed by
+   * POST /preview, which never writes to the Invoices table.
+   */
+  previewDraft(request: CreateInvoiceRequest): Observable<Blob> {
+    return this.http.post(`${this.base}/preview`, request, { responseType: 'blob' });
+  }
+
+  /**
    * RFC-4180 CSV of the invoice line items. UTF-8 BOM-prefixed so Excel
    * opens it without prompting for encoding.
    */
