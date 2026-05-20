@@ -1,23 +1,40 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using QuantamAnalytics.Api.Endpoints;
 using QuantamAnalytics.Domain.Common;
 using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Tests.Fixtures;
 using QuantamAnalytics.Tests.TestAuth;
 
 namespace QuantamAnalytics.Tests;
 
-public sealed class ClientApprovalEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(nameof(PostgresCollection))]
+public sealed class ClientApprovalEndpointTests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly PostgresFixture _postgres;
+    private IsolatedAppFactory _factory = default!;
 
-    public ClientApprovalEndpointTests(WebApplicationFactory<Program> factory)
+    public ClientApprovalEndpointTests(PostgresFixture postgres)
     {
-        _factory = factory;
+        _postgres = postgres;
+    }
+
+    public async Task InitializeAsync()
+    {
+        _factory = new IsolatedAppFactory(_postgres.ConnectionString);
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.EnsureDeletedAsync();
+        await db.Database.MigrateAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _factory.DisposeAsync();
     }
 
     [Fact]
