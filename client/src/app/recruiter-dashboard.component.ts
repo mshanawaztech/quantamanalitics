@@ -19,6 +19,8 @@ import {
   RecruiterJob,
   RecruiterPortalService,
   RecruiterStripeFallbackItem,
+  RecruiterConsultantSubmissions,
+  RecruiterSubmissionPhaseSummary,
 } from './core/recruiter/recruiter-portal.service';
 import { ParsedResumeResult } from './core/resume/resume-parse.models';
 
@@ -27,21 +29,24 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
   imports: [FormsModule, RouterLink],
   template: `
     <main class="page">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">Recruiter portal</p>
-          <h1>Jobs and applications on one tenant-safe operating surface.</h1>
-          <p>
-            This internal workspace gives recruiting users a protected place to
-            create jobs and triage candidate applications.
-          </p>
+      <section class="banner">
+        <div class="banner__inner">
+          <div class="banner__copy">
+            <p class="eyebrow eyebrow--onbanner">Recruiter portal</p>
+            <h1>Jobs and applications on one tenant-safe operating surface.</h1>
+            <p class="banner__lede">
+              This internal workspace gives recruiting users a protected place to
+              create jobs and triage candidate applications.
+            </p>
+          </div>
+          <div class="hero-card">
+            <p class="label">Access</p>
+            <strong>{{ accessLabel() }}</strong>
+            <span>{{ roleLabel() }}</span>
+            <a routerLink="/recruiter/pipeline">Open search pipeline</a>
+          </div>
         </div>
-        <div class="hero-card">
-          <p class="label">Access</p>
-          <strong>{{ accessLabel() }}</strong>
-          <span>{{ roleLabel() }}</span>
-          <a routerLink="/recruiter/pipeline">Open search pipeline</a>
-        </div>
+        <div class="banner__stripe" aria-hidden="true"></div>
       </section>
 
       @if (auth.isAuthenticated() && hasRecruitingAccess()) {
@@ -114,6 +119,66 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
               </div>
             }
           </article>
+        </section>
+
+        <!-- ── Consultant submissions: per-consultant, per-submission phase ── -->
+        <section class="submissions" aria-labelledby="submissions-heading">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Consultant submissions</p>
+              <h2 id="submissions-heading">Where each consultant stands with every client submission.</h2>
+            </div>
+            @if (loadingSubmissions()) {
+              <span class="pill">Loading</span>
+            }
+          </div>
+
+          @if (submissionSummary(); as s) {
+            <div class="phase-summary">
+              <article class="phase-stat"><span>Consultants</span><strong>{{ s.totalConsultants }}</strong></article>
+              <article class="phase-stat"><span>Submissions</span><strong>{{ s.totalSubmissions }}</strong></article>
+              <article class="phase-stat phase-stat--accent"><span>Submitted</span><strong>{{ s.submittedToClient }}</strong></article>
+              <article class="phase-stat phase-stat--accent"><span>Reviewing</span><strong>{{ s.clientReviewing }}</strong></article>
+              <article class="phase-stat phase-stat--good"><span>Accepted</span><strong>{{ s.clientAccepted }}</strong></article>
+              <article class="phase-stat phase-stat--bad"><span>Declined</span><strong>{{ s.clientDeclined }}</strong></article>
+            </div>
+          }
+
+          @if (submissionsError()) {
+            <p class="error" role="alert" aria-live="assertive">{{ submissionsError() }}</p>
+            <button type="button" class="secondary" (click)="fetchConsultantSubmissions()">Retry</button>
+          } @else {
+            <div class="consultant-list">
+              @for (c of consultants(); track c.candidateProfileId) {
+                <article class="consultant-card">
+                  <header class="consultant-head">
+                    <div class="consultant-id">
+                      <strong>{{ c.consultantName }}</strong>
+                      <span>{{ c.consultantEmail }}</span>
+                    </div>
+                    <div class="consultant-meta">
+                      <span class="consultant-count">{{ c.submissionCount }} submission{{ c.submissionCount === 1 ? '' : 's' }}</span>
+                      <span class="consultant-active">{{ c.activeCount }} active</span>
+                    </div>
+                  </header>
+                  <ul class="sub-rows">
+                    @for (sub of c.submissions; track sub.submissionId) {
+                      <li class="sub-row">
+                        <span class="sub-client">{{ sub.clientCompanyName }}</span>
+                        <span class="phase-pill phase-pill--{{ sub.phase.toLowerCase() }}">{{ phaseLabel(sub.phase) }}</span>
+                        <span class="sub-date">Updated {{ formatUtc(sub.updatedAtUtc) }}</span>
+                      </li>
+                    }
+                  </ul>
+                </article>
+              } @empty {
+                <article class="consultant-empty">
+                  <h3>No consultant submissions yet</h3>
+                  <p>When you submit a candidate to a client, they'll appear here grouped by consultant so you can track every submission's phase.</p>
+                </article>
+              }
+            </div>
+          }
         </section>
       }
 
@@ -709,9 +774,121 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
   `,
   styles: `
     .page { width: min(1320px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
-    .hero, .workspace { display: grid; gap: 1.25rem; }
-    .hero { grid-template-columns: 1.15fr 0.85fr; margin-bottom: 1.5rem; }
+    .workspace { display: grid; gap: 1.25rem; }
     .workspace { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr); align-items: start; }
+
+    /* ── Blue banner hero — mirrors the home + invoice banner ────── */
+    .banner {
+      position: relative;
+      margin-bottom: 1.5rem;
+      border-radius: 18px;
+      overflow: hidden;
+      background:
+        radial-gradient(900px 360px at 20% 0%, rgba(255, 255, 255, 0.06), transparent 70%),
+        linear-gradient(135deg, #1a3a8f 0%, #142d6e 60%, #0d2155 100%);
+      color: #fff;
+      box-shadow: 0 24px 60px rgba(13, 33, 85, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .banner__inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 2rem;
+      padding: 2.25rem 2.25rem 2.5rem;
+      align-items: center;
+    }
+    .banner__copy h1 { color: #fff; }
+    .banner__lede { color: rgba(255, 255, 255, 0.82); margin: 0; }
+    .eyebrow--onbanner { color: var(--color-accent, #e6c9a8); }
+    .banner__stripe { height: 6px; background: var(--color-accent, #e6c9a8); }
+    /* hero-card sits on the navy banner — keep it white so it pops */
+    .banner .hero-card { background: var(--color-surface, #ffffff); }
+    @media (max-width: 980px) { .banner__inner { grid-template-columns: 1fr; } }
+
+    /* ── Consultant submissions ──────────────────────────────────── */
+    .submissions {
+      padding: 1.6rem;
+      border-radius: 1.5rem;
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 1.25rem;
+    }
+    .phase-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .phase-stat {
+      display: grid;
+      gap: 0.2rem;
+      padding: 0.85rem 1rem;
+      border-radius: 1rem;
+      background: var(--color-surface-alt, #f0f3f9);
+      border: 1px solid var(--color-border, #d8dee9);
+    }
+    .phase-stat span { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-ink-muted, #4b5a72); font-weight: 700; }
+    .phase-stat strong { font-size: 1.4rem; color: var(--color-primary, #1a3a8f); }
+    .phase-stat--accent strong { color: #2563eb; }
+    .phase-stat--good strong { color: #16a34a; }
+    .phase-stat--bad strong { color: #dc2626; }
+    .consultant-list { display: grid; gap: 0.9rem; }
+    .consultant-card {
+      border-radius: 1.1rem;
+      border: 1px solid var(--color-border, #d8dee9);
+      background: var(--color-surface, #ffffff);
+      overflow: hidden;
+    }
+    .consultant-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 0.9rem 1.1rem;
+      background: var(--color-surface-alt, #f0f3f9);
+      border-bottom: 1px solid var(--color-border, #d8dee9);
+    }
+    .consultant-id strong { display: block; color: var(--color-ink-strong, #0d1b2a); }
+    .consultant-id span { font-size: 0.85rem; color: var(--color-ink-muted, #4b5a72); }
+    .consultant-meta { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+    .consultant-count { font-size: 0.85rem; color: var(--color-ink-muted, #4b5a72); font-weight: 700; }
+    .consultant-active {
+      font-size: 0.8rem; font-weight: 700;
+      padding: 0.25rem 0.6rem; border-radius: 999px;
+      background: var(--color-primary-soft, #e7ecf6); color: var(--color-primary, #1a3a8f);
+    }
+    .sub-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+    .sub-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 0.85rem;
+      align-items: center;
+      padding: 0.7rem 1.1rem;
+      border-top: 1px solid var(--color-border, #d8dee9);
+    }
+    .sub-row:first-child { border-top: 0; }
+    .sub-client { font-weight: 600; color: var(--color-ink, #1a2942); overflow-wrap: anywhere; }
+    .sub-date { font-size: 0.82rem; color: var(--color-ink-muted, #4b5a72); white-space: nowrap; }
+    .phase-pill {
+      display: inline-flex; align-items: center;
+      padding: 0.25rem 0.65rem; border-radius: 999px;
+      font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+      background: var(--color-surface-alt, #f0f3f9); color: var(--color-ink, #1a2942);
+    }
+    .phase-pill--draft { background: #eef2f7; color: #4b5a72; }
+    .phase-pill--submittedtoclient { background: #dbeafe; color: #1e40af; }
+    .phase-pill--clientreviewing { background: #e0e7ff; color: #4338ca; }
+    .phase-pill--clientaccepted { background: #dcfce7; color: #166534; }
+    .phase-pill--clientdeclined { background: #fee2e2; color: #991b1b; }
+    .phase-pill--withdrawn { background: #f1f5f9; color: #64748b; }
+    .consultant-empty { padding: 1.25rem; border-radius: 1.1rem; border: 1px dashed var(--color-border, #d8dee9); background: var(--color-surface-alt, #f0f3f9); }
+    .consultant-empty h3 { margin: 0 0 0.4rem; }
+    .consultant-empty p { margin: 0; }
+    @media (max-width: 640px) {
+      .sub-row { grid-template-columns: 1fr; gap: 0.35rem; }
+      .sub-date { white-space: normal; }
+    }
     .hero-card, .gate-card, .jobs-card, .board-card, .resume-review-card, .invoice-card, .handoff-card, .activity-card, .column, .application-card, .invoice-item, .handoff-item, .handoff-stat, .activity-item, .activity-empty {
       border-radius: 1.5rem;
       background: var(--color-surface, #ffffff);
@@ -944,7 +1121,7 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .timeline-marker[data-kind='rejected'] { background: #dc2626; box-shadow: 0 0 0 0.25rem rgb(220 38 38 / 0.15); }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 980px) {
-      .hero, .workspace, .job-form, .resume-review-grid, .template-grid, .template-form, .template-preview-fields { grid-template-columns: 1fr; }
+      .workspace, .job-form, .resume-review-grid, .template-grid, .template-form, .template-preview-fields { grid-template-columns: 1fr; }
       .job-item { grid-template-columns: 1fr; }
       .slug { text-align: left; }
       .activity-top { flex-direction: column; }
@@ -971,6 +1148,10 @@ export class RecruiterDashboardComponent {
   protected emailTemplatePreview = signal<EmailTemplatePreviewResponse | null>(null);
   protected invoiceReady = signal<RecruiterInvoiceReadyItem[]>([]);
   protected invoiceHandoff = signal<RecruiterInvoiceHandoffResponse | null>(null);
+  protected consultants = signal<RecruiterConsultantSubmissions[]>([]);
+  protected submissionSummary = signal<RecruiterSubmissionPhaseSummary | null>(null);
+  protected loadingSubmissions = signal(false);
+  protected submissionsError = signal<string | null>(null);
   protected loadingJobs = signal(false);
   protected loadingApplications = signal(false);
   protected loadingActivity = signal(false);
@@ -1037,6 +1218,7 @@ Best,
       this.fetchApplications();
       this.fetchCandidateActivity();
       this.fetchNotifications();
+      this.fetchConsultantSubmissions();
       this.fetchEmailTemplateCatalog();
       this.fetchEmailTemplates();
       if (this.hasPayrollAccess()) {
@@ -1603,6 +1785,38 @@ Best,
         this.notificationsError.set(this.toErrorMessage(error));
       },
     });
+  }
+
+  protected fetchConsultantSubmissions(): void {
+    this.loadingSubmissions.set(true);
+    this.submissionsError.set(null);
+
+    this.recruiter.consultantSubmissions().subscribe({
+      next: (response) => {
+        this.consultants.set(response.consultants);
+        this.submissionSummary.set(response.summary);
+        this.loadingSubmissions.set(false);
+      },
+      error: (error: unknown) => {
+        this.consultants.set([]);
+        this.submissionSummary.set(null);
+        this.loadingSubmissions.set(false);
+        this.submissionsError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  /** Human-readable label for a SubmissionStatus enum name. */
+  protected phaseLabel(phase: string): string {
+    switch (phase) {
+      case 'Draft': return 'Draft';
+      case 'SubmittedToClient': return 'Submitted to client';
+      case 'ClientReviewing': return 'Client reviewing';
+      case 'ClientAccepted': return 'Accepted';
+      case 'ClientDeclined': return 'Declined';
+      case 'Withdrawn': return 'Withdrawn';
+      default: return phase;
+    }
   }
 
   protected fetchInvoiceHandoff(): void {

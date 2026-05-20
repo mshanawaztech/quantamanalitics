@@ -37,6 +37,7 @@ public static class RecruiterPortalEndpoint
         group.MapGet("/invoice-handoff", GetInvoiceHandoffAsync);
         group.MapGet("/invoice-handoff/quickbooks.csv", DownloadQuickBooksCsvAsync);
         group.MapPost("/applications/{applicationId:guid}/status", UpdateApplicationStatusAsync);
+        group.MapGet("/submissions", GetConsultantSubmissionsAsync);
 
         return app;
     }
@@ -891,6 +892,82 @@ public static class RecruiterPortalEndpoint
             timelineEvent.OccurredAtUtc));
     }
 
+    /// <summary>
+    /// Consultant-centric submission tracker. Returns every submission the
+    /// tenant has, grouped by the consultant (candidate) it represents, with
+    /// each submission's current lifecycle phase + a top-level phase summary.
+    /// This is what a recruiter managing N consultants needs: "for each of my
+    /// people, where does each of their client submissions stand?" — rather
+    /// than an undifferentiated funnel of application cards.
+    /// </summary>
+    private static async Task<Results<Ok<RecruiterSubmissionsResponse>, ProblemHttpResult>> GetConsultantSubmissionsAsync(
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        // Pull tenant submissions (global query filter scopes by tenant), then
+        // group by consultant in memory — same approach as ReportingEndpoint,
+        // since EF Core's GroupBy-to-SQL translation is fragile and the per-
+        // tenant submission count is small.
+        var submissions = await db.Submissions
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var consultants = submissions
+            .GroupBy(s => s.CandidateProfileId)
+            .Select(group =>
+            {
+                var ordered = group
+                    .OrderByDescending(s => s.UpdatedAtUtc)
+                    .ToArray();
+                var latest = ordered[0];
+
+                return new RecruiterConsultantSubmissionsResponse(
+                    CandidateProfileId: group.Key,
+                    ConsultantName: latest.CandidateName,
+                    ConsultantEmail: latest.CandidateEmail,
+                    SubmissionCount: ordered.Length,
+                    ActiveCount: ordered.Count(IsActivePhase),
+                    LatestPhase: latest.Status.ToString(),
+                    LatestUpdateUtc: latest.UpdatedAtUtc,
+                    Submissions: ordered.Select(s => new RecruiterSubmissionItemResponse(
+                        SubmissionId: s.Id,
+                        ClientCompanyName: s.ClientCompanyName ?? "—",
+                        Phase: s.Status.ToString(),
+                        PitchSummary: s.PitchSummary,
+                        ClientDecisionNote: s.ClientDecisionNote,
+                        SubmittedToClientAtUtc: s.SubmittedToClientAtUtc,
+                        ClientDecisionAtUtc: s.ClientDecisionAtUtc,
+                        UpdatedAtUtc: s.UpdatedAtUtc))
+                        .ToArray());
+            })
+            .OrderByDescending(c => c.LatestUpdateUtc)
+            .ToArray();
+
+        var summary = new RecruiterSubmissionPhaseSummaryResponse(
+            TotalConsultants: consultants.Length,
+            TotalSubmissions: submissions.Count,
+            Draft: submissions.Count(s => s.Status == SubmissionStatus.Draft),
+            SubmittedToClient: submissions.Count(s => s.Status == SubmissionStatus.SubmittedToClient),
+            ClientReviewing: submissions.Count(s => s.Status == SubmissionStatus.ClientReviewing),
+            ClientAccepted: submissions.Count(s => s.Status == SubmissionStatus.ClientAccepted),
+            ClientDeclined: submissions.Count(s => s.Status == SubmissionStatus.ClientDeclined),
+            Withdrawn: submissions.Count(s => s.Status == SubmissionStatus.Withdrawn));
+
+        return TypedResults.Ok(new RecruiterSubmissionsResponse(summary, consultants));
+    }
+
+    /// <summary>A submission is "active" while it's still in flight with the client.</summary>
+    private static bool IsActivePhase(Submission submission) =>
+        submission.Status is SubmissionStatus.Draft
+            or SubmissionStatus.SubmittedToClient
+            or SubmissionStatus.ClientReviewing;
+
     private static async Task<Results<Ok<RecruiterInvoiceReadyResponse>, ProblemHttpResult>> GetInvoiceReadyAsync(
         AppDbContext db,
         ICurrentTenant currentTenant,
@@ -1354,3 +1431,39 @@ public sealed record RecruiterInvoiceReadyItemResponse(
     decimal OvertimeHours,
     decimal PaidTimeOffHours,
     decimal PayableHours);
+
+// ── Consultant submissions (recruiter-facing submission tracker) ──────────
+
+public sealed record RecruiterSubmissionsResponse(
+    RecruiterSubmissionPhaseSummaryResponse Summary,
+    RecruiterConsultantSubmissionsResponse[] Consultants);
+
+public sealed record RecruiterSubmissionPhaseSummaryResponse(
+    int TotalConsultants,
+    int TotalSubmissions,
+    int Draft,
+    int SubmittedToClient,
+    int ClientReviewing,
+    int ClientAccepted,
+    int ClientDeclined,
+    int Withdrawn);
+
+public sealed record RecruiterConsultantSubmissionsResponse(
+    Guid CandidateProfileId,
+    string ConsultantName,
+    string ConsultantEmail,
+    int SubmissionCount,
+    int ActiveCount,
+    string LatestPhase,
+    DateTimeOffset LatestUpdateUtc,
+    RecruiterSubmissionItemResponse[] Submissions);
+
+public sealed record RecruiterSubmissionItemResponse(
+    Guid SubmissionId,
+    string ClientCompanyName,
+    string Phase,
+    string? PitchSummary,
+    string? ClientDecisionNote,
+    DateTimeOffset? SubmittedToClientAtUtc,
+    DateTimeOffset? ClientDecisionAtUtc,
+    DateTimeOffset UpdatedAtUtc);
