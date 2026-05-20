@@ -27,19 +27,19 @@ import { RouterLink } from '@angular/router';
       max-width: 44rem;
       padding: 2rem;
       border-radius: 1.5rem;
-      background: rgb(255 251 244 / 0.88);
-      border: 1px solid rgb(87 70 42 / 0.14);
-      box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
+      box-shadow: var(--shadow-md);
     }
-    .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
+    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.6vw, 4rem); line-height: 0.98; }
-    p { color: #554d41; line-height: 1.75; }
+    p { color: var(--color-ink-muted, #4b5a72); line-height: 1.75; }
     .actions { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: 1rem; }
     a {
       padding: 0.85rem 1rem;
       border-radius: 999px;
-      background: #1f2937;
-      color: #fff8ee;
+      background: var(--color-primary, #1a3a8f);
+      color: var(--color-ink-onblue, #ffffff);
       font-weight: 700;
       text-decoration: none;
     }

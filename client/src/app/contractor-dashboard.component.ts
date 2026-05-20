@@ -182,31 +182,31 @@ interface DayRow {
     .hero-card, .gate-card, .timesheet-card, .workflow-card, .day-card {
       padding: 1.6rem;
       border-radius: 1.5rem;
-      background: rgb(255 251 244 / 0.88);
-      border: 1px solid rgb(87 70 42 / 0.14);
-      box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
+      box-shadow: var(--shadow-md);
     }
-    .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
+    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
     h2 { margin: 0; font-size: 1.4rem; }
-    p { color: #554d41; line-height: 1.7; }
-    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9a3412; font-weight: 800; }
+    p { color: var(--color-ink-muted, #4b5a72); line-height: 1.7; }
+    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary, #1a3a8f); font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
-    .hero-card span { color: #6b6255; }
+    .hero-card span { color: var(--color-ink-muted, #4b5a72); }
     .hero-meta, .meta-list {
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 0.45rem 0.9rem;
       margin: 1rem 0 0;
     }
-    .hero-meta dt, .meta-list dt { font-weight: 700; color: #3f372c; }
-    .hero-meta dd, .meta-list dd { margin: 0; color: #554d41; word-break: break-word; }
+    .hero-meta dt, .meta-list dt { font-weight: 700; color: var(--color-ink, #1a2942); }
+    .hero-meta dd, .meta-list dd { margin: 0; color: var(--color-ink-muted, #4b5a72); word-break: break-word; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
     .pill {
       padding: 0.35rem 0.7rem;
       border-radius: 999px;
-      background: #e7e5e4;
-      color: #44403c;
+      background: var(--color-surface-alt, #f0f3f9);
+      color: var(--color-ink, #1a2942);
       font-size: 0.85rem;
       font-weight: 700;
     }
@@ -215,17 +215,17 @@ interface DayRow {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.95rem;
     }
-    .day-card { background: #fffdf9; }
+    .day-card { background: var(--color-surface, #ffffff); }
     .day-head { display: flex; justify-content: space-between; gap: 0.8rem; align-items: baseline; margin-bottom: 0.8rem; }
-    .day-head strong { color: #1f1d1a; }
-    .day-head span { color: #6b6255; font-size: 0.92rem; }
-    label { display: grid; gap: 0.35rem; color: #3f372c; font-weight: 600; margin-bottom: 0.7rem; }
+    .day-head strong { color: var(--color-ink-strong, #0d1b2a); }
+    .day-head span { color: var(--color-ink-muted, #4b5a72); font-size: 0.92rem; }
+    label { display: grid; gap: 0.35rem; color: var(--color-ink, #1a2942); font-weight: 600; margin-bottom: 0.7rem; }
     input {
       width: 100%;
       padding: 0.85rem 0.95rem;
       border-radius: 0.9rem;
-      border: 1px solid #d8c8b0;
-      background: #fffdf9;
+      border: 1px solid var(--color-border, #d8dee9);
+      background: var(--color-surface, #ffffff);
       font: inherit;
     }
     .actions { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
@@ -238,25 +238,25 @@ interface DayRow {
     }
     .primary {
       border: 0;
-      background: #1f2937;
-      color: #fff8ee;
+      background: var(--color-primary, #1a3a8f);
+      color: var(--color-ink-onblue, #ffffff);
     }
     .secondary {
-      border: 1px solid #d8c8b0;
-      background: #fffdf9;
-      color: #1f2937;
+      border: 1px solid var(--color-border, #d8dee9);
+      background: var(--color-surface, #ffffff);
+      color: var(--color-primary, #1a3a8f);
     }
     .notice {
       margin-bottom: 1rem;
       padding: 0.85rem 0.95rem;
       border-radius: 0.9rem;
-      background: #fff3d8;
-      color: #7c4a03;
+      background: var(--color-surface-alt, #f0f3f9);
+      color: var(--color-ink-muted, #4b5a72);
       font-weight: 600;
     }
     .error { color: #b91c1c; font-weight: 600; }
     .success { color: #166534; font-weight: 600; }
-    a { color: #9a3412; font-weight: 700; text-decoration: none; }
+    a { color: var(--color-primary, #1a3a8f); font-weight: 700; text-decoration: none; }
     @media (max-width: 980px) {
       .hero, .workspace, .entry-grid { grid-template-columns: 1fr; }
     }

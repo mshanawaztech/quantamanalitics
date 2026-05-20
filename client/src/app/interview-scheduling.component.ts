@@ -187,31 +187,31 @@ interface ScorecardTemplate {
     .hero-card, .gate-card, .scorecard-card, .scheduler-card, .flow-card, .events-card, .scorecard-item, .provider-item, .flow-item, .event-item {
       padding: 1.6rem;
       border-radius: 1.5rem;
-      background: rgb(255 251 244 / 0.88);
-      border: 1px solid rgb(87 70 42 / 0.14);
-      box-shadow: 0 1rem 2rem rgb(64 47 22 / 0.06);
+      background: var(--color-surface, #ffffff);
+      border: 1px solid var(--color-border, #d8dee9);
+      box-shadow: var(--shadow-md);
     }
-    .eyebrow { margin: 0 0 0.7rem; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
+    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
     h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
     h2 { margin: 0; font-size: 1.4rem; }
-    p, li { color: #554d41; line-height: 1.7; }
-    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #9a3412; font-weight: 800; }
+    p, li { color: var(--color-ink-muted, #4b5a72); line-height: 1.7; }
+    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary, #1a3a8f); font-weight: 800; }
     .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
-    .hero-card span { color: #6b6255; }
+    .hero-card span { color: var(--color-ink-muted, #4b5a72); }
     .hero-meta {
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 0.45rem 0.9rem;
       margin: 1rem 0 0;
     }
-    .hero-meta dt { font-weight: 700; color: #3f372c; }
-    .hero-meta dd { margin: 0; color: #554d41; word-break: break-word; }
+    .hero-meta dt { font-weight: 700; color: var(--color-ink, #1a2942); }
+    .hero-meta dd { margin: 0; color: var(--color-ink-muted, #4b5a72); word-break: break-word; }
     .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
     .pill {
       padding: 0.35rem 0.7rem;
       border-radius: 999px;
-      background: #e7e5e4;
-      color: #44403c;
+      background: var(--color-surface-alt, #f0f3f9);
+      color: var(--color-ink, #1a2942);
       font-size: 0.85rem;
       font-weight: 700;
     }
@@ -220,19 +220,19 @@ interface ScorecardTemplate {
       padding: 0.9rem 1rem;
       border: 0;
       border-radius: 999px;
-      background: #1f2937;
-      color: #fff8ee;
+      background: var(--color-primary, #1a3a8f);
+      color: var(--color-ink-onblue, #ffffff);
       font-weight: 700;
       cursor: pointer;
     }
-    a { color: #9a3412; font-weight: 700; text-decoration: none; }
+    a { color: var(--color-primary, #1a3a8f); font-weight: 700; text-decoration: none; }
     .scorecard-list, .provider-list, .flow-grid, .events-grid {
       display: grid;
       gap: 0.9rem;
       grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
     }
     .events-card { margin-bottom: 1.25rem; }
-    .scorecard-item, .provider-item, .flow-item, .event-item { background: #fffdf9; }
+    .scorecard-item, .provider-item, .flow-item, .event-item { background: var(--color-surface, #ffffff); }
     .scorecard-item strong, .provider-item strong, .flow-item strong, .event-item strong { display: block; margin-bottom: 0.45rem; }
     ul { margin: 0.75rem 0 0; padding-left: 1.1rem; }
     .provider-head {
@@ -242,10 +242,10 @@ interface ScorecardTemplate {
       align-items: baseline;
       margin-bottom: 0.5rem;
     }
-    .provider-status { color: #9a3412; font-weight: 700; }
+    .provider-status { color: var(--color-primary, #1a3a8f); font-weight: 700; }
     .event-item p { margin: 0.2rem 0; }
     .error { color: #b91c1c; font-weight: 600; }
-    .empty { color: #7c6f5e; }
+    .empty { color: var(--color-ink-muted, #4b5a72); }
     @media (max-width: 980px) {
       .hero, .workspace { grid-template-columns: 1fr; }
     }

@@ -59,9 +59,9 @@ import { TenantBootstrapService } from './tenant-bootstrap.service';
   styles: `
     :host { display: block; }
     .banner {
-      background: #fef3c7;
-      color: #78350f;
-      border: 1px solid #fcd34d;
+      background: var(--color-primary-soft, #e7ecf6);
+      color: var(--color-ink, #1a2942);
+      border: 1px solid var(--color-primary, #1a3a8f);
       border-radius: 12px;
       padding: 0.875rem 1rem;
       margin: 1rem 1.5rem 0;
@@ -71,8 +71,8 @@ import { TenantBootstrapService } from './tenant-bootstrap.service';
       flex-wrap: wrap;
     }
     .banner__copy { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 280px; }
-    .banner__copy strong { font-size: 0.95rem; }
-    .banner__copy span { font-size: 0.85rem; color: #92400e; line-height: 1.4; }
+    .banner__copy strong { font-size: 0.95rem; color: var(--color-primary, #1a3a8f); }
+    .banner__copy span { font-size: 0.85rem; color: var(--color-ink-muted, #4b5a72); line-height: 1.4; }
     .banner__actions { display: flex; gap: 0.5rem; align-items: center; }
     .banner__btn {
       padding: 0.5rem 0.875rem;
