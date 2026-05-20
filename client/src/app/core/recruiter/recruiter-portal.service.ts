@@ -165,6 +165,45 @@ export interface RecruiterInvoiceHandoffResponse {
   stripeFallback: RecruiterStripeFallbackBatch;
 }
 
+// ── Consultant submissions ────────────────────────────────────────────
+export interface RecruiterSubmissionItem {
+  submissionId: string;
+  clientCompanyName: string;
+  phase: string;
+  pitchSummary: string | null;
+  clientDecisionNote: string | null;
+  submittedToClientAtUtc: string | null;
+  clientDecisionAtUtc: string | null;
+  updatedAtUtc: string;
+}
+
+export interface RecruiterConsultantSubmissions {
+  candidateProfileId: string;
+  consultantName: string;
+  consultantEmail: string;
+  submissionCount: number;
+  activeCount: number;
+  latestPhase: string;
+  latestUpdateUtc: string;
+  submissions: RecruiterSubmissionItem[];
+}
+
+export interface RecruiterSubmissionPhaseSummary {
+  totalConsultants: number;
+  totalSubmissions: number;
+  draft: number;
+  submittedToClient: number;
+  clientReviewing: number;
+  clientAccepted: number;
+  clientDeclined: number;
+  withdrawn: number;
+}
+
+export interface RecruiterSubmissionsResponse {
+  summary: RecruiterSubmissionPhaseSummary;
+  consultants: RecruiterConsultantSubmissions[];
+}
+
 export interface UpsertRecruiterJobRequest {
   title: string;
   location: string;
@@ -284,6 +323,12 @@ export class RecruiterPortalService {
   invoiceReady() {
     return this.http.get<RecruiterInvoiceReadyResponse>(
       `${environment.apiBase}/api/v1/recruiter/invoice-ready`,
+    );
+  }
+
+  consultantSubmissions() {
+    return this.http.get<RecruiterSubmissionsResponse>(
+      `${environment.apiBase}/api/v1/recruiter/submissions`,
     );
   }
 
