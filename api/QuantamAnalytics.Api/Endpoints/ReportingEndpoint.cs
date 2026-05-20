@@ -78,10 +78,18 @@ public static class ReportingEndpoint
         AppDbContext db,
         CancellationToken cancellationToken)
     {
-        var counts = await db.Applications
-            .GroupBy(x => x.Status)
-            .Select(g => new { Status = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Status, x => x.Count, cancellationToken);
+        // Pull statuses (tenant filter applied by the global query filter)
+        // and group in memory. EF Core's GroupBy-to-aggregate SQL
+        // translation is fragile across providers/versions; the per-tenant
+        // application row count is small enough that a client-side group
+        // is the pragmatic, always-correct choice.
+        var statuses = await db.Applications
+            .Select(x => x.Status)
+            .ToListAsync(cancellationToken);
+
+        var counts = statuses
+            .GroupBy(s => s)
+            .ToDictionary(g => g.Key, g => g.Count());
 
         return new ReportingFunnelResponse(
             Applied: counts.GetValueOrDefault(ApplicationStatus.Applied),
@@ -104,13 +112,22 @@ public static class ReportingEndpoint
         // C#. A pure-SQL version is possible but the snake-case naming +
         // DateOnly→TimeSpan arithmetic isn't trivial across providers, and
         // the row count is per-job-hired which is small.
-        var hired = await db.Applications
+        // Fetch the hired-application/job pairs with a simple join (the
+        // tenant filter applies to both sides), then group + aggregate in
+        // memory. The join itself translates fine; it's the trailing
+        // GroupBy(...).Select(g => g.Min(...)) that EF Core can fail to
+        // render. Per-job-hired row count is small, so the round trip cost
+        // of pulling raw pairs is negligible.
+        var pairs = await db.Applications
             .Where(x => x.Status == ApplicationStatus.Hired)
             .Join(
                 db.Jobs,
                 application => application.JobId,
                 job => job.Id,
                 (application, job) => new { job.Id, job.PostedOnUtc, HiredAtUtc = application.UpdatedAtUtc })
+            .ToListAsync(cancellationToken);
+
+        var hired = pairs
             .GroupBy(x => x.Id)
             .Select(g => new
             {
@@ -118,7 +135,7 @@ public static class ReportingEndpoint
                 PostedOnUtc = g.Min(x => x.PostedOnUtc),
                 FirstHiredAtUtc = g.Min(x => x.HiredAtUtc),
             })
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
 
         if (hired.Length == 0)
         {
@@ -148,14 +165,21 @@ public static class ReportingEndpoint
         AppDbContext db,
         CancellationToken cancellationToken)
     {
-        return await db.Submissions
+        // Same rationale as the funnel: pull the recruiter subjects
+        // (tenant-filtered) and group in memory rather than rely on
+        // EF Core translating GroupBy + Count + OrderBy on the projection.
+        var subjects = await db.Submissions
             .Where(x => x.SubmittedByAuthSubject != null)
-            .GroupBy(x => x.SubmittedByAuthSubject!)
+            .Select(x => x.SubmittedByAuthSubject!)
+            .ToListAsync(cancellationToken);
+
+        return subjects
+            .GroupBy(s => s)
             .Select(g => new RecruiterActivityResponse(
                 AuthSubject: g.Key,
                 SubmissionCount: g.Count()))
             .OrderByDescending(x => x.SubmissionCount)
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
     }
 }
 
