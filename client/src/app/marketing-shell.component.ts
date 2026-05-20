@@ -301,9 +301,10 @@ const ROUTE_LABELS: Record<string, string> = {
     /* ── Header ──────────────────────────────────────────────────── */
 
     .shell__header {
-      background: var(--color-surface);
-      border-bottom: 1px solid var(--color-border);
-      box-shadow: var(--shadow-sm);
+      /* Cobalt command bar: deep cobalt gradient, gold hairline on top. */
+      background: linear-gradient(180deg, #1733a6 0%, #0f2580 100%);
+      border-top: 2px solid #e6c9a8;
+      box-shadow: 0 2px 14px rgba(13, 33, 85, 0.22);
       position: sticky;
       top: 0;
       z-index: 50;
@@ -323,28 +324,29 @@ const ROUTE_LABELS: Record<string, string> = {
       align-items: center;
       gap: var(--space-3);
       text-decoration: none;
-      color: var(--color-ink-strong);
+      color: #ffffff;
       flex-shrink: 0;
     }
 
     .brand qa-logo {
-      /* Match the previous brand__mark footprint so existing nav heights
-         stay constant — qa-logo is sized via its "size" input. */
       display: inline-flex;
+      line-height: 0;
     }
 
     .brand__copy {
       display: flex;
       flex-direction: column;
-      line-height: 1.1;
+      line-height: 1.15;
     }
     .brand__copy strong {
       font-size: var(--font-size-md);
       font-weight: var(--font-weight-bold);
+      color: #ffffff;
+      letter-spacing: 0.01em;
     }
     .brand__copy span {
       font-size: var(--font-size-xs);
-      color: var(--color-ink-muted);
+      color: rgba(255, 255, 255, 0.66);
     }
 
     /* Primary nav (top row, marketing pages) */
@@ -356,9 +358,9 @@ const ROUTE_LABELS: Record<string, string> = {
     }
 
     .shell__nav--primary a {
-      padding: var(--space-2) var(--space-3);
-      border-radius: var(--radius-md);
-      color: var(--color-ink);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-pill);
+      color: rgba(255, 255, 255, 0.82);
       text-decoration: none;
       font-weight: var(--font-weight-medium);
       font-size: var(--font-size-sm);
@@ -366,13 +368,14 @@ const ROUTE_LABELS: Record<string, string> = {
     }
 
     .shell__nav--primary a:hover {
-      background: var(--color-primary-soft);
-      color: var(--color-primary-hover);
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
     }
 
     .shell__nav--primary a.active {
-      background: var(--color-primary);
-      color: var(--color-ink-onblue);
+      background: #ffffff;
+      color: #0f2580;
+      font-weight: var(--font-weight-semi);
     }
 
     /* Header right cluster */
@@ -387,30 +390,32 @@ const ROUTE_LABELS: Record<string, string> = {
       width: 18rem;
       max-width: 100%;
       padding: var(--space-2) var(--space-3);
-      background: var(--color-canvas);
-      border: 1px solid var(--color-border);
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: var(--radius-md);
+      color: #ffffff;
       font: inherit;
       font-size: var(--font-size-sm);
       transition: border-color 160ms ease, box-shadow 160ms ease;
     }
+    .search input::placeholder { color: rgba(255, 255, 255, 0.6); }
     .search input:focus {
       outline: none;
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px var(--color-primary-ring);
+      border-color: #e6c9a8;
+      box-shadow: 0 0 0 3px rgba(230, 201, 168, 0.28);
     }
 
     .cta {
       padding: var(--space-2) var(--space-4);
-      background: var(--color-primary);
-      color: var(--color-ink-onblue);
+      background: #ffffff;
+      color: #0f2580;
       border-radius: var(--radius-md);
       text-decoration: none;
       font-weight: var(--font-weight-semi);
       font-size: var(--font-size-sm);
       transition: background-color 160ms ease;
     }
-    .cta:hover { background: var(--color-primary-hover); color: var(--color-ink-onblue); }
+    .cta:hover { background: #e6c9a8; color: #0f2580; }
 
     /* User menu */
     .user-menu {
@@ -418,24 +423,24 @@ const ROUTE_LABELS: Record<string, string> = {
       align-items: center;
       gap: var(--space-2);
       padding: var(--space-1) var(--space-2);
-      background: transparent;
-      border: 1px solid var(--color-border);
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: var(--radius-pill);
-      color: var(--color-ink);
+      color: #ffffff;
       cursor: pointer;
       font: inherit;
     }
-    .user-menu:hover { background: var(--color-surface-alt); }
+    .user-menu:hover { background: rgba(255, 255, 255, 0.18); }
     .user-menu__avatar {
       width: 1.75rem; height: 1.75rem;
       display: grid; place-items: center;
-      background: var(--color-primary);
-      color: var(--color-ink-onblue);
+      background: #e6c9a8;
+      color: #0f2580;
       border-radius: var(--radius-pill);
       font-size: var(--font-size-xs);
       font-weight: var(--font-weight-bold);
     }
-    .user-menu__caret { font-size: var(--font-size-xs); }
+    .user-menu__caret { font-size: var(--font-size-xs); color: rgba(255, 255, 255, 0.8); }
 
     .user-menu__panel {
       position: absolute;
@@ -505,9 +510,10 @@ const ROUTE_LABELS: Record<string, string> = {
     .mobile-toggle {
       display: none;
       width: 2.5rem; height: 2.5rem;
-      background: transparent;
-      border: 1px solid var(--color-border);
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: var(--radius-md);
+      color: #ffffff;
       font-size: var(--font-size-lg);
       cursor: pointer;
     }
