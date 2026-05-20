@@ -247,7 +247,10 @@ const ROUTE_LABELS: Record<string, string> = {
       <footer class="shell__footer" role="contentinfo">
         <div class="shell__footer-inner">
           <div class="shell__footer-col">
-            <strong>Quantam Analytics</strong>
+            <span class="footer-brand">
+              <qa-logo size="34" alt=""></qa-logo>
+              <strong>Quantam Analytics</strong>
+            </span>
             <p>A multi-tenant staffing operating system — sourcing through placement, on one tenant-safe platform.</p>
           </div>
           <div class="shell__footer-col">
@@ -267,7 +270,7 @@ const ROUTE_LABELS: Record<string, string> = {
             <strong>Resources</strong>
             <a routerLink="/contact">Contact</a>
             <a routerLink="/accessibility">Accessibility</a>
-            <a href="https://github.com/mshanawaz114/quantamanalitics" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://github.com/mshanawaztech/quantamanalitics" target="_blank" rel="noopener">GitHub</a>
           </div>
           <div class="shell__footer-col">
             <strong>Trust</strong>
@@ -624,6 +627,8 @@ const ROUTE_LABELS: Record<string, string> = {
       grid-template-columns: 1.4fr repeat(3, 1fr);
     }
     .shell__footer-col { display: flex; flex-direction: column; gap: var(--space-2); }
+    .footer-brand { display: inline-flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
+    .footer-brand strong { margin-bottom: 0; text-transform: none; letter-spacing: 0; font-size: var(--font-size-md); }
     .shell__footer-col strong {
       font-size: var(--font-size-sm);
       letter-spacing: 0.06em;
