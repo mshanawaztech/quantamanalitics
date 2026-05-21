@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using QuantamAnalytics.Api.Auth;
 using QuantamAnalytics.Domain.Common;
+using QuantamAnalytics.Infrastructure.Tenancy;
 
 namespace QuantamAnalytics.Api.Endpoints;
 
@@ -13,7 +14,7 @@ public static class MeEndpoint
 {
     public static IEndpointRouteBuilder MapMeEndpoint(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/me", (ClaimsPrincipal user) =>
+        app.MapGet("/me", (ClaimsPrincipal user, ICurrentTenant currentTenant) =>
         {
             var roles = user.FindAll(Roles.RolesClaim).Select(c => c.Value).ToArray();
 
@@ -25,7 +26,12 @@ public static class MeEndpoint
                 Name: user.FindFirstValue("name") ?? string.Empty,
                 Roles: roles,
                 Permissions: PlatformPermissions.Expand(roles),
-                TenantId: user.FindFirstValue(Roles.TenantIdClaim)));
+                // Report the RESOLVED tenant (validated against the DB by
+                // TenantResolutionMiddleware), not the raw JWT claim. A stale
+                // claim from a previous database resolves to null here, which
+                // is what lets the SPA's bootstrap banner offer "Join demo"
+                // instead of hiding behind a phantom tenant id.
+                TenantId: currentTenant.TenantId?.ToString()));
         })
         .WithName("Me")
         .WithTags("System")
