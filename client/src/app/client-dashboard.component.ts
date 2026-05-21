@@ -8,6 +8,8 @@ import {
   ClientApprovalService,
   ClientApprovalTimesheet,
 } from './core/client/client-approval.service';
+import { ClientInvoicesService } from './core/client/client-invoices.service';
+import { InvoiceResponse } from './core/contractor/invoices.service';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -131,6 +133,101 @@ import {
             </div>
           </aside>
         </section>
+
+        <section class="workspace">
+          <article class="queue-card">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Submitted queue</p>
+                <h2>Invoices waiting on a decision</h2>
+              </div>
+              @if (invoicesLoading()) {
+                <span class="pill">Loading</span>
+              }
+            </div>
+
+            @if (invoicesError()) {
+              <p class="error" role="alert" aria-live="assertive">{{ invoicesError() }}</p>
+            } @else {
+              <div class="queue-list">
+                @for (invoice of submittedInvoices(); track invoice.id) {
+                  <article class="timesheet-card">
+                    <div class="timesheet-head">
+                      <div>
+                        <strong>{{ invoice.invoiceNumber }}</strong>
+                        <p>{{ invoice.contractorEmail }}</p>
+                        <p>
+                          {{ invoice.clientName || 'No client name' }} ·
+                          Issued {{ invoice.issueDateUtc }} · Due {{ invoice.dueDateUtc }}
+                        </p>
+                        <p class="amount">{{ money(invoice) }}</p>
+                      </div>
+                      <span class="pill">{{ invoice.status }}</span>
+                    </div>
+
+                    <div class="entries">
+                      @for (line of invoice.lineItems; track line.id) {
+                        <div class="entry-row entry-row--invoice">
+                          <span>{{ line.description }}</span>
+                          <span>{{ line.hours }}h × {{ line.rate }}</span>
+                          <span>{{ invoice.currency }} {{ line.amount }}</span>
+                        </div>
+                      }
+                    </div>
+
+                    <label>
+                      Review note
+                      <textarea
+                        rows="3"
+                        [name]="'invoice-note-' + invoice.id"
+                        [(ngModel)]="invoiceNotes[invoice.id]"
+                        placeholder="Required for rejection; optional for approval."
+                      ></textarea>
+                    </label>
+
+                    <div class="actions">
+                      <button type="button" class="primary" (click)="approveInvoice(invoice)" [disabled]="invoiceActingId() === invoice.id">
+                        {{ invoiceActingId() === invoice.id ? 'Saving…' : 'Approve' }}
+                      </button>
+                      <button type="button" class="secondary" (click)="rejectInvoice(invoice)" [disabled]="invoiceActingId() === invoice.id">
+                        {{ invoiceActingId() === invoice.id ? 'Saving…' : 'Reject' }}
+                      </button>
+                    </div>
+                  </article>
+                } @empty {
+                  <article class="empty-card">
+                    <h3>No submitted invoices right now</h3>
+                    <p>When a contractor uses "Save and send", their invoice lands here for approval.</p>
+                  </article>
+                }
+              </div>
+            }
+          </article>
+
+          <aside class="history-card">
+            <p class="eyebrow">Reviewed &amp; paid</p>
+            <h2>Approved, rejected, or paid invoices stay visible.</h2>
+            <div class="history-list">
+              @for (invoice of reviewedInvoices(); track invoice.id) {
+                <article class="history-item">
+                  <strong>{{ invoice.invoiceNumber }}</strong>
+                  <p>{{ invoice.status }} · {{ money(invoice) }}</p>
+                  <p>{{ invoice.contractorEmail }}</p>
+                  @if (invoice.reviewerNote) {
+                    <p>{{ invoice.reviewerNote }}</p>
+                  }
+                  @if (canMarkPaid() && invoice.status === 'Approved') {
+                    <button type="button" class="primary" (click)="markPaid(invoice)" [disabled]="invoiceActingId() === invoice.id">
+                      {{ invoiceActingId() === invoice.id ? 'Saving…' : 'Mark paid' }}
+                    </button>
+                  }
+                </article>
+              } @empty {
+                <p class="empty">No reviewed invoices yet.</p>
+              }
+            </div>
+          </aside>
+        </section>
       }
     </main>
   `,
@@ -200,6 +297,9 @@ import {
       background: var(--color-surface, #ffffff);
       color: var(--color-primary, #1a3a8f);
     }
+    .amount { color: var(--color-primary, #1a3a8f); font-weight: 800; font-size: 1.05rem; }
+    .entry-row--invoice { grid-template-columns: 1.4fr 1fr auto; }
+    .history-item .primary { margin-top: 0.7rem; padding: 0.6rem 0.9rem; font-size: 0.9rem; }
     .empty, .error { color: var(--color-ink-muted, #4b5a72); }
     .error { color: #b91c1c; font-weight: 600; }
     @media (max-width: 980px) {
@@ -213,12 +313,19 @@ export class ClientDashboardComponent {
   protected me = inject(MeService);
   protected access = inject(AccessService);
   private approvals = inject(ClientApprovalService);
+  private invoiceApprovals = inject(ClientInvoicesService);
 
   protected items = signal<ClientApprovalTimesheet[]>([]);
   protected loading = signal(false);
   protected error = signal<string | null>(null);
   protected actingId = signal<string | null>(null);
   protected reviewNotes: Record<string, string> = {};
+
+  protected invoices = signal<InvoiceResponse[]>([]);
+  protected invoicesLoading = signal(false);
+  protected invoicesError = signal<string | null>(null);
+  protected invoiceActingId = signal<string | null>(null);
+  protected invoiceNotes: Record<string, string> = {};
 
   constructor() {
     effect(() => {
@@ -227,6 +334,7 @@ export class ClientDashboardComponent {
       }
 
       this.loadTimesheets();
+      this.loadInvoices();
     });
   }
 
@@ -318,6 +426,95 @@ export class ClientDashboardComponent {
     this.actingId.set(null);
     this.items.update((items) =>
       items.map((item) => item.id === updated.id ? updated : item),
+    );
+  }
+
+  // ── Invoices ──────────────────────────────────────────────────────
+  protected canMarkPaid(): boolean {
+    return this.access.canAccessPayrollBilling();
+  }
+
+  protected submittedInvoices(): InvoiceResponse[] {
+    return this.invoices().filter((invoice) => invoice.status === 'Submitted');
+  }
+
+  protected reviewedInvoices(): InvoiceResponse[] {
+    return this.invoices().filter((invoice) => invoice.status !== 'Submitted');
+  }
+
+  protected money(invoice: InvoiceResponse): string {
+    return `${invoice.currency} ${invoice.amount.toFixed(2)}`;
+  }
+
+  protected approveInvoice(invoice: InvoiceResponse): void {
+    this.invoiceActingId.set(invoice.id);
+    this.invoicesError.set(null);
+
+    this.invoiceApprovals.approve(invoice.id, this.invoiceNotes[invoice.id] || null).subscribe({
+      next: (updated) => this.applyUpdatedInvoice(updated),
+      error: (error: unknown) => {
+        this.invoiceActingId.set(null);
+        this.invoicesError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected rejectInvoice(invoice: InvoiceResponse): void {
+    const reason = (this.invoiceNotes[invoice.id] ?? '').trim();
+    if (reason.length === 0) {
+      // A rejection without a reason leaves the contractor guessing — force
+      // a visible note so the feedback loop is honest.
+      this.invoicesError.set(
+        'Add a review note explaining why this invoice is being rejected before sending it back.',
+      );
+      return;
+    }
+
+    this.invoiceActingId.set(invoice.id);
+    this.invoicesError.set(null);
+
+    this.invoiceApprovals.reject(invoice.id, reason).subscribe({
+      next: (updated) => this.applyUpdatedInvoice(updated),
+      error: (error: unknown) => {
+        this.invoiceActingId.set(null);
+        this.invoicesError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected markPaid(invoice: InvoiceResponse): void {
+    this.invoiceActingId.set(invoice.id);
+    this.invoicesError.set(null);
+
+    this.invoiceApprovals.markPaid(invoice.id).subscribe({
+      next: (updated) => this.applyUpdatedInvoice(updated),
+      error: (error: unknown) => {
+        this.invoiceActingId.set(null);
+        this.invoicesError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private loadInvoices(): void {
+    this.invoicesLoading.set(true);
+    this.invoicesError.set(null);
+
+    this.invoiceApprovals.list().subscribe({
+      next: (response) => {
+        this.invoicesLoading.set(false);
+        this.invoices.set(response.items);
+      },
+      error: (error: unknown) => {
+        this.invoicesLoading.set(false);
+        this.invoicesError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  private applyUpdatedInvoice(updated: InvoiceResponse): void {
+    this.invoiceActingId.set(null);
+    this.invoices.update((items) =>
+      items.map((item) => (item.id === updated.id ? updated : item)),
     );
   }
 
