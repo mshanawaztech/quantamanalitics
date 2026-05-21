@@ -59,13 +59,13 @@ import {
                 label="Display name"
                 [(ngModel)]="form.displayName"
                 name="displayName"
-                hint="Top of the invoice banner (e.g., 'Mohammed Khan')."
+                hint="Top of the invoice banner (e.g., 'Jane Smith')."
               ></qa-input>
               <qa-input
                 label="Legal entity"
                 [(ngModel)]="form.legalName"
                 name="legalName"
-                hint="Used for bank-account ownership (e.g., 'Quantamanalytics LLC')."
+                hint="Used for bank-account ownership (e.g., 'Acme Staffing, LLC')."
               ></qa-input>
               <qa-input
                 label="Contact email"

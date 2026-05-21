@@ -1213,21 +1213,24 @@ export class ContractorInvoicesComponent {
    * Mirrors the server-side BrandingDefaults static so the form preview
    * and the rendered PDF stay in lockstep.
    */
+  // Neutral placeholders shown before the tenant's real branding loads.
+  // NEVER put real names, emails, phones, or bank details here — those
+  // belong in the per-tenant branding row set via the Branding page.
   private static readonly QUANTAM_DEFAULTS: TenantBrandingResponse = {
-    displayName: 'Mohammed Khan',
-    legalName: 'Quantamanalytics LLC',
-    contactEmail: 'mohammed.khan@quantamanalytics.com',
-    contactPhone: '909-560-3095',
+    displayName: 'Your Company',
+    legalName: 'Your Company, LLC',
+    contactEmail: '',
+    contactPhone: '',
     addressLine1: null,
     addressLine2: null,
     city: null,
     stateRegion: null,
     postalCode: null,
     country: null,
-    bankName: 'Chase',
-    bankAccountNumber: '993681185',
-    bankRoutingNumber: '021202337',
-    defaultHourlyRate: 55,
+    bankName: '',
+    bankAccountNumber: '',
+    bankRoutingNumber: '',
+    defaultHourlyRate: 0,
     defaultCurrency: 'USD',
     defaultPaymentTermsDays: 14,
     primaryColorHex: '#1a2d5a',
