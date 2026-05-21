@@ -1,35 +1,35 @@
 namespace QuantamAnalytics.Domain.Pdf;
 
 /// <summary>
-/// Platform-owner branding defaults used as a fallback when a tenant
-/// hasn't filled in /settings/branding yet. Today these are
-/// Quantamanalytics's own values — for the platform-owner tenant they
-/// just work without any setup. Once we onboard real SaaS customers
-/// we'll move these into per-tenant config so each org sees their own
-/// defaults on first paint.
+/// Neutral branding fallbacks used when a tenant hasn't filled in their
+/// branding yet. These are deliberately generic placeholders — NEVER real
+/// names, emails, phone numbers, or bank/account details. Real values
+/// belong in the per-tenant
+/// <see cref="QuantamAnalytics.Domain.Entities.TenantBranding"/> row, set
+/// via the Branding page, so sensitive financial/PII data lives in the
+/// database (per tenant) and not in source control.
 /// </summary>
 /// <remarks>
 /// Order of precedence for any branding field on the invoice PDF:
 ///   1. The tenant's <see cref="QuantamAnalytics.Domain.Entities.TenantBranding"/> value (if non-null)
-///   2. <see cref="BrandingDefaults"/> below (always populated)
+///   2. <see cref="BrandingDefaults"/> below
 ///
-/// This means a brand-new tenant who's never visited /settings/branding
-/// still produces a usable invoice; the first time they edit the form
-/// they see today's defaults pre-populated so they know exactly what to
-/// override.
+/// Identity and bank fields default to empty strings: the PDF renderer
+/// hides any remit line that is blank, so an unconfigured tenant simply
+/// gets an invoice with no bank block rather than someone else's details.
 /// </remarks>
 public static class BrandingDefaults
 {
-    public const string DisplayName = "Mohammed Khan";
-    public const string LegalName = "Quantamanalytics LLC";
-    public const string ContactEmail = "mohammed.khan@quantamanalytics.com";
-    public const string ContactPhone = "909-560-3095";
+    public const string DisplayName = "Your Company";
+    public const string LegalName = "Your Company, LLC";
+    public const string ContactEmail = "";
+    public const string ContactPhone = "";
 
-    public const string BankName = "Chase";
-    public const string BankAccountNumber = "993681185";
-    public const string BankRoutingNumber = "021202337";
+    public const string BankName = "";
+    public const string BankAccountNumber = "";
+    public const string BankRoutingNumber = "";
 
-    public const decimal DefaultHourlyRate = 55m;
+    public const decimal DefaultHourlyRate = 0m;
     public const string DefaultCurrency = "USD";
     public const int DefaultPaymentTermsDays = 14;
 
