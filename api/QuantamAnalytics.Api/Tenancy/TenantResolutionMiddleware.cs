@@ -97,16 +97,40 @@ public sealed partial class TenantResolutionMiddleware
             LogMissingSubjectClaim(_logger, string.Join(", ", claimTypes));
         }
 
-        // Fallback: JWT carried no tenant_id but we DO have an authenticated
-        // subject — look up their membership. Keeps the bootstrap path
-        // (POST /me/join-demo-tenant) working without the operator having
-        // to re-sign in immediately.
+        // A JWT may carry a tenant_id minted against a PREVIOUS database — e.g.
+        // after a DB reset or an account/repo migration to a fresh Postgres.
+        // Trusting it blind makes every audit-logged write fail the
+        // audit_log_entries → tenants foreign key (Postgres 23503) even though
+        // the invoice row itself (no such FK) inserts fine. Verify the claimed
+        // tenant actually exists here; if it doesn't, drop it and fall through
+        // to the membership lookup below.
+        if (resolvedTenantId is { } claimedTenantId)
+        {
+            var claimedExists = await db.Tenants
+                .IgnoreQueryFilters()
+                .AnyAsync(t => t.Id == claimedTenantId, context.RequestAborted);
+            if (!claimedExists)
+            {
+                resolvedTenantId = null;
+            }
+        }
+
+        // Fallback: no usable tenant_id from the claim but we DO have an
+        // authenticated subject — look up their membership. The join against
+        // Tenants guarantees we only resolve a tenant that still exists, so a
+        // membership row left dangling by a DB reset can't reintroduce the
+        // same FK violation. Keeps the bootstrap path (POST /me/tenant/join-demo)
+        // working without the operator having to re-sign in immediately.
         if (resolvedTenantId is null && !string.IsNullOrWhiteSpace(subject))
         {
             var membership = await db.TenantMemberships
                 .AsNoTracking()
                 .Where(m => m.AuthSubject == subject)
-                .Select(m => (Guid?)m.TenantId)
+                .Join(
+                    db.Tenants.IgnoreQueryFilters(),
+                    m => m.TenantId,
+                    t => t.Id,
+                    (m, t) => (Guid?)t.Id)
                 .FirstOrDefaultAsync(context.RequestAborted);
 
             if (membership is not null)
