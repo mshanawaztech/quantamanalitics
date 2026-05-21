@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using QuantamAnalytics.Api.Tenancy;
 using QuantamAnalytics.Domain.Common;
+using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
@@ -28,11 +29,42 @@ public sealed class TenantResolutionMiddlewareTests
         var middleware = new TenantResolutionMiddleware(
             _ => Task.CompletedTask,
             NullLogger<TenantResolutionMiddleware>.Instance);
-        using var db = NewContext();
+        // The tenant must exist in the DB — the middleware now verifies the
+        // claimed tenant_id is real before trusting it.
+        using var db = NewContext(tenantId);
 
         await middleware.InvokeAsync(httpContext, currentTenant, currentUser, db);
 
         currentTenant.TenantId.Should().Be(tenantId);
+    }
+
+    [Fact]
+    public async Task Middleware_drops_claim_when_tenant_does_not_exist()
+    {
+        // A well-formed tenant_id that no longer maps to a row — e.g. a JWT
+        // minted against a previous database. The middleware must NOT trust
+        // it, otherwise audit-logged writes fail the tenants foreign key.
+        var staleTenantId = Guid.NewGuid();
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(Roles.TenantIdClaim, staleTenantId.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, "auth0|orphan-1"),
+            ], "test"))
+        };
+
+        var currentTenant = new TestCurrentTenant();
+        var currentUser = new TestCurrentUser();
+        var middleware = new TenantResolutionMiddleware(
+            _ => Task.CompletedTask,
+            NullLogger<TenantResolutionMiddleware>.Instance);
+        // Empty DB: neither the claim nor any membership resolves a live tenant.
+        using var db = NewContext();
+
+        await middleware.InvokeAsync(httpContext, currentTenant, currentUser, db);
+
+        currentTenant.TenantId.Should().BeNull();
     }
 
     [Theory]
@@ -69,18 +101,30 @@ public sealed class TenantResolutionMiddlewareTests
     }
 
     /// <summary>
-    /// Build a non-opened AppDbContext for tests that need to pass it
-    /// through but never actually query. The middleware only touches the
-    /// DB when both (a) no tenant_id claim is present, and (b) an
-    /// authenticated subject exists. Neither test below trips (b).
+    /// Build an in-memory AppDbContext, optionally pre-seeded with tenants.
+    /// The middleware now verifies the claimed tenant_id exists, so it issues
+    /// a real query against this context — a non-opened Npgsql context would
+    /// throw on connect. Each call gets an isolated in-memory store.
     /// </summary>
-    private static AppDbContext NewContext()
+    private static AppDbContext NewContext(params Guid[] seededTenantIds)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql("Host=localhost;Database=qa_dev_test;Username=u;Password=p")
+            .UseInMemoryDatabase($"tenant-mw-{Guid.NewGuid():N}")
             .UseSnakeCaseNamingConvention()
             .Options;
-        return new AppDbContext(options, new TestCurrentTenant());
+        var db = new AppDbContext(options, new TestCurrentTenant());
+
+        foreach (var id in seededTenantIds)
+        {
+            var tenant = new Tenant("t-" + id.ToString("N")[..8], "Test Tenant");
+            db.Tenants.Add(tenant).Property(t => t.Id).CurrentValue = id;
+        }
+        if (seededTenantIds.Length > 0)
+        {
+            db.SaveChanges();
+        }
+
+        return db;
     }
 
     private sealed class TestCurrentTenant : ICurrentTenantSetter, ICurrentTenant
