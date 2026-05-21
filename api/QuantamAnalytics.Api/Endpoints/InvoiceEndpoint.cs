@@ -30,6 +30,7 @@ public static class InvoiceEndpoint
             .RequireAuthorization();
         contractor.MapGet("/", ListMineAsync);
         contractor.MapPost("/", CreateAsync);
+        contractor.MapPost("/preview", PreviewAsync);
         contractor.MapPut("/{id:guid}", UpdateMineAsync);
         contractor.MapPost("/{id:guid}/submit", SubmitMineAsync);
         contractor.MapGet("/{id:guid}/pdf", DownloadPdfAsync);
@@ -192,6 +193,103 @@ public static class InvoiceEndpoint
             await tx.RollbackAsync(cancellationToken);
             return BadRequestProblem(ex.Message);
         }
+        catch (DbUpdateException ex)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            // Surface the real persistence failure instead of an opaque 500.
+            // The usual culprits here are schema drift (a migration that
+            // hasn't been applied to this environment, e.g. the remit/vendor
+            // columns) or a constraint we didn't pre-check. The innermost
+            // message carries the Postgres detail, which is exactly what's
+            // needed to diagnose a failed save from the client.
+            return PersistenceProblem(ex.InnerException?.Message ?? ex.Message);
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return PersistenceProblem(ex.InnerException?.Message ?? ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Renders a PDF from a DRAFT payload without persisting anything. Lets a
+    /// contractor preview exactly what the client will receive before they
+    /// commit (or even pick an invoice number). Because it never touches the
+    /// Invoices table, it works regardless of save-side schema state — the
+    /// only DB read is the tenant branding for the letterhead.
+    /// </summary>
+    private static async Task<Results<FileContentHttpResult, ProblemHttpResult>> PreviewAsync(
+        CreateInvoiceRequest body,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
+        IInvoicePdfRenderer pdfRenderer,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null) return TenantRequired();
+
+        // Identity is cosmetic for a preview (nothing is stored), but the
+        // Invoice constructor requires non-blank subject/email — supply the
+        // same precedence as CreateAsync, falling back to safe placeholders.
+        var email = user.FindFirstValue(ClaimTypes.Email)
+            ?? user.FindFirst("email")?.Value
+            ?? user.FindFirstValue("preferred_username")
+            ?? "preview@" + currentTenant.TenantId.Value.ToString("N") + ".local";
+        var subject = currentUser.AuthSubject;
+        if (string.IsNullOrWhiteSpace(subject))
+        {
+            subject = "preview|" + currentTenant.TenantId.Value.ToString("N");
+        }
+
+        var inputs = ProjectLineItemInputs(body.LineItems);
+        if (inputs.Count == 0)
+        {
+            return BadRequestProblem("An invoice must have at least one line item.");
+        }
+
+        var customNumber = body.InvoiceNumber?.Trim();
+        var invoiceNumber = string.IsNullOrWhiteSpace(customNumber)
+            ? "DRAFT-" + body.IssueDateUtc.Year
+            : customNumber;
+
+        Invoice invoice;
+        try
+        {
+            invoice = new Invoice(
+                tenantId: currentTenant.TenantId.Value,
+                contractorAuthSubject: subject,
+                contractorEmail: email,
+                invoiceNumber: invoiceNumber,
+                clientName: body.ClientName ?? string.Empty,
+                issueDateUtc: body.IssueDateUtc,
+                dueDateUtc: body.DueDateUtc,
+                periodStartUtc: body.PeriodStartUtc,
+                periodEndUtc: body.PeriodEndUtc,
+                currency: body.Currency,
+                taxRate: body.TaxRate,
+                lineItems: inputs,
+                notes: body.Notes,
+                remitBankName: body.RemitBankName,
+                remitAccountNumber: body.RemitAccountNumber,
+                remitRoutingNumber: body.RemitRoutingNumber,
+                remitContactPhone: body.RemitContactPhone,
+                vendorName: body.VendorName);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequestProblem(ex.Message);
+        }
+
+        var branding = await db.TenantBrandings
+            .SingleOrDefaultAsync(x => x.TenantId == currentTenant.TenantId, cancellationToken);
+
+        var pdf = pdfRenderer.Render(invoice, branding, logoBytes: null);
+
+        return TypedResults.File(
+            fileContents: pdf,
+            contentType: "application/pdf",
+            fileDownloadName: $"Invoice-{invoiceNumber}-preview.pdf");
     }
 
     private static async Task<Results<Ok<InvoiceResponse>, NotFound, ProblemHttpResult>> UpdateMineAsync(
@@ -623,6 +721,10 @@ public static class InvoiceEndpoint
     private static ProblemHttpResult BadRequestProblem(string message) =>
         TypedResults.Problem(title: "Invalid invoice request", detail: message,
             statusCode: StatusCodes.Status400BadRequest);
+
+    private static ProblemHttpResult PersistenceProblem(string message) =>
+        TypedResults.Problem(title: "Invoice could not be saved", detail: message,
+            statusCode: StatusCodes.Status500InternalServerError);
 }
 
 public sealed record CreateInvoiceRequest(
