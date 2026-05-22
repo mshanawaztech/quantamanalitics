@@ -17,6 +17,7 @@ public static class OnboardingChecklistEndpoint
             .WithTags("Onboarding Checklist")
             .RequireAuthorization(AuthorizationPolicies.RequireRecruitingAccess);
 
+        recruiterGroup.MapGet("/summary", GetSummaryAsync);
         recruiterGroup.MapGet("/candidates/{candidateProfileId:guid}", ListForCandidateAsync);
         recruiterGroup.MapPost("/candidates/{candidateProfileId:guid}/items", AssignItemsAsync);
         recruiterGroup.MapPost("/candidates/{candidateProfileId:guid}/apply-template", ApplyTemplateAsync);
@@ -36,6 +37,83 @@ public static class OnboardingChecklistEndpoint
     }
 
     // ── Recruiter-facing handlers ──────────────────────────────────────────
+
+    /// <summary>
+    /// Management dashboard: onboarding completion per consultant across the
+    /// tenant. Aggregation is done in memory after a single tenant-scoped
+    /// join — EF Core's GroupBy translation is fragile against Postgres, so
+    /// we group locally rather than risk an untranslatable query.
+    /// </summary>
+    private static async Task<Results<Ok<OnboardingSummaryResponse>, ProblemHttpResult>> GetSummaryAsync(
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequiredProblem();
+        }
+
+        // Tenant scoping comes from the global query filters on both sets.
+        var rows = await db.OnboardingChecklistItems
+            .Join(
+                db.CandidateProfiles,
+                item => item.CandidateProfileId,
+                profile => profile.Id,
+                (item, profile) => new ItemWithConsultant(
+                    item.CandidateProfileId,
+                    profile.FullName,
+                    profile.Email,
+                    item.Status,
+                    item.UpdatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        var consultants = rows
+            .GroupBy(x => x.CandidateProfileId)
+            .Select(group =>
+            {
+                var total = group.Count();
+                var completed = group.Count(x => x.Status == OnboardingItemStatus.Approved);
+                var inReview = group.Count(x => x.Status == OnboardingItemStatus.Submitted);
+                var pending = total - completed - inReview;
+                var percent = total == 0 ? 0 : (int)Math.Round(completed * 100.0 / total);
+                var status = completed == total
+                    ? "Complete"
+                    : inReview > 0 ? "In review" : "In progress";
+                var first = group.First();
+
+                return new OnboardingSummaryRow(
+                    group.Key,
+                    string.IsNullOrWhiteSpace(first.FullName) ? first.Email : first.FullName!,
+                    first.Email,
+                    total,
+                    completed,
+                    inReview,
+                    pending,
+                    percent,
+                    status,
+                    group.Max(x => x.UpdatedAtUtc));
+            })
+            // Surface the least-complete consultants first so a manager sees
+            // who needs a nudge at the top of the list.
+            .OrderBy(r => r.CompletionPercent)
+            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var totalConsultants = consultants.Length;
+        var fullyComplete = consultants.Count(r => r.Status == "Complete");
+        var overall = totalConsultants == 0
+            ? 0
+            : (int)Math.Round(consultants.Average(r => r.CompletionPercent));
+
+        var totals = new OnboardingSummaryTotals(
+            totalConsultants,
+            fullyComplete,
+            totalConsultants - fullyComplete,
+            overall);
+
+        return TypedResults.Ok(new OnboardingSummaryResponse(consultants, totals));
+    }
 
     private static async Task<Results<Ok<OnboardingChecklistResponse>, ProblemHttpResult>> ListForCandidateAsync(
         Guid candidateProfileId,
@@ -434,6 +512,36 @@ public static class OnboardingChecklistEndpoint
             detail: "Onboarding checklist requires a tenant_id claim in the authenticated session.",
             statusCode: StatusCodes.Status412PreconditionFailed);
 }
+
+/// <summary>Internal join row used only for in-memory aggregation.</summary>
+internal sealed record ItemWithConsultant(
+    Guid CandidateProfileId,
+    string? FullName,
+    string Email,
+    OnboardingItemStatus Status,
+    DateTimeOffset UpdatedAtUtc);
+
+public sealed record OnboardingSummaryResponse(
+    OnboardingSummaryRow[] Consultants,
+    OnboardingSummaryTotals Totals);
+
+public sealed record OnboardingSummaryRow(
+    Guid CandidateProfileId,
+    string Name,
+    string Email,
+    int Total,
+    int Completed,
+    int InReview,
+    int Pending,
+    int CompletionPercent,
+    string Status,
+    DateTimeOffset LastActivityUtc);
+
+public sealed record OnboardingSummaryTotals(
+    int Consultants,
+    int Complete,
+    int InProgress,
+    int OverallCompletionPercent);
 
 public sealed record AssignOnboardingItemsBody(IReadOnlyList<AssignOnboardingItemInput> Items);
 

@@ -20,6 +20,10 @@ import {
   InvoiceStatus,
 } from './core/contractor/invoices.service';
 import {
+  ContractorTimesheetService,
+  ContractorTimesheetSummary,
+} from './core/contractor/contractor-timesheet.service';
+import {
   QaAlertComponent,
   QaButtonComponent,
   QaEmptyStateComponent,
@@ -199,6 +203,41 @@ import {
               <qa-button variant="ghost" (click)="startNewInvoice()">Cancel</qa-button>
             }
           </header>
+
+          @if (!isEditing() && approvedTimesheets().length > 0) {
+            <section class="from-timesheet" aria-label="Create invoice from an approved timesheet">
+              <div class="from-timesheet__row">
+                <label class="from-timesheet__field">
+                  <span>Start from an approved timesheet</span>
+                  <select [(ngModel)]="fromTimesheetId" name="fromTimesheetId">
+                    <option value="">Select a reviewed week…</option>
+                    @for (ts of approvedTimesheets(); track ts.id) {
+                      <option [value]="ts.id">Week of {{ ts.weekStartUtc }} — {{ ts.payableHours }}h payable</option>
+                    }
+                  </select>
+                </label>
+                <label class="from-timesheet__field from-timesheet__field--rate">
+                  <span>Rate (optional)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    [(ngModel)]="fromTimesheetRate"
+                    name="fromTimesheetRate"
+                    placeholder="Branding default"
+                  />
+                </label>
+                <qa-button
+                  variant="primary"
+                  [disabled]="!fromTimesheetId || generatingFromTimesheet()"
+                  (click)="generateFromTimesheet()"
+                >{{ generatingFromTimesheet() ? 'Generating…' : 'Generate draft' }}</qa-button>
+              </div>
+              <p class="from-timesheet__hint">
+                Turns the week's payable hours into a draft invoice you can review and submit.
+              </p>
+            </section>
+          }
 
           @if (branding(); as b) {
             <section class="letterhead-preview" aria-label="Your invoice letterhead">
@@ -764,6 +803,21 @@ import {
     }
     .form h2 { margin: 0 0 0.375rem; font-size: 1.25rem; letter-spacing: -0.005em; }
     .form__head p { margin: 0; color: var(--color-fg-muted, #5d6577); font-size: 0.9rem; }
+    .from-timesheet {
+      margin-bottom: 1.5rem; padding: 1.1rem 1.25rem; border-radius: 1rem;
+      background: var(--color-surface-alt, #f0f3f9);
+      border: 1px solid var(--color-border, #d8dde7);
+    }
+    .from-timesheet__row { display: flex; gap: 0.9rem; align-items: flex-end; flex-wrap: wrap; }
+    .from-timesheet__field { display: grid; gap: 0.35rem; flex: 1 1 16rem; }
+    .from-timesheet__field--rate { flex: 0 1 9rem; }
+    .from-timesheet__field span { font-weight: 600; font-size: 0.85rem; color: var(--color-fg, #1a2942); }
+    .from-timesheet select, .from-timesheet input {
+      padding: 0.7rem 0.8rem; border-radius: 0.7rem;
+      border: 1px solid var(--color-border, #d8dde7);
+      background: var(--color-surface, #ffffff); font: inherit;
+    }
+    .from-timesheet__hint { margin: 0.7rem 0 0; color: var(--color-fg-muted, #5d6577); font-size: 0.85rem; }
     .section { border: 0; padding: 0; margin: 0 0 1.75rem; }
     .section:last-of-type { margin-bottom: 0; }
     .section legend {
@@ -1205,7 +1259,15 @@ import {
 export class ContractorInvoicesComponent {
   private svc = inject(ContractorInvoicesService);
   private brandingSvc = inject(TenantBrandingService);
+  private timesheetSvc = inject(ContractorTimesheetService);
   private sanitizer = inject(DomSanitizer);
+
+  // ── Create-from-timesheet state ──────────────────────────────────
+  /** Approved timesheets the contractor can turn into a draft invoice. */
+  protected readonly approvedTimesheets = signal<ContractorTimesheetSummary[]>([]);
+  protected fromTimesheetId = '';
+  protected fromTimesheetRate: number | null = null;
+  protected readonly generatingFromTimesheet = signal(false);
 
   /**
    * Hard-coded fallback so the letterhead preview ALWAYS renders, even
@@ -1401,11 +1463,57 @@ export class ContractorInvoicesComponent {
       error: () => { /* no-op, defaults already set */ },
     });
 
+    // Load the contractor's approved timesheets so they can spin a draft
+    // invoice straight from a reviewed week. Soft-fail: the panel just
+    // stays hidden if the list can't load.
+    this.loadApprovedTimesheets();
+
     // Clear the "Draft saved." banner a few seconds after it appears.
     effect(() => {
       if (this.saveSuccess()) {
         setTimeout(() => this.saveSuccess.set(null), 3500);
       }
+    });
+  }
+
+  private loadApprovedTimesheets(): void {
+    this.timesheetSvc.listMine().subscribe({
+      next: (r) =>
+        this.approvedTimesheets.set(r.items.filter((t) => t.status === 'Approved')),
+      error: () => this.approvedTimesheets.set([]),
+    });
+  }
+
+  /**
+   * Spin a draft invoice from the selected approved timesheet, then load it
+   * into the form so the contractor can review and submit it.
+   */
+  protected generateFromTimesheet(): void {
+    if (!this.fromTimesheetId) return;
+    this.generatingFromTimesheet.set(true);
+    this.formError.set(null);
+    this.saveSuccess.set(null);
+
+    this.svc.createFromTimesheet({
+      timesheetId: this.fromTimesheetId,
+      rate: this.fromTimesheetRate,
+      clientName: null,
+      vendorName: null,
+      notes: null,
+    }).subscribe({
+      next: (created) => {
+        this.generatingFromTimesheet.set(false);
+        this.applySavedInvoice(created);
+        // Hydrate the form so the contractor can review/edit before submit.
+        this.onSelectInvoice(created);
+        this.fromTimesheetId = '';
+        this.fromTimesheetRate = null;
+        this.saveSuccess.set(`Draft ${created.invoiceNumber} created from timesheet.`);
+      },
+      error: (e: unknown) => {
+        this.generatingFromTimesheet.set(false);
+        this.formError.set(toMessage(e));
+      },
     });
   }
 

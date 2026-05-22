@@ -30,6 +30,7 @@ public static class InvoiceEndpoint
             .RequireAuthorization();
         contractor.MapGet("/", ListMineAsync);
         contractor.MapPost("/", CreateAsync);
+        contractor.MapPost("/from-timesheet", CreateFromTimesheetAsync);
         contractor.MapPost("/preview", PreviewAsync);
         contractor.MapPut("/{id:guid}", UpdateMineAsync);
         contractor.MapPost("/{id:guid}/submit", SubmitMineAsync);
@@ -144,18 +145,8 @@ public static class InvoiceEndpoint
         }
         else
         {
-            var year = body.IssueDateUtc.Year;
-            var sequence = await db.InvoiceNumberSequences
-                .SingleOrDefaultAsync(
-                    x => x.TenantId == currentTenant.TenantId.Value && x.Year == year,
-                    cancellationToken);
-
-            if (sequence is null)
-            {
-                sequence = new InvoiceNumberSequence(currentTenant.TenantId.Value, year);
-                db.InvoiceNumberSequences.Add(sequence);
-            }
-            invoiceNumber = sequence.MintNext();
+            invoiceNumber = await MintInvoiceNumberAsync(
+                db, currentTenant.TenantId.Value, body.IssueDateUtc.Year, cancellationToken);
         }
 
         try
@@ -205,6 +196,107 @@ public static class InvoiceEndpoint
             return PersistenceProblem(ex.InnerException?.Message ?? ex.Message);
         }
         catch (Exception ex)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return PersistenceProblem(ex.InnerException?.Message ?? ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Turns an APPROVED timesheet into a draft invoice in one step: the
+    /// week's payable hours become a single line item at the contractor's
+    /// rate (explicit override → tenant branding default → 0). The contractor
+    /// then reviews and submits the draft through the normal invoice flow.
+    /// </summary>
+    private static async Task<Results<Created<InvoiceResponse>, ProblemHttpResult>> CreateFromTimesheetAsync(
+        CreateInvoiceFromTimesheetRequest body,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        ICurrentUser currentUser,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null) return TenantRequired();
+        var subject = ResolveSubject(currentUser, user, currentTenant);
+
+        var timesheet = await db.Timesheets
+            .Include(x => x.Entries)
+            .SingleOrDefaultAsync(
+                x => x.Id == body.TimesheetId && x.ContractorAuthSubject == subject,
+                cancellationToken);
+        if (timesheet is null)
+        {
+            return BadRequestProblem("Timesheet not found for the current contractor.");
+        }
+        if (timesheet.Status != TimesheetStatus.Approved)
+        {
+            return BadRequestProblem(
+                $"Only an approved timesheet can be turned into an invoice. This one is {timesheet.Status}.");
+        }
+
+        var payableHours = timesheet.CalculateTotals().PayableHours;
+        if (payableHours <= 0)
+        {
+            return BadRequestProblem("This timesheet has no payable hours to invoice.");
+        }
+
+        var branding = await db.TenantBrandings
+            .SingleOrDefaultAsync(x => x.TenantId == currentTenant.TenantId, cancellationToken);
+
+        var rate = body.Rate ?? branding?.DefaultHourlyRate ?? BrandingDefaults.DefaultHourlyRate;
+        var currency = branding?.DefaultCurrency ?? BrandingDefaults.DefaultCurrency;
+        var termsDays = branding?.DefaultPaymentTermsDays ?? BrandingDefaults.DefaultPaymentTermsDays;
+        var issueDate = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+        var email = user.FindFirstValue(ClaimTypes.Email)
+            ?? user.FindFirst("email")?.Value
+            ?? user.FindFirstValue("preferred_username")
+            ?? timesheet.ContractorEmail;
+
+        var lineItem = new InvoiceLineItemInput(
+            Description: $"Consulting — week of {timesheet.WeekStartUtc:yyyy-MM-dd}",
+            WeekStartUtc: timesheet.WeekStartUtc,
+            DaysWorked: 1m,
+            HoursPerDay: payableHours,
+            Rate: rate,
+            Notes: null);
+
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var invoiceNumber = await MintInvoiceNumberAsync(
+            db, currentTenant.TenantId.Value, issueDate.Year, cancellationToken);
+
+        try
+        {
+            var invoice = new Invoice(
+                tenantId: currentTenant.TenantId.Value,
+                contractorAuthSubject: subject,
+                contractorEmail: email,
+                invoiceNumber: invoiceNumber,
+                clientName: body.ClientName ?? string.Empty,
+                issueDateUtc: issueDate,
+                dueDateUtc: issueDate.AddDays(termsDays),
+                periodStartUtc: timesheet.WeekStartUtc,
+                periodEndUtc: timesheet.WeekStartUtc.AddDays(6),
+                currency: currency,
+                taxRate: 0m,
+                lineItems: new[] { lineItem },
+                notes: body.Notes,
+                vendorName: body.VendorName);
+
+            db.Invoices.Add(invoice);
+            await db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
+
+            return TypedResults.Created(
+                $"/api/v1/contractor/invoices/{invoice.Id}",
+                Project(invoice));
+        }
+        catch (ArgumentException ex)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return BadRequestProblem(ex.Message);
+        }
+        catch (DbUpdateException ex)
         {
             await tx.RollbackAsync(cancellationToken);
             return PersistenceProblem(ex.InnerException?.Message ?? ex.Message);
@@ -613,6 +705,31 @@ public static class InvoiceEndpoint
     /// matches the middleware: NameIdentifier → sub URI → raw "sub" → email
     /// derived → tenant-scoped fallback.
     /// </summary>
+    /// <summary>
+    /// Mints the next per-tenant, per-year sequential invoice number,
+    /// creating the sequence row on first use. Must run inside the same
+    /// transaction as the insert so concurrent submits can't collide.
+    /// </summary>
+    private static async Task<string> MintInvoiceNumberAsync(
+        AppDbContext db,
+        Guid tenantId,
+        int year,
+        CancellationToken cancellationToken)
+    {
+        var sequence = await db.InvoiceNumberSequences
+            .SingleOrDefaultAsync(
+                x => x.TenantId == tenantId && x.Year == year,
+                cancellationToken);
+
+        if (sequence is null)
+        {
+            sequence = new InvoiceNumberSequence(tenantId, year);
+            db.InvoiceNumberSequences.Add(sequence);
+        }
+
+        return sequence.MintNext();
+    }
+
     private static string ResolveSubject(
         ICurrentUser currentUser,
         ClaimsPrincipal user,
@@ -773,6 +890,13 @@ public sealed record InvoiceLineItemRequest(
     decimal DaysWorked,
     decimal HoursPerDay,
     decimal Rate,
+    string? Notes);
+
+public sealed record CreateInvoiceFromTimesheetRequest(
+    Guid TimesheetId,
+    decimal? Rate,
+    string? ClientName,
+    string? VendorName,
     string? Notes);
 
 public sealed record InvoiceDecisionRequest(string? Note);
