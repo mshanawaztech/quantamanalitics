@@ -9,6 +9,7 @@ import { JobDetailComponent } from './job-detail.component';
 import { JobsListComponent } from './jobs-list.component';
 import { MarketingShellComponent } from './marketing-shell.component';
 import { NotFoundComponent } from './not-found.component';
+import { OnboardingDashboardComponent } from './onboarding-dashboard.component';
 import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
 import { RecruiterEmailTemplatesComponent } from './recruiter-email-templates.component';
 import { RecruiterPipelineComponent } from './recruiter-pipeline.component';
@@ -89,6 +90,10 @@ export const routes: Routes = [
       {
         path: 'recruiter',
         component: RecruiterDashboardComponent,
+      },
+      {
+        path: 'onboarding',
+        component: OnboardingDashboardComponent,
       },
       {
         path: 'recruiter/pipeline',
