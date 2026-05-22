@@ -113,19 +113,105 @@ public sealed class OnboardingChecklistItem : ITenantScoped
 }
 
 /// <summary>
-/// Common onboarding artifact types. <see cref="Custom"/> is the escape
-/// hatch for one-off recruiter-defined items so we don't have to ship a
-/// migration every time a tenant adds a new category.
+/// Onboarding artifact types, grouped into phases by <see cref="OnboardingPhases"/>.
+/// Persisted as a string (max 32 chars) — keep new names short and NEVER
+/// rename an existing value (it would orphan stored rows). <see cref="Custom"/>
+/// is the escape hatch for one-off recruiter-defined items.
 /// </summary>
 public enum OnboardingItemType
 {
+    // ── Phase 1: Identity & eligibility ──
     W4 = 0,
     I9 = 1,
+    StateTaxForm = 4,
+    GovernmentId = 6,
+    WorkAuthorization = 7,
+    TaxFormW9 = 8,
+
+    // ── Phase 2: Professional background ──
+    Resume = 10,
+    Certification = 11,
+    ProfessionalReference = 12,
+    EducationVerification = 13,
+
+    // ── Phase 3: Agreements ──
+    HandbookAcknowledgement = 5,
+    ServicesAgreement = 20,
+    Nda = 21,
+    OfferLetter = 22,
+    ClientCompliance = 23,
+
+    // ── Phase 4: Screening ──
+    BackgroundCheck = 30,
+    DrugScreen = 31,
+
+    // ── Phase 5: Payroll & logistics ──
     DirectDeposit = 2,
     EmergencyContact = 3,
-    StateTaxForm = 4,
-    HandbookAcknowledgement = 5,
+    EquipmentAccess = 40,
+
     Custom = 99,
+}
+
+/// <summary>The five real-world onboarding phases a checklist groups into.</summary>
+public enum OnboardingPhase
+{
+    IdentityEligibility = 0,
+    ProfessionalBackground = 1,
+    Agreements = 2,
+    Screening = 3,
+    PayrollLogistics = 4,
+    General = 99,
+}
+
+/// <summary>
+/// Worker classification — drives which default onboarding template applies.
+/// Contractors file a W-9 + sign an SOW; employees file a W-4/I-9 + get an
+/// offer letter and handbook; vendors are company-level with an MSA.
+/// </summary>
+public enum ConsultantType
+{
+    Contractor = 0,
+    FullTime = 1,
+    Vendor = 2,
+}
+
+/// <summary>
+/// Maps each onboarding item type to its phase and whether it's typically
+/// required. Pure metadata (no storage) so the API can group and order a
+/// consultant's checklist into a guided, phased experience.
+/// </summary>
+public static class OnboardingPhases
+{
+    public static OnboardingPhase PhaseFor(OnboardingItemType type) => type switch
+    {
+        OnboardingItemType.W4 or OnboardingItemType.I9 or OnboardingItemType.StateTaxForm
+            or OnboardingItemType.GovernmentId or OnboardingItemType.WorkAuthorization
+            or OnboardingItemType.TaxFormW9 => OnboardingPhase.IdentityEligibility,
+        OnboardingItemType.Resume or OnboardingItemType.Certification
+            or OnboardingItemType.ProfessionalReference
+            or OnboardingItemType.EducationVerification => OnboardingPhase.ProfessionalBackground,
+        OnboardingItemType.HandbookAcknowledgement or OnboardingItemType.ServicesAgreement
+            or OnboardingItemType.Nda or OnboardingItemType.OfferLetter
+            or OnboardingItemType.ClientCompliance => OnboardingPhase.Agreements,
+        OnboardingItemType.BackgroundCheck or OnboardingItemType.DrugScreen => OnboardingPhase.Screening,
+        OnboardingItemType.DirectDeposit or OnboardingItemType.EmergencyContact
+            or OnboardingItemType.EquipmentAccess => OnboardingPhase.PayrollLogistics,
+        _ => OnboardingPhase.General,
+    };
+
+    /// <summary>Optional-by-default item types; everything else is required.</summary>
+    public static bool IsRequired(OnboardingItemType type) => type switch
+    {
+        OnboardingItemType.Certification or OnboardingItemType.EducationVerification
+            or OnboardingItemType.ClientCompliance or OnboardingItemType.DrugScreen
+            or OnboardingItemType.Custom => false,
+        _ => true,
+    };
+
+    /// <summary>Stable display order: phase first, then a fixed within-phase rank.</summary>
+    public static int SortOrder(OnboardingItemType type) =>
+        (int)PhaseFor(type) * 100 + (int)type;
 }
 
 public enum OnboardingItemStatus
