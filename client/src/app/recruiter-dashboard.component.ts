@@ -18,6 +18,7 @@ import {
   RecruiterInvoiceReadyItem,
   RecruiterJob,
   RecruiterPortalService,
+  ImportedConsultant,
   RecruiterStripeFallbackItem,
   RecruiterConsultantSubmissions,
   RecruiterSubmissionPhaseSummary,
@@ -252,6 +253,30 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
                 </article>
               } @empty {
                 <p class="empty">No tenant jobs yet.</p>
+              }
+            </div>
+
+            <div class="import-resume">
+              <h3>Import a consultant from a resume</h3>
+              <p class="import-resume__hint">
+                Upload a resume (PDF, DOC, DOCX, or TXT) and we'll auto-create a consultant profile from it.
+              </p>
+              <div class="import-resume__row">
+                <input type="file" accept=".pdf,.doc,.docx,.txt" (change)="onResumeSelected($event)" />
+                <button
+                  type="button"
+                  class="primary"
+                  [disabled]="!resumeFile || importingResume()"
+                  (click)="importResume()"
+                >{{ importingResume() ? 'Importing…' : 'Import' }}</button>
+              </div>
+              @if (importedConsultant(); as c) {
+                <p class="import-resume__ok">
+                  Created {{ c.fullName || c.email }} — {{ c.skills.length }} skill(s) detected.
+                </p>
+              }
+              @if (importError()) {
+                <p class="error" role="alert" aria-live="assertive">{{ importError() }}</p>
               }
             </div>
           </article>
@@ -960,6 +985,11 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       border: 1px solid var(--color-border, #d8dee9);
     }
     .jobs-list { display: grid; gap: 0.8rem; }
+    .import-resume { margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px dashed var(--color-border, #d8dee9); }
+    .import-resume h3 { margin: 0 0 0.3rem; font-size: 1rem; }
+    .import-resume__hint { margin: 0 0 0.7rem; font-size: 0.85rem; color: var(--color-ink-muted, #5d6577); }
+    .import-resume__row { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; }
+    .import-resume__ok { margin: 0.7rem 0 0; color: #166534; font-weight: 600; font-size: 0.9rem; }
     .resume-review-grid { display: grid; grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.2fr); gap: 1rem; align-items: start; }
     .resume-upload-panel, .resume-preview-panel { display: grid; gap: 0.9rem; }
     .template-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr); gap: 1rem; align-items: start; }
@@ -1160,6 +1190,10 @@ export class RecruiterDashboardComponent {
   protected loadingInvoiceReady = signal(false);
   protected loadingHandoff = signal(false);
   protected creatingJob = signal(false);
+  protected importingResume = signal(false);
+  protected resumeFile: File | null = null;
+  protected importedConsultant = signal<ImportedConsultant | null>(null);
+  protected importError = signal<string | null>(null);
   protected savingEmailTemplate = signal(false);
   protected previewingEmailTemplate = signal(false);
   protected movingApplications = signal(false);
@@ -1425,6 +1459,32 @@ Best,
       error: (error: unknown) => {
         this.creatingJob.set(false);
         this.jobsError.set(this.toErrorMessage(error));
+      },
+    });
+  }
+
+  protected onResumeSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.resumeFile = input.files?.[0] ?? null;
+    this.importedConsultant.set(null);
+    this.importError.set(null);
+  }
+
+  protected importResume(): void {
+    if (!this.resumeFile) return;
+    this.importingResume.set(true);
+    this.importError.set(null);
+    this.importedConsultant.set(null);
+
+    this.recruiter.importCandidateFromResume(this.resumeFile).subscribe({
+      next: (consultant) => {
+        this.importingResume.set(false);
+        this.importedConsultant.set(consultant);
+        this.resumeFile = null;
+      },
+      error: (error: unknown) => {
+        this.importingResume.set(false);
+        this.importError.set(this.toErrorMessage(error));
       },
     });
   }

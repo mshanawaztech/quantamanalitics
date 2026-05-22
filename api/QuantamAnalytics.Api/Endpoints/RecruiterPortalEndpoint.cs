@@ -2,10 +2,13 @@ using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuantamAnalytics.Api.Auth;
 using QuantamAnalytics.Domain.Entities;
 using QuantamAnalytics.Infrastructure.Data;
+using QuantamAnalytics.Infrastructure.ResumeParsing;
+using QuantamAnalytics.Infrastructure.Storage;
 using QuantamAnalytics.Infrastructure.Tenancy;
 
 namespace QuantamAnalytics.Api.Endpoints;
@@ -24,6 +27,9 @@ public static class RecruiterPortalEndpoint
         group.MapPost("/jobs", CreateJobAsync);
         group.MapPut("/jobs/{jobId:guid}", UpdateJobAsync);
 
+        group.MapPost("/candidates/from-resume", CreateCandidateFromResumeAsync)
+            .DisableAntiforgery();
+
         group.MapGet("/applications", GetApplicationsAsync);
         group.MapPost("/applications/bulk-status", BulkUpdateApplicationStatusAsync);
         group.MapPost("/applications/bulk-tags", BulkUpdateApplicationTagsAsync);
@@ -40,6 +46,81 @@ public static class RecruiterPortalEndpoint
         group.MapGet("/submissions", GetConsultantSubmissionsAsync);
 
         return app;
+    }
+
+    /// <summary>
+    /// E1.1 — upload a resume and auto-create a consultant profile from the
+    /// parsed fields (name, email, phone, headline, skills). The resume file
+    /// itself is stored when object storage is configured. Parsing runs
+    /// through the same <see cref="IResumeParser"/> seam as the candidate
+    /// portal, so swapping the stub for a real AI parser lifts this too.
+    /// </summary>
+    private static async Task<Results<Ok<ImportedCandidateResponse>, ProblemHttpResult>> CreateCandidateFromResumeAsync(
+        [FromForm(Name = "file")] IFormFile? file,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        IResumeParser parser,
+        IResumeStorage resumeStorage,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequired();
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            return TypedResults.Problem(
+                title: "Resume file required",
+                detail: "Upload a PDF, DOC, DOCX, or TXT resume under the 'file' field.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+        if (file.Length > 5 * 1024 * 1024)
+        {
+            return TypedResults.Problem(
+                title: "Resume file too large",
+                detail: "Resume uploads are limited to 5 MB.",
+                statusCode: StatusCodes.Status413PayloadTooLarge);
+        }
+
+        // Buffer once so we can both parse and (optionally) store the file.
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, cancellationToken);
+
+        buffer.Position = 0;
+        var parsed = await parser.ParseAsync(
+            new ResumeParseRequest(file.FileName, file.ContentType, buffer),
+            cancellationToken);
+
+        var authSubject = "imported|" + Guid.NewGuid().ToString("N");
+        var email = string.IsNullOrWhiteSpace(parsed.Email)
+            ? $"import-{Guid.NewGuid():N}@unknown.local"
+            : parsed.Email!.Trim().ToLowerInvariant();
+        var summary = parsed.Skills.Length > 0
+            ? "Skills: " + string.Join(", ", parsed.Skills)
+            : null;
+
+        var profile = new CandidateProfile(currentTenant.TenantId.Value, authSubject, email, parsed.FullName);
+        profile.UpdateProfile(email, parsed.FullName, parsed.PhoneNumber, parsed.Headline, summary);
+        db.CandidateProfiles.Add(profile);
+
+        if (resumeStorage.IsConfigured)
+        {
+            buffer.Position = 0;
+            var upload = await resumeStorage.UploadAsync(
+                currentTenant.TenantId.Value, authSubject, file.FileName, file.ContentType, buffer, cancellationToken);
+            profile.AttachResume(upload.ObjectKey, file.FileName, upload.UploadedAtUtc);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return TypedResults.Ok(new ImportedCandidateResponse(
+            profile.Id,
+            profile.FullName,
+            profile.Email,
+            profile.PhoneNumber,
+            profile.Headline,
+            parsed.Skills));
     }
 
     private static async Task<Results<Ok<RecruiterJobResponse[]>, ProblemHttpResult>> GetJobsAsync(
@@ -1344,6 +1425,14 @@ public sealed record RecruiterJobResponse(
     string Description,
     DateOnly PostedOnUtc,
     bool IsPublished);
+
+public sealed record ImportedCandidateResponse(
+    Guid Id,
+    string? FullName,
+    string Email,
+    string? PhoneNumber,
+    string? Headline,
+    string[] Skills);
 
 public sealed record RecruiterApplicationResponse(
     Guid Id,
