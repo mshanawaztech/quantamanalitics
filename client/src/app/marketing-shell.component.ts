@@ -63,7 +63,6 @@ const ROUTE_LABELS: Record<string, string> = {
   client: 'Client',
   candidate: 'Candidate',
   contractor: 'Contractor',
-  onboarding: 'Onboarding',
   invoices: 'Invoices',
   interviews: 'Interviews',
   admin: 'Admin',
