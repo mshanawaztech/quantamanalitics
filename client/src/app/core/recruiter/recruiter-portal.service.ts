@@ -213,6 +213,15 @@ export interface UpsertRecruiterJobRequest {
   postedOnUtc: string | null;
 }
 
+export interface ImportedConsultant {
+  id: string;
+  fullName: string | null;
+  email: string;
+  phoneNumber: string | null;
+  headline: string | null;
+  skills: string[];
+}
+
 export interface EmailTemplatePreset {
   slug: string;
   name: string;
@@ -277,6 +286,16 @@ export class RecruiterPortalService {
 
   createJob(request: UpsertRecruiterJobRequest) {
     return this.http.post<RecruiterJob>(`${environment.apiBase}/api/v1/recruiter/jobs`, request);
+  }
+
+  /** Parse an uploaded resume and auto-create a consultant profile (E1.1). */
+  importCandidateFromResume(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<ImportedConsultant>(
+      `${environment.apiBase}/api/v1/recruiter/candidates/from-resume`,
+      form,
+    );
   }
 
   applications(query?: RecruiterApplicationsQuery) {
