@@ -16,11 +16,48 @@ public static class ContractorTimesheetEndpoint
             .WithTags("Contractor Timesheets")
             .RequireAuthorization();
 
+        group.MapGet("/", ListMineAsync);
         group.MapGet("/current", GetCurrentAsync);
         group.MapPut("/current", SaveDraftAsync);
         group.MapPost("/current/submit", SubmitAsync);
 
         return app;
+    }
+
+    private static async Task<Results<Ok<ContractorTimesheetListResponse>, ProblemHttpResult>> ListMineAsync(
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        var session = ResolveSession(user, currentTenant.TenantId);
+        if (session is null)
+        {
+            return TenantRequired();
+        }
+
+        var sheets = await db.Timesheets
+            .Include(x => x.Entries)
+            .Where(x => x.ContractorAuthSubject == session.AuthSubject)
+            .OrderByDescending(x => x.WeekStartUtc)
+            .ToListAsync(cancellationToken);
+
+        var rows = sheets
+            .Select(timesheet =>
+            {
+                var totals = timesheet.CalculateTotals();
+                return new ContractorTimesheetSummaryResponse(
+                    timesheet.Id,
+                    timesheet.WeekStartUtc,
+                    timesheet.Status.ToString(),
+                    timesheet.Entries.Sum(x => x.Hours),
+                    totals.PayableHours,
+                    timesheet.SubmittedAtUtc,
+                    timesheet.ReviewedAtUtc);
+            })
+            .ToArray();
+
+        return TypedResults.Ok(new ContractorTimesheetListResponse(rows));
     }
 
     private static async Task<Results<Ok<ContractorTimesheetResponse>, ProblemHttpResult>> GetCurrentAsync(
@@ -338,6 +375,18 @@ public static class ContractorTimesheetEndpoint
     private sealed record ParsedTimesheetEntry(DateOnly WorkDate, decimal Hours, TimeEntryType EntryType, string? Notes);
     private sealed record ParsedEntryBatch(IReadOnlyCollection<ParsedTimesheetEntry> Entries, string? Error);
 }
+
+public sealed record ContractorTimesheetListResponse(
+    ContractorTimesheetSummaryResponse[] Items);
+
+public sealed record ContractorTimesheetSummaryResponse(
+    Guid Id,
+    DateOnly WeekStartUtc,
+    string Status,
+    decimal TotalHours,
+    decimal PayableHours,
+    DateTimeOffset? SubmittedAtUtc,
+    DateTimeOffset? ReviewedAtUtc);
 
 public sealed record UpsertContractorTimesheetRequest(
     DateOnly WeekStartUtc,

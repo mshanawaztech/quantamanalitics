@@ -39,9 +39,30 @@ export interface UpsertContractorTimesheetRequest {
   entries: ContractorTimesheetEntry[];
 }
 
+export interface ContractorTimesheetSummary {
+  id: string;
+  weekStartUtc: string;
+  status: 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
+  totalHours: number;
+  payableHours: number;
+  submittedAtUtc: string | null;
+  reviewedAtUtc: string | null;
+}
+
+export interface ContractorTimesheetList {
+  items: ContractorTimesheetSummary[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ContractorTimesheetService {
   private http = inject(HttpClient);
+
+  /** All of the current contractor's timesheets, newest week first. */
+  listMine() {
+    return this.http.get<ContractorTimesheetList>(
+      `${environment.apiBase}/api/v1/contractor/timesheets`,
+    );
+  }
 
   current(weekStartUtc: string) {
     const params = new HttpParams().set('weekStart', weekStartUtc);
