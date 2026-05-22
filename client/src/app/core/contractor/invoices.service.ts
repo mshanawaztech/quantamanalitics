@@ -31,6 +31,14 @@ export class ContractorInvoicesService {
     return this.http.put<InvoiceResponse>(`${this.base}/${id}`, request);
   }
 
+  /**
+   * Creates a draft invoice from an approved timesheet: the week's payable
+   * hours become a single line item at the given (or branding-default) rate.
+   */
+  createFromTimesheet(request: CreateInvoiceFromTimesheetRequest): Observable<InvoiceResponse> {
+    return this.http.post<InvoiceResponse>(`${this.base}/from-timesheet`, request);
+  }
+
   submit(id: string): Observable<InvoiceResponse> {
     return this.http.post<InvoiceResponse>(`${this.base}/${id}/submit`, null);
   }
@@ -100,6 +108,14 @@ export interface CreateInvoiceRequest {
 }
 
 export type UpdateInvoiceRequest = Omit<CreateInvoiceRequest, 'invoiceNumber'>;
+
+export interface CreateInvoiceFromTimesheetRequest {
+  timesheetId: string;
+  rate: number | null;
+  clientName: string | null;
+  vendorName: string | null;
+  notes: string | null;
+}
 
 export interface InvoiceLineItemResponse {
   id: string;
