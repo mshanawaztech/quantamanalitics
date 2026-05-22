@@ -88,6 +88,10 @@ export const routes: Routes = [
         component: ContractorInvoicesComponent,
       },
       {
+        path: 'onboarding/me',
+        component: OnboardingConsultantComponent,
+      },
+      {
         path: 'recruiter',
         component: RecruiterDashboardComponent,
       },

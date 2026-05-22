@@ -20,6 +20,7 @@ public static class OnboardingChecklistEndpoint
         recruiterGroup.MapGet("/summary", GetSummaryAsync);
         recruiterGroup.MapGet("/candidates/{candidateProfileId:guid}", ListForCandidateAsync);
         recruiterGroup.MapPost("/candidates/{candidateProfileId:guid}/items", AssignItemsAsync);
+        recruiterGroup.MapPost("/candidates/{candidateProfileId:guid}/apply-template", ApplyTemplateAsync);
         recruiterGroup.MapPost("/items/{id:guid}/approve", ApproveAsync);
         recruiterGroup.MapPost("/items/{id:guid}/reject", RejectAsync);
 
@@ -29,6 +30,7 @@ public static class OnboardingChecklistEndpoint
             .RequireAuthorization(AuthorizationPolicies.RequireCandidate);
 
         candidateGroup.MapGet("/items", ListMineAsync);
+        candidateGroup.MapPost("/apply-template", ApplyTemplateMineAsync);
         candidateGroup.MapPost("/items/{id:guid}/submit", SubmitMineAsync);
 
         return app;
@@ -126,11 +128,9 @@ public static class OnboardingChecklistEndpoint
 
         var items = await db.OnboardingChecklistItems
             .Where(x => x.CandidateProfileId == candidateProfileId)
-            .OrderBy(x => x.AssignedAtUtc)
-            .Select(x => Project(x))
             .ToArrayAsync(cancellationToken);
 
-        return TypedResults.Ok(new OnboardingChecklistResponse(items));
+        return TypedResults.Ok(BuildResponse(items));
     }
 
     private static async Task<Results<Ok<OnboardingChecklistResponse>, NotFound, ProblemHttpResult>> AssignItemsAsync(
@@ -188,11 +188,90 @@ public static class OnboardingChecklistEndpoint
 
         var items = await db.OnboardingChecklistItems
             .Where(x => x.CandidateProfileId == profile.Id)
-            .OrderBy(x => x.AssignedAtUtc)
-            .Select(x => Project(x))
             .ToArrayAsync(cancellationToken);
 
-        return TypedResults.Ok(new OnboardingChecklistResponse(items));
+        return TypedResults.Ok(BuildResponse(items));
+    }
+
+    /// <summary>
+    /// Applies the default onboarding template for a worker type to a
+    /// candidate in one call — the real-world phased checklist. Idempotent:
+    /// only adds steps the candidate doesn't already have, so re-applying or
+    /// switching types never duplicates rows.
+    /// </summary>
+    private static async Task<Results<Ok<OnboardingChecklistResponse>, NotFound, ProblemHttpResult>> ApplyTemplateAsync(
+        Guid candidateProfileId,
+        ApplyOnboardingTemplateBody body,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequiredProblem();
+        }
+
+        var assignedBy = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(assignedBy))
+        {
+            return TypedResults.Problem(
+                title: "Authenticated subject missing",
+                detail: "Cannot record the assigning recruiter without a subject claim.",
+                statusCode: StatusCodes.Status401Unauthorized);
+        }
+
+        var profile = await db.CandidateProfiles
+            .FirstOrDefaultAsync(x => x.Id == candidateProfileId, cancellationToken);
+        if (profile is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        var items = await ApplyTemplateCoreAsync(
+            db, currentTenant.TenantId.Value, profile.Id, body.ConsultantType, assignedBy, cancellationToken);
+        return TypedResults.Ok(BuildResponse(items));
+    }
+
+    /// <summary>
+    /// Adds every template step the candidate is missing and returns the full
+    /// current item set. Shared by the recruiter and candidate-self entry points.
+    /// </summary>
+    private static async Task<OnboardingChecklistItem[]> ApplyTemplateCoreAsync(
+        AppDbContext db,
+        Guid tenantId,
+        Guid candidateProfileId,
+        ConsultantType consultantType,
+        string assignedBy,
+        CancellationToken cancellationToken)
+    {
+        var existing = (await db.OnboardingChecklistItems
+            .Where(x => x.CandidateProfileId == candidateProfileId)
+            .Select(x => x.ItemType)
+            .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        foreach (var step in OnboardingTemplateCatalog.For(consultantType))
+        {
+            if (existing.Contains(step.ItemType))
+            {
+                continue;
+            }
+
+            db.OnboardingChecklistItems.Add(new OnboardingChecklistItem(
+                tenantId: tenantId,
+                candidateProfileId: candidateProfileId,
+                assignedByAuthSubject: assignedBy,
+                itemType: step.ItemType,
+                title: step.Title,
+                instructions: step.Instructions));
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return await db.OnboardingChecklistItems
+            .Where(x => x.CandidateProfileId == candidateProfileId)
+            .ToArrayAsync(cancellationToken);
     }
 
     private static async Task<Results<Ok<OnboardingItemResponse>, NotFound, ProblemHttpResult>> ApproveAsync(
@@ -294,11 +373,54 @@ public static class OnboardingChecklistEndpoint
 
         var items = await db.OnboardingChecklistItems
             .Where(x => x.CandidateProfileId == profile.Id)
-            .OrderBy(x => x.AssignedAtUtc)
-            .Select(x => Project(x))
             .ToArrayAsync(cancellationToken);
 
-        return TypedResults.Ok(new OnboardingChecklistResponse(items));
+        return TypedResults.Ok(BuildResponse(items));
+    }
+
+    /// <summary>
+    /// Self-service start: a consultant applies their own default onboarding
+    /// template, creating a candidate profile from their session if they don't
+    /// have one yet. Lets a new consultant immediately see a real, phased
+    /// checklist instead of an empty page.
+    /// </summary>
+    private static async Task<Results<Ok<OnboardingChecklistResponse>, ProblemHttpResult>> ApplyTemplateMineAsync(
+        ApplyOnboardingTemplateBody body,
+        ClaimsPrincipal user,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TenantRequiredProblem();
+        }
+
+        var subject = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(subject))
+        {
+            return TypedResults.Problem(
+                title: "Authenticated subject missing",
+                detail: "Cannot resolve the consultant without a subject claim.",
+                statusCode: StatusCodes.Status401Unauthorized);
+        }
+
+        var profile = await db.CandidateProfiles
+            .FirstOrDefaultAsync(x => x.AuthSubject == subject, cancellationToken);
+        if (profile is null)
+        {
+            var email = user.FindFirstValue(ClaimTypes.Email)
+                ?? user.FindFirstValue("email")
+                ?? subject + "@local";
+            var name = user.FindFirstValue("name") ?? email;
+            profile = new CandidateProfile(currentTenant.TenantId.Value, subject, email, name);
+            db.CandidateProfiles.Add(profile);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        var items = await ApplyTemplateCoreAsync(
+            db, currentTenant.TenantId.Value, profile.Id, body.ConsultantType, subject, cancellationToken);
+        return TypedResults.Ok(BuildResponse(items));
     }
 
     private static async Task<Results<Ok<OnboardingItemResponse>, NotFound, ProblemHttpResult>> SubmitMineAsync(
@@ -359,6 +481,14 @@ public static class OnboardingChecklistEndpoint
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Projects materialized items into the response, phase-grouped and
+    /// ordered. Callers must materialize entities first — the phase metadata
+    /// is computed in C# (not EF-translatable).
+    /// </summary>
+    private static OnboardingChecklistResponse BuildResponse(IEnumerable<OnboardingChecklistItem> items) =>
+        new(items.Select(Project).OrderBy(x => x.SortOrder).ToArray());
+
     private static OnboardingItemResponse Project(OnboardingChecklistItem x) => new(
         x.Id,
         x.CandidateProfileId,
@@ -371,7 +501,10 @@ public static class OnboardingChecklistEndpoint
         x.AssignedAtUtc,
         x.SubmittedAtUtc,
         x.ReviewedAtUtc,
-        x.UpdatedAtUtc);
+        x.UpdatedAtUtc,
+        OnboardingPhases.PhaseFor(x.ItemType).ToString(),
+        OnboardingPhases.IsRequired(x.ItemType),
+        OnboardingPhases.SortOrder(x.ItemType));
 
     private static ProblemHttpResult TenantRequiredProblem() =>
         TypedResults.Problem(
@@ -435,4 +568,9 @@ public sealed record OnboardingItemResponse(
     DateTimeOffset AssignedAtUtc,
     DateTimeOffset? SubmittedAtUtc,
     DateTimeOffset? ReviewedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    string Phase,
+    bool IsRequired,
+    int SortOrder);
+
+public sealed record ApplyOnboardingTemplateBody(ConsultantType ConsultantType);
