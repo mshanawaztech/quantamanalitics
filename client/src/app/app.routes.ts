@@ -12,6 +12,7 @@ import { NotFoundComponent } from './not-found.component';
 import { OnboardingConsultantComponent } from './onboarding-consultant.component';
 import { OnboardingDashboardComponent } from './onboarding-dashboard.component';
 import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
+import { ReportsDashboardComponent } from './reports-dashboard.component';
 import { RecruiterEmailTemplatesComponent } from './recruiter-email-templates.component';
 import { RecruiterPipelineComponent } from './recruiter-pipeline.component';
 import { RecruiterRecycleBinComponent } from './recruiter-recycle-bin.component';
@@ -95,6 +96,10 @@ export const routes: Routes = [
       {
         path: 'recruiter',
         component: RecruiterDashboardComponent,
+      },
+      {
+        path: 'reports',
+        component: ReportsDashboardComponent,
       },
       {
         path: 'onboarding',
