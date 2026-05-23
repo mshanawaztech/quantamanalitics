@@ -46,8 +46,73 @@ public static class ReportingEndpoint
             .RequireAuthorization(AuthorizationPolicies.RequireRecruitingAccess);
 
         group.MapGet("/summary", GetSummaryAsync);
+        group.MapGet("/burn-rate", GetBurnRateAsync);
 
         return app;
+    }
+
+    /// <summary>
+    /// Project burn-rate: payable hours logged per week across the tenant
+    /// (submitted + approved timesheets), plus a per-consultant breakdown and
+    /// an estimated cost using the tenant's default hourly rate. Aggregation
+    /// is in memory after a single tenant-scoped read — EF GroupBy translation
+    /// against Postgres is fragile.
+    /// </summary>
+    private static async Task<Results<Ok<BurnRateResponse>, ProblemHttpResult>> GetBurnRateAsync(
+        int? weeks,
+        AppDbContext db,
+        ICurrentTenant currentTenant,
+        CancellationToken cancellationToken)
+    {
+        if (currentTenant.TenantId is null)
+        {
+            return TypedResults.Problem(
+                title: "Tenant assignment required",
+                detail: "Reporting requires a tenant_id claim in the authenticated session.",
+                statusCode: StatusCodes.Status412PreconditionFailed);
+        }
+
+        var window = Math.Clamp(weeks ?? 8, 1, 52);
+        var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.Date).AddDays(-7 * window);
+
+        var sheets = await db.Timesheets
+            .Include(x => x.Entries)
+            .Where(x => x.WeekStartUtc >= cutoff &&
+                        (x.Status == TimesheetStatus.Submitted || x.Status == TimesheetStatus.Approved))
+            .ToListAsync(cancellationToken);
+
+        var rows = sheets
+            .Select(x => new { x.WeekStartUtc, x.ContractorEmail, Hours = x.CalculateTotals().PayableHours })
+            .ToList();
+
+        var weeklySeries = rows
+            .GroupBy(x => x.WeekStartUtc)
+            .Select(g => new BurnRateWeek(
+                g.Key,
+                g.Sum(x => x.Hours),
+                g.Select(x => x.ContractorEmail).Distinct().Count()))
+            .OrderBy(x => x.WeekStartUtc)
+            .ToArray();
+
+        var perConsultant = rows
+            .GroupBy(x => x.ContractorEmail)
+            .Select(g => new BurnRateConsultant(g.Key, g.Sum(x => x.Hours)))
+            .OrderByDescending(x => x.PayableHours)
+            .ToArray();
+
+        var branding = await db.TenantBrandings
+            .SingleOrDefaultAsync(x => x.TenantId == currentTenant.TenantId, cancellationToken);
+        var rate = branding?.DefaultHourlyRate ?? 0m;
+        var currency = branding?.DefaultCurrency ?? "USD";
+        var totalHours = rows.Sum(x => x.Hours);
+
+        return TypedResults.Ok(new BurnRateResponse(
+            weeklySeries,
+            perConsultant,
+            totalHours,
+            Math.Round(totalHours * rate, 2),
+            rate,
+            currency));
     }
 
     private static async Task<Results<Ok<ReportingSummaryResponse>, ProblemHttpResult>> GetSummaryAsync(
@@ -202,3 +267,20 @@ public sealed record ReportingTimeToFillResponse(
 public sealed record RecruiterActivityResponse(
     string AuthSubject,
     int SubmissionCount);
+
+public sealed record BurnRateResponse(
+    BurnRateWeek[] Weeks,
+    BurnRateConsultant[] Consultants,
+    decimal TotalPayableHours,
+    decimal EstimatedCost,
+    decimal HourlyRateUsed,
+    string Currency);
+
+public sealed record BurnRateWeek(
+    DateOnly WeekStartUtc,
+    decimal PayableHours,
+    int Consultants);
+
+public sealed record BurnRateConsultant(
+    string Consultant,
+    decimal PayableHours);

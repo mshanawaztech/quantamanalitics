@@ -40,6 +40,7 @@ const PORTAL_NAV: NavItem[] = [
   { href: '/recruiter/pipeline', label: 'Pipeline', authedOnly: true, visibility: 'recruiting' },
   { href: '/recruiter/email-templates', label: 'Templates', authedOnly: true, visibility: 'recruiting' },
   { href: '/onboarding', label: 'Onboarding', authedOnly: true, visibility: 'recruiting' },
+  { href: '/reports', label: 'Reports', authedOnly: true, visibility: 'recruiting' },
   { href: '/client', label: 'Client', authedOnly: true, visibility: 'approvals' },
   { href: '/candidate', label: 'Candidate', authedOnly: true, visibility: 'candidate' },
   { href: '/onboarding/me', label: 'My onboarding', authedOnly: true, visibility: 'authenticated' },
