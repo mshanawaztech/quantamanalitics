@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Amazon.Runtime;
 using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
@@ -91,7 +92,7 @@ public static class DependencyInjection
         services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
         services.AddSingleton<IResumeParser, StubResumeParser>();
         services.AddSingleton<ICandidateMatcher, StubCandidateMatcher>();
-        services.AddSingleton<ICopilotProvider, StubCopilotProvider>();
+        AddCopilot(services, configuration);
         services.AddSingleton<IFeatureGate, AppSettingsFeatureGate>();
         services.AddSingleton<IInvoicePdfRenderer, QuestPdfInvoiceRenderer>();
 
@@ -169,5 +170,39 @@ public static class DependencyInjection
         });
         services.AddSingleton<IResumeStorage>(_ =>
             new R2ResumeStorage(_.GetRequiredService<IAmazonS3>(), bucketName));
+    }
+
+    /// <summary>
+    /// Registers the copilot. With a Groq API key configured, the real
+    /// Groq-backed provider runs with the deterministic stub as its fallback;
+    /// otherwise the stub serves directly. Config keys: <c>Groq:ApiKey</c>
+    /// and optional <c>Groq:Model</c> (default llama-3.3-70b-versatile).
+    /// </summary>
+    private static void AddCopilot(IServiceCollection services, IConfiguration configuration)
+    {
+        var apiKey = configuration["Groq:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            services.AddSingleton<ICopilotProvider, StubCopilotProvider>();
+            return;
+        }
+
+        var model = configuration["Groq:Model"];
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            model = "llama-3.3-70b-versatile";
+        }
+
+        services.AddSingleton<StubCopilotProvider>();
+        services.AddSingleton<ICopilotProvider>(sp =>
+        {
+            var http = new HttpClient
+            {
+                BaseAddress = new Uri("https://api.groq.com/openai/v1/"),
+                Timeout = TimeSpan.FromSeconds(30),
+            };
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            return new GroqCopilotProvider(http, model, sp.GetRequiredService<StubCopilotProvider>());
+        });
     }
 }
