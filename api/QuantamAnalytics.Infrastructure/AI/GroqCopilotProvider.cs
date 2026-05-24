@@ -142,7 +142,7 @@ public sealed class GroqCopilotProvider : ICopilotProvider
             ? value.GetString() ?? string.Empty
             : string.Empty;
 
-    private static IReadOnlyList<string> GetStringArray(JsonElement obj, string name)
+    private static List<string> GetStringArray(JsonElement obj, string name)
     {
         if (!obj.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Array)
         {
