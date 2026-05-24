@@ -4,13 +4,17 @@ namespace QuantamAnalytics.Tests;
 
 public sealed class GroqCopilotProviderTests
 {
+    // Hoisted to a static readonly field to satisfy CA1861 (no constant
+    // array arguments at call sites).
+    private static readonly string[] SampleSkills = ["C#", "Azure", "EF Core"];
+
     [Fact]
     public async Task Summarize_falls_back_to_stub_when_api_fails()
     {
         var stub = new StubCopilotProvider();
         var groq = new GroqCopilotProvider(FailingClient(), "test-model", stub);
         var request = new SummarizeCandidateRequest(
-            "Jane Candidate", "Cloud engineer", "Years of Azure work.", new[] { "C#", "Azure", "EF Core" });
+            "Jane Candidate", "Cloud engineer", "Years of Azure work.", SampleSkills);
 
         var viaGroq = await groq.SummarizeCandidateAsync(request, CancellationToken.None);
         var viaStub = await stub.SummarizeCandidateAsync(request, CancellationToken.None);

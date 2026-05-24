@@ -55,6 +55,13 @@ param r2Bucket string = ''
 @description('Public-facing base URL of the SPA, e.g. https://ambitious-dune-099500b0f.7.azurestaticapps.net. Used by anonymous public-facing endpoints (the Indeed job feed, future feeds) when constructing per-job URLs that crawlers / external systems will follow back into the app. Empty = the API falls back to its own request scheme+host, which is wrong for crawled feeds in prod.')
 param publicWebBaseUrl string = ''
 
+@description('Groq API key for the AI copilot. Empty = the deterministic stub copilot serves (no AI). Stored as a Container App secret named "groq-api-key".')
+@secure()
+param groqApiKey string = ''
+
+@description('Groq model id for the AI copilot. Empty = the app default (llama-3.3-70b-versatile).')
+param groqModel string = ''
+
 @description('When true, the API seeds demo tenants, jobs, and applications at startup.')
 param demoDataSeedOnStartup bool = false
 
@@ -195,6 +202,27 @@ var demoDataEnv = [
   }
 ]
 
+// Groq AI copilot. Only emit when a key is present so deploys without it
+// keep the deterministic stub copilot. The key is a secret; the model id
+// is plain config (empty = the app's default model).
+var hasGroq = !empty(groqApiKey)
+var groqSecrets = [
+  {
+    name: 'groq-api-key'
+    value: groqApiKey
+  }
+]
+var groqEnv = [
+  {
+    name: 'Groq__ApiKey'
+    secretRef: 'groq-api-key'
+  }
+  {
+    name: 'Groq__Model'
+    value: groqModel
+  }
+]
+
 // Public web base URL (SWA hostname) for anonymous feeds. Same double-
 // underscore mapping convention — surfaces as PublicWeb:BaseUrl in
 // IConfiguration, which JobFeedEndpoint reads at request time. Only
@@ -214,12 +242,14 @@ var allEnv = concat(
   hasCors ? corsEnv : [],
   hasAuth0 ? auth0Env : [],
   hasR2 ? r2Env : [],
+  hasGroq ? groqEnv : [],
   hasPublicWebBaseUrl ? publicWebEnv : [],
   demoDataEnv
 )
 var allSecrets = concat(
   hasPostgres ? concat(baseSecrets, postgresSecret) : baseSecrets,
-  hasR2 ? r2Secrets : []
+  hasR2 ? r2Secrets : [],
+  hasGroq ? groqSecrets : []
 )
 
 // Registry-credential secrets — only emitted when a registry is named
