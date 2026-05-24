@@ -60,6 +60,13 @@ param r2SecretAccessKey string = ''
 @secure()
 param r2Bucket string = ''
 
+@description('Groq API key for the AI copilot. Empty = the deterministic stub copilot serves (no AI).')
+@secure()
+param groqApiKey string = ''
+
+@description('Groq model id for the AI copilot. Empty = the app default (llama-3.3-70b-versatile).')
+param groqModel string = ''
+
 @description('Seed demo tenants, jobs, and recruiter pipeline data on API startup. True for the shared dev environment only.')
 param demoDataSeedOnStartup bool = false
 
@@ -173,6 +180,8 @@ module containerApp 'modules/container-app.bicep' = {
     r2AccessKeyId: r2AccessKeyId
     r2SecretAccessKey: r2SecretAccessKey
     r2Bucket: r2Bucket
+    groqApiKey: groqApiKey
+    groqModel: groqModel
     // Same SWA hostname the CORS allow-list uses — surfaces to the API as
     // PublicWeb:BaseUrl so anonymous feeds (Indeed today, others later)
     // emit per-job URLs that point at the SPA host instead of the API host.
