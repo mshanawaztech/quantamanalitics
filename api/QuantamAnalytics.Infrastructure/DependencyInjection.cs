@@ -91,8 +91,7 @@ public static class DependencyInjection
         services.AddSingleton<IDocuSealClient, StubDocuSealClient>();
         services.AddSingleton<IDicePostingClient, StubDicePostingClient>();
         services.AddSingleton<IResumeParser, StubResumeParser>();
-        services.AddSingleton<ICandidateMatcher, StubCandidateMatcher>();
-        AddCopilot(services, configuration);
+        AddAiProviders(services, configuration);
         services.AddSingleton<IFeatureGate, AppSettingsFeatureGate>();
         services.AddSingleton<IInvoicePdfRenderer, QuestPdfInvoiceRenderer>();
 
@@ -173,17 +172,19 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// Registers the copilot. With a Groq API key configured, the real
-    /// Groq-backed provider runs with the deterministic stub as its fallback;
-    /// otherwise the stub serves directly. Config keys: <c>Groq:ApiKey</c>
-    /// and optional <c>Groq:Model</c> (default llama-3.3-70b-versatile).
+    /// Registers the AI seams (copilot + candidate matcher). With a Groq API
+    /// key configured, the real Groq-backed providers run with the
+    /// deterministic stubs as their fallbacks; otherwise the stubs serve
+    /// directly. Config keys: <c>Groq:ApiKey</c> and optional <c>Groq:Model</c>
+    /// (default llama-3.3-70b-versatile).
     /// </summary>
-    private static void AddCopilot(IServiceCollection services, IConfiguration configuration)
+    private static void AddAiProviders(IServiceCollection services, IConfiguration configuration)
     {
         var apiKey = configuration["Groq:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             services.AddSingleton<ICopilotProvider, StubCopilotProvider>();
+            services.AddSingleton<ICandidateMatcher, StubCandidateMatcher>();
             return;
         }
 
@@ -194,15 +195,21 @@ public static class DependencyInjection
         }
 
         services.AddSingleton<StubCopilotProvider>();
+        services.AddSingleton<StubCandidateMatcher>();
         services.AddSingleton<ICopilotProvider>(sp =>
+            new GroqCopilotProvider(BuildGroqClient(apiKey), model, sp.GetRequiredService<StubCopilotProvider>()));
+        services.AddSingleton<ICandidateMatcher>(sp =>
+            new GroqCandidateMatcher(BuildGroqClient(apiKey), model, sp.GetRequiredService<StubCandidateMatcher>()));
+    }
+
+    private static HttpClient BuildGroqClient(string apiKey)
+    {
+        var http = new HttpClient
         {
-            var http = new HttpClient
-            {
-                BaseAddress = new Uri("https://api.groq.com/openai/v1/"),
-                Timeout = TimeSpan.FromSeconds(30),
-            };
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            return new GroqCopilotProvider(http, model, sp.GetRequiredService<StubCopilotProvider>());
-        });
+            BaseAddress = new Uri("https://api.groq.com/openai/v1/"),
+            Timeout = TimeSpan.FromSeconds(30),
+        };
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        return http;
     }
 }
