@@ -24,10 +24,11 @@ import {
   RecruiterSubmissionPhaseSummary,
 } from './core/recruiter/recruiter-portal.service';
 import { ParsedResumeResult } from './core/resume/resume-parse.models';
+import { QaBadgeComponent, QaCardComponent } from './core/ui';
 
 @Component({
   selector: 'app-recruiter-dashboard',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, QaBadgeComponent, QaCardComponent],
   template: `
     <main class="page">
       <section class="banner">
@@ -51,6 +52,25 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
       </section>
 
       @if (auth.isAuthenticated() && hasRecruitingAccess()) {
+        <section class="bgc-strip">
+          <qa-card>
+            <header class="bgc-strip__head">
+              <div>
+                <p class="eyebrow">Screening · Checkr</p>
+                <h2 class="bgc-strip__title">Background checks across your bench</h2>
+                <p class="bgc-strip__sub">Cleared, in-progress, and flagged consultants — straight to the screening dashboard.</p>
+              </div>
+              <div class="bgc-strip__pills">
+                <qa-badge tone="success">4 cleared</qa-badge>
+                <qa-badge tone="warning">2 in progress</qa-badge>
+                <qa-badge tone="danger">1 flagged</qa-badge>
+                <qa-badge tone="info">3 awaiting auth</qa-badge>
+              </div>
+            </header>
+            <a routerLink="/screening" class="bgc-strip__cta">Open screening dashboard →</a>
+          </qa-card>
+        </section>
+
         <section class="workspace">
           <article class="jobs-card">
             <p class="eyebrow">Team pulse</p>
@@ -825,6 +845,39 @@ import { ParsedResumeResult } from './core/resume/resume-parse.models';
     .banner__lede { color: rgba(255, 255, 255, 0.82); margin: 0; }
     .eyebrow--onbanner { color: var(--color-accent, #e6c9a8); }
     .banner__stripe { height: 6px; background: var(--color-accent, #e6c9a8); }
+
+    .bgc-strip { margin: 0 0 1.25rem; }
+    .bgc-strip qa-card { display: block; }
+    .bgc-strip__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .bgc-strip__title {
+      margin: 0 0 0.2rem;
+      font-size: 1.15rem;
+      color: var(--color-ink-strong, #0d1b2a);
+    }
+    .bgc-strip__sub {
+      margin: 0;
+      color: var(--color-ink-muted, #4b5a72);
+      font-size: 0.9rem;
+    }
+    .bgc-strip__pills {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .bgc-strip__cta {
+      display: inline-block;
+      color: var(--color-primary, #1a3a8f);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .bgc-strip__cta:hover { text-decoration: underline; }
     /* hero-card sits on the navy banner — keep it white so it pops */
     .banner .hero-card { background: var(--color-surface, #ffffff); }
     @media (max-width: 980px) { .banner__inner { grid-template-columns: 1fr; } }
