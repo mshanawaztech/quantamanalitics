@@ -9,70 +9,67 @@ import {
   ClientApprovalTimesheet,
 } from './core/client/client-approval.service';
 import { ClientInvoicesService } from './core/client/client-invoices.service';
-import { InvoiceResponse } from './core/contractor/invoices.service';
+import { InvoiceResponse, InvoiceStatus } from './core/contractor/invoices.service';
+import {
+  QaBadgeComponent,
+  QaButtonComponent,
+  QaCardComponent,
+  QaPageHeadComponent,
+} from './core/ui';
 
 @Component({
   selector: 'app-client-dashboard',
-  imports: [FormsModule],
+  imports: [FormsModule, QaBadgeComponent, QaButtonComponent, QaCardComponent, QaPageHeadComponent],
   template: `
     <main class="page">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">Client approval</p>
-          <h1>Approve submitted weeks before payroll and invoices move ahead.</h1>
-          <p>
-            This portal gives client-side approvers a narrow workflow: review
-            submitted contractor time, approve clean weeks, and reject anything
-            that needs correction with a visible note.
-          </p>
-        </div>
-        <div class="hero-card">
-          <p class="label">Approval access</p>
-          <strong>{{ accessLabel() }}</strong>
-          <span>{{ roleLabel() }}</span>
-        </div>
-      </section>
+      <qa-page-head
+        eyebrow="Client portal"
+        title="Approve submitted work before payroll moves ahead."
+        lede="Review submitted contractor time and invoices, approve clean weeks, and reject anything that needs correction with a visible note."
+      >
+        <qa-badge [tone]="accessBadgeTone()">{{ accessLabel() }}</qa-badge>
+      </qa-page-head>
 
       @if (!auth.isAuthenticated()) {
-        <section class="gate-card">
-          <h2>Client approval starts with sign in.</h2>
-          <p>Use Auth0 to enter the protected approval area for submitted contractor time.</p>
-          <button type="button" class="primary" (click)="auth.loginWithRedirect()">Sign in</button>
-        </section>
+        <qa-card>
+          <h2 class="card-title">Client approval starts with sign in.</h2>
+          <p class="muted">Use Auth0 to enter the protected approval area for submitted contractor time.</p>
+          <qa-button variant="primary" (click)="auth.loginWithRedirect()">Sign in</qa-button>
+        </qa-card>
       } @else if (!hasApprovalAccess()) {
-        <section class="gate-card">
-          <h2>Approval access required.</h2>
-          <p>
+        <qa-card>
+          <h2 class="card-title">Approval access required.</h2>
+          <p class="muted">
             Your current session is valid, but this workflow requires approval
             access such as Client, payroll admin, manager, or PlatformAdmin.
           </p>
-        </section>
+        </qa-card>
       } @else {
         <section class="workspace">
-          <article class="queue-card">
-            <div class="section-head">
+          <qa-card>
+            <header class="sec-head">
               <div>
                 <p class="eyebrow">Submitted queue</p>
-                <h2>Timesheets waiting on a decision</h2>
+                <h2 class="card-title">Timesheets waiting on a decision</h2>
               </div>
               @if (loading()) {
-                <span class="pill">Loading</span>
+                <qa-badge tone="neutral">Loading…</qa-badge>
               }
-            </div>
+            </header>
 
             @if (error()) {
               <p class="error" role="alert" aria-live="assertive">{{ error() }}</p>
             } @else {
-              <div class="queue-list">
+              <div class="rows">
                 @for (timesheet of submittedTimesheets(); track timesheet.id) {
-                  <article class="timesheet-card">
-                    <div class="timesheet-head">
+                  <article class="row">
+                    <div class="row__head">
                       <div>
                         <strong>{{ timesheet.contractorEmail }}</strong>
-                        <p>Week of {{ timesheet.weekStartUtc }} · {{ timesheet.totalHours }} hours</p>
-                        <p>{{ totalsLabel(timesheet) }}</p>
+                        <p class="muted">Week of {{ timesheet.weekStartUtc }} · {{ timesheet.totalHours }} hours</p>
+                        <p class="muted">{{ totalsLabel(timesheet) }}</p>
                       </div>
-                      <span class="pill">{{ timesheet.status }}</span>
+                      <qa-badge tone="warning">{{ timesheet.status }}</qa-badge>
                     </div>
 
                     <div class="entries">
@@ -85,8 +82,8 @@ import { InvoiceResponse } from './core/contractor/invoices.service';
                       }
                     </div>
 
-                    <label>
-                      Review note
+                    <label class="field">
+                      <span>Review note</span>
                       <textarea
                         rows="3"
                         [name]="'note-' + timesheet.id"
@@ -96,73 +93,81 @@ import { InvoiceResponse } from './core/contractor/invoices.service';
                     </label>
 
                     <div class="actions">
-                      <button type="button" class="primary" (click)="approve(timesheet)" [disabled]="actingId() === timesheet.id">
+                      <qa-button variant="primary" [disabled]="actingId() === timesheet.id" (click)="approve(timesheet)">
                         {{ actingId() === timesheet.id ? 'Saving…' : 'Approve' }}
-                      </button>
-                      <button type="button" class="secondary" (click)="reject(timesheet)" [disabled]="actingId() === timesheet.id">
+                      </qa-button>
+                      <qa-button variant="ghost" [disabled]="actingId() === timesheet.id" (click)="reject(timesheet)">
                         {{ actingId() === timesheet.id ? 'Saving…' : 'Reject' }}
-                      </button>
+                      </qa-button>
                     </div>
                   </article>
                 } @empty {
-                  <article class="empty-card">
+                  <div class="empty">
                     <h3>No submitted timesheets right now</h3>
-                    <p>Submitted contractor weeks will appear here for approval once the entry workflow is used.</p>
-                  </article>
+                    <p class="muted">Submitted contractor weeks will appear here for approval once the entry workflow is used.</p>
+                  </div>
                 }
               </div>
             }
-          </article>
+          </qa-card>
 
-          <aside class="history-card">
-            <p class="eyebrow">Recently reviewed</p>
-            <h2>Approved or returned weeks stay visible.</h2>
-            <div class="history-list">
+          <qa-card>
+            <header class="sec-head">
+              <div>
+                <p class="eyebrow">Recently reviewed</p>
+                <h2 class="card-title">Approved or returned weeks</h2>
+              </div>
+            </header>
+            <div class="rows rows--compact">
               @for (timesheet of reviewedTimesheets(); track timesheet.id) {
-                <article class="history-item">
-                  <strong>{{ timesheet.contractorEmail }}</strong>
-                  <p>{{ timesheet.status }} · Week of {{ timesheet.weekStartUtc }}</p>
-                  <p>{{ totalsLabel(timesheet) }}</p>
-                  @if (timesheet.reviewNote) {
-                    <p>{{ timesheet.reviewNote }}</p>
-                  }
+                <article class="row row--compact">
+                  <div class="row__head">
+                    <div>
+                      <strong>{{ timesheet.contractorEmail }}</strong>
+                      <p class="muted">Week of {{ timesheet.weekStartUtc }} · {{ totalsLabel(timesheet) }}</p>
+                      @if (timesheet.reviewNote) {
+                        <p class="note">{{ timesheet.reviewNote }}</p>
+                      }
+                    </div>
+                    <qa-badge [tone]="timesheetTone(timesheet.status)">{{ timesheet.status }}</qa-badge>
+                  </div>
                 </article>
               } @empty {
-                <p class="empty">No reviewed timesheets yet.</p>
+                <p class="muted">No reviewed timesheets yet.</p>
               }
             </div>
-          </aside>
+          </qa-card>
         </section>
 
         <section class="workspace">
-          <article class="queue-card">
-            <div class="section-head">
+          <qa-card>
+            <header class="sec-head">
               <div>
                 <p class="eyebrow">Submitted queue</p>
-                <h2>Invoices waiting on a decision</h2>
+                <h2 class="card-title">Invoices waiting on a decision</h2>
               </div>
               @if (invoicesLoading()) {
-                <span class="pill">Loading</span>
+                <qa-badge tone="neutral">Loading…</qa-badge>
               }
-            </div>
+            </header>
 
             @if (invoicesError()) {
               <p class="error" role="alert" aria-live="assertive">{{ invoicesError() }}</p>
             } @else {
-              <div class="queue-list">
+              <div class="rows">
                 @for (invoice of submittedInvoices(); track invoice.id) {
-                  <article class="timesheet-card">
-                    <div class="timesheet-head">
+                  <article class="row">
+                    <div class="row__head">
                       <div>
                         <strong>{{ invoice.invoiceNumber }}</strong>
-                        <p>{{ invoice.contractorEmail }}</p>
-                        <p>
+                        <p class="muted">{{ invoice.contractorEmail }}</p>
+                        <p class="muted">
                           {{ invoice.clientName || 'No client name' }} ·
                           Issued {{ invoice.issueDateUtc }} · Due {{ invoice.dueDateUtc }}
                         </p>
                         <p class="amount">{{ money(invoice) }}</p>
                       </div>
-                      <span class="pill">{{ invoice.status }}</span>
+                      <qa-badge tone="warning">{{ invoice.status }}</qa-badge>
                     </div>
 
                     <div class="entries">
@@ -175,8 +180,8 @@ import { InvoiceResponse } from './core/contractor/invoices.service';
                       }
                     </div>
 
-                    <label>
-                      Review note
+                    <label class="field">
+                      <span>Review note</span>
                       <textarea
                         rows="3"
                         [name]="'invoice-note-' + invoice.id"
@@ -186,125 +191,156 @@ import { InvoiceResponse } from './core/contractor/invoices.service';
                     </label>
 
                     <div class="actions">
-                      <button type="button" class="primary" (click)="approveInvoice(invoice)" [disabled]="invoiceActingId() === invoice.id">
+                      <qa-button variant="primary" [disabled]="invoiceActingId() === invoice.id" (click)="approveInvoice(invoice)">
                         {{ invoiceActingId() === invoice.id ? 'Saving…' : 'Approve' }}
-                      </button>
-                      <button type="button" class="secondary" (click)="rejectInvoice(invoice)" [disabled]="invoiceActingId() === invoice.id">
+                      </qa-button>
+                      <qa-button variant="ghost" [disabled]="invoiceActingId() === invoice.id" (click)="rejectInvoice(invoice)">
                         {{ invoiceActingId() === invoice.id ? 'Saving…' : 'Reject' }}
-                      </button>
+                      </qa-button>
                     </div>
                   </article>
                 } @empty {
-                  <article class="empty-card">
+                  <div class="empty">
                     <h3>No submitted invoices right now</h3>
-                    <p>When a contractor uses "Save and send", their invoice lands here for approval.</p>
-                  </article>
+                    <p class="muted">When a contractor uses "Save and send", their invoice lands here for approval.</p>
+                  </div>
                 }
               </div>
             }
-          </article>
+          </qa-card>
 
-          <aside class="history-card">
-            <p class="eyebrow">Reviewed &amp; paid</p>
-            <h2>Approved, rejected, or paid invoices stay visible.</h2>
-            <div class="history-list">
+          <qa-card>
+            <header class="sec-head">
+              <div>
+                <p class="eyebrow">Reviewed &amp; paid</p>
+                <h2 class="card-title">Approved, rejected, or paid invoices</h2>
+              </div>
+            </header>
+            <div class="rows rows--compact">
               @for (invoice of reviewedInvoices(); track invoice.id) {
-                <article class="history-item">
-                  <strong>{{ invoice.invoiceNumber }}</strong>
-                  <p>{{ invoice.status }} · {{ money(invoice) }}</p>
-                  <p>{{ invoice.contractorEmail }}</p>
-                  @if (invoice.reviewerNote) {
-                    <p>{{ invoice.reviewerNote }}</p>
-                  }
+                <article class="row row--compact">
+                  <div class="row__head">
+                    <div>
+                      <strong>{{ invoice.invoiceNumber }}</strong>
+                      <p class="muted">{{ money(invoice) }} · {{ invoice.contractorEmail }}</p>
+                      @if (invoice.reviewerNote) {
+                        <p class="note">{{ invoice.reviewerNote }}</p>
+                      }
+                    </div>
+                    <qa-badge [tone]="invoiceTone(invoice.status)">{{ invoice.status }}</qa-badge>
+                  </div>
                   @if (canMarkPaid() && invoice.status === 'Approved') {
-                    <button type="button" class="primary" (click)="markPaid(invoice)" [disabled]="invoiceActingId() === invoice.id">
-                      {{ invoiceActingId() === invoice.id ? 'Saving…' : 'Mark paid' }}
-                    </button>
+                    <div class="actions">
+                      <qa-button variant="primary" [disabled]="invoiceActingId() === invoice.id" (click)="markPaid(invoice)">
+                        {{ invoiceActingId() === invoice.id ? 'Saving…' : 'Mark paid' }}
+                      </qa-button>
+                    </div>
                   }
                 </article>
               } @empty {
-                <p class="empty">No reviewed invoices yet.</p>
+                <p class="muted">No reviewed invoices yet.</p>
               }
             </div>
-          </aside>
+          </qa-card>
         </section>
       }
     </main>
   `,
   styles: `
-    .page { width: min(1180px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
-    .hero, .workspace { display: grid; gap: 1.25rem; }
-    .hero { grid-template-columns: 1.15fr 0.85fr; margin-bottom: 1.5rem; }
-    .workspace { grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr); align-items: start; }
-    .hero-card, .gate-card, .queue-card, .history-card, .timesheet-card, .empty-card, .history-item {
-      padding: 1.6rem;
-      border-radius: 1.5rem;
-      background: var(--color-surface, #ffffff);
+    .page { width: min(1180px, 100%); margin: 0 auto; padding: 1.75rem 0 3rem; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr);
+      gap: 1.1rem;
+      align-items: start;
+      margin-bottom: 1.1rem;
+    }
+    qa-card { display: block; }
+
+    .sec-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.85rem;
+    }
+    .eyebrow {
+      margin: 0 0 0.25rem;
+      color: var(--color-primary, #1a3a8f);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.74rem;
+      font-weight: 800;
+    }
+    .card-title { margin: 0; font-size: 1.1rem; color: var(--color-ink-strong, #0d1b2a); }
+    .muted { margin: 0.15rem 0 0; color: var(--color-ink-muted, #4b5a72); font-size: 0.88rem; }
+    .note { margin: 0.4rem 0 0; font-style: italic; color: var(--color-ink-muted, #4b5a72); font-size: 0.85rem; }
+    .amount {
+      margin: 0.45rem 0 0;
+      color: var(--color-primary, #1a3a8f);
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .rows { display: grid; gap: 0.8rem; }
+    .rows--compact { gap: 0.55rem; }
+    .row {
+      padding: 1rem 1.1rem;
       border: 1px solid var(--color-border, #d8dee9);
-      box-shadow: var(--shadow-md);
+      border-radius: 0.75rem;
+      background: var(--color-surface, #fff);
     }
-    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
-    h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
-    h2, h3 { margin: 0; }
-    p { color: var(--color-ink-muted, #4b5a72); line-height: 1.7; }
-    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary, #1a3a8f); font-weight: 800; }
-    .hero-card strong { display: block; font-size: 1.2rem; margin-bottom: 0.45rem; }
-    .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
-    .pill {
-      padding: 0.35rem 0.7rem;
-      border-radius: 999px;
-      background: var(--color-surface-alt, #f0f3f9);
-      color: var(--color-ink, #1a2942);
-      font-size: 0.85rem;
-      font-weight: 700;
+    .row--compact { padding: 0.8rem 0.95rem; }
+    .row__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.7rem;
     }
-    .queue-list, .history-list { display: grid; gap: 0.9rem; }
-    .timesheet-card, .history-item, .empty-card { background: var(--color-surface, #ffffff); }
-    .timesheet-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 0.9rem; }
-    .entries { display: grid; gap: 0.45rem; margin-bottom: 0.9rem; }
+    .row--compact .row__head { margin-bottom: 0; }
+
+    .entries { display: grid; gap: 0.4rem; margin-bottom: 0.9rem; }
     .entry-row {
       display: grid;
       grid-template-columns: 1.1fr 1fr auto;
       gap: 0.8rem;
-      padding: 0.65rem 0.8rem;
-      border-radius: 0.85rem;
+      padding: 0.55rem 0.75rem;
+      border-radius: 0.55rem;
       background: var(--color-surface-alt, #f0f3f9);
       color: var(--color-ink-muted, #4b5a72);
+      font-size: 0.88rem;
     }
-    label { display: grid; gap: 0.35rem; color: var(--color-ink, #1a2942); font-weight: 600; }
-    textarea {
+    .entry-row--invoice { grid-template-columns: 1.4fr 1fr auto; }
+
+    .field { display: grid; gap: 0.3rem; }
+    .field > span { color: var(--color-ink, #1a2942); font-weight: 600; font-size: 0.88rem; }
+    .field textarea {
       width: 100%;
-      padding: 0.85rem 0.95rem;
-      border-radius: 0.9rem;
+      padding: 0.7rem 0.85rem;
+      border-radius: 0.6rem;
       border: 1px solid var(--color-border, #d8dee9);
-      background: var(--color-surface, #ffffff);
+      background: #fff;
       font: inherit;
     }
-    .actions { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: 0.9rem; }
-    .primary, .secondary {
-      padding: 0.9rem 1rem;
-      border-radius: 999px;
-      font-weight: 700;
-      cursor: pointer;
+    .field textarea:focus {
+      outline: 3px solid rgba(26,58,143,0.32);
+      outline-offset: 1px;
+      border-color: var(--color-primary, #1a3a8f);
     }
-    .primary {
-      border: 0;
-      background: var(--color-primary, #1a3a8f);
-      color: var(--color-ink-onblue, #ffffff);
+
+    .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.9rem; }
+    .empty {
+      padding: 1.2rem;
+      border: 1px dashed var(--color-border, #d8dee9);
+      border-radius: 0.75rem;
+      text-align: center;
     }
-    .secondary {
-      border: 1px solid var(--color-border, #d8dee9);
-      background: var(--color-surface, #ffffff);
-      color: var(--color-primary, #1a3a8f);
-    }
-    .amount { color: var(--color-primary, #1a3a8f); font-weight: 800; font-size: 1.05rem; }
-    .entry-row--invoice { grid-template-columns: 1.4fr 1fr auto; }
-    .history-item .primary { margin-top: 0.7rem; padding: 0.6rem 0.9rem; font-size: 0.9rem; }
-    .empty, .error { color: var(--color-ink-muted, #4b5a72); }
-    .error { color: #b91c1c; font-weight: 600; }
+    .error { color: var(--color-danger, #b02a37); font-weight: 600; }
+
     @media (max-width: 980px) {
-      .hero, .workspace, .entry-row { grid-template-columns: 1fr; }
-      .timesheet-head { flex-direction: column; }
+      .workspace { grid-template-columns: 1fr; }
     }
   `,
 })
@@ -332,7 +368,6 @@ export class ClientDashboardComponent {
       if (!this.hasApprovalAccess()) {
         return;
       }
-
       this.loadTimesheets();
       this.loadInvoices();
     });
@@ -343,15 +378,28 @@ export class ClientDashboardComponent {
   }
 
   protected accessLabel(): string {
-    if (!this.auth.isAuthenticated()) {
-      return 'Awaiting sign in';
-    }
-
-    return this.hasApprovalAccess() ? 'Approval workflow ready' : 'Authenticated without approval access';
+    if (!this.auth.isAuthenticated()) return 'Awaiting sign in';
+    return this.hasApprovalAccess() ? 'Approval workflow ready' : 'No approval access';
   }
 
-  protected roleLabel(): string {
-    return this.me.data()?.roles.join(', ') || 'Role not yet available';
+  protected accessBadgeTone(): 'success' | 'warning' | 'neutral' {
+    if (!this.auth.isAuthenticated()) return 'neutral';
+    return this.hasApprovalAccess() ? 'success' : 'warning';
+  }
+
+  protected timesheetTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
+    if (status === 'Approved') return 'success';
+    if (status === 'Submitted') return 'warning';
+    if (status === 'Rejected') return 'danger';
+    return 'neutral';
+  }
+
+  protected invoiceTone(status: InvoiceStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+    if (status === 'Approved') return 'success';
+    if (status === 'Submitted') return 'warning';
+    if (status === 'Rejected') return 'danger';
+    if (status === 'Paid') return 'info';
+    return 'neutral';
   }
 
   protected submittedTimesheets(): ClientApprovalTimesheet[] {
@@ -371,9 +419,7 @@ export class ClientDashboardComponent {
     this.error.set(null);
 
     this.approvals.approve(timesheet.id, this.reviewNotes[timesheet.id] || null).subscribe({
-      next: (updated) => {
-        this.applyUpdatedTimesheet(updated);
-      },
+      next: (updated) => this.applyUpdatedTimesheet(updated),
       error: (error: unknown) => {
         this.actingId.set(null);
         this.error.set(this.toErrorMessage(error));
@@ -384,11 +430,7 @@ export class ClientDashboardComponent {
   protected reject(timesheet: ClientApprovalTimesheet): void {
     const reason = (this.reviewNotes[timesheet.id] ?? '').trim();
     if (reason.length === 0) {
-      // Silent rejects are bad audit trail — force the reviewer to say
-      // why so the contractor sees a real reason in their feedback.
-      this.error.set(
-        'Add a review note explaining why this timesheet is being rejected before sending it back.',
-      );
+      this.error.set('Add a review note explaining why this timesheet is being rejected before sending it back.');
       return;
     }
 
@@ -396,9 +438,7 @@ export class ClientDashboardComponent {
     this.error.set(null);
 
     this.approvals.reject(timesheet.id, reason).subscribe({
-      next: (updated) => {
-        this.applyUpdatedTimesheet(updated);
-      },
+      next: (updated) => this.applyUpdatedTimesheet(updated),
       error: (error: unknown) => {
         this.actingId.set(null);
         this.error.set(this.toErrorMessage(error));
@@ -462,11 +502,7 @@ export class ClientDashboardComponent {
   protected rejectInvoice(invoice: InvoiceResponse): void {
     const reason = (this.invoiceNotes[invoice.id] ?? '').trim();
     if (reason.length === 0) {
-      // A rejection without a reason leaves the contractor guessing — force
-      // a visible note so the feedback loop is honest.
-      this.invoicesError.set(
-        'Add a review note explaining why this invoice is being rejected before sending it back.',
-      );
+      this.invoicesError.set('Add a review note explaining why this invoice is being rejected before sending it back.');
       return;
     }
 
@@ -522,7 +558,6 @@ export class ClientDashboardComponent {
     if (error instanceof HttpErrorResponse) {
       return error.error?.detail ?? error.error?.title ?? error.message;
     }
-
     return 'Unknown Error';
   }
 }
