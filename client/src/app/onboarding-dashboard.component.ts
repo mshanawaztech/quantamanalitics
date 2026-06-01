@@ -7,65 +7,63 @@ import {
   OnboardingSummaryRow,
   OnboardingSummaryTotals,
 } from './core/onboarding/onboarding-dashboard.service';
+import {
+  QaBadgeComponent,
+  QaButtonComponent,
+  QaCardComponent,
+  QaPageHeadComponent,
+  QaProgressComponent,
+  QaStatComponent,
+} from './core/ui';
 
 @Component({
   selector: 'app-onboarding-dashboard',
-  imports: [],
+  imports: [
+    QaBadgeComponent,
+    QaButtonComponent,
+    QaCardComponent,
+    QaPageHeadComponent,
+    QaProgressComponent,
+    QaStatComponent,
+  ],
   template: `
     <main class="page">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">Onboarding</p>
-          <h1>Track every consultant's onboarding to done.</h1>
-          <p>
-            A live view of checklist completion across your bench — who's ready,
-            who's mid-flight, and who hasn't started — so nothing stalls before a
-            consultant can be billed.
-          </p>
-        </div>
-        <div class="hero-card">
-          <p class="label">Overall completion</p>
-          <strong>{{ totals()?.overallCompletionPercent ?? 0 }}%</strong>
-          <span>{{ totals()?.consultants ?? 0 }} consultants tracked</span>
-        </div>
-      </section>
+      <qa-page-head
+        eyebrow="Onboarding · management"
+        title="Track every consultant's onboarding to done."
+        lede="A live view of checklist completion across your bench — who's ready, who's mid-flight, and who hasn't started — so nothing stalls before a consultant can be billed."
+      >
+        <qa-button variant="primary">Apply template</qa-button>
+      </qa-page-head>
 
       @if (!auth.isAuthenticated()) {
-        <section class="gate-card">
-          <h2>Sign in to view onboarding progress.</h2>
-          <button type="button" class="primary" (click)="auth.loginWithRedirect()">Sign in</button>
-        </section>
+        <qa-card>
+          <h2 class="card-title">Sign in to view onboarding progress.</h2>
+          <qa-button variant="primary" (click)="auth.loginWithRedirect()">Sign in</qa-button>
+        </qa-card>
       } @else if (!hasAccess()) {
-        <section class="gate-card">
-          <h2>Recruiting access required.</h2>
-          <p>This dashboard needs recruiting or admin access.</p>
-        </section>
+        <qa-card>
+          <h2 class="card-title">Recruiting access required.</h2>
+          <p class="muted">This dashboard needs recruiting or admin access.</p>
+        </qa-card>
       } @else {
         <section class="stat-row">
-          <article class="stat-card">
-            <span class="stat-num">{{ totals()?.consultants ?? 0 }}</span>
-            <span class="stat-label">Consultants</span>
-          </article>
-          <article class="stat-card">
-            <span class="stat-num">{{ totals()?.complete ?? 0 }}</span>
-            <span class="stat-label">Fully onboarded</span>
-          </article>
-          <article class="stat-card">
-            <span class="stat-num">{{ totals()?.inProgress ?? 0 }}</span>
-            <span class="stat-label">In progress</span>
-          </article>
+          <qa-stat label="Consultants" [value]="totals()?.consultants ?? 0" detail="tracked" />
+          <qa-stat label="Fully onboarded" [value]="totals()?.complete ?? 0" detail="complete" />
+          <qa-stat label="In progress" [value]="totals()?.inProgress ?? 0" detail="action needed" />
+          <qa-stat label="Overall" [value]="(totals()?.overallCompletionPercent ?? 0) + '%'" detail="avg completion" />
         </section>
 
-        <section class="board-card">
-          <div class="section-head">
+        <qa-card>
+          <header class="sec-head">
             <div>
               <p class="eyebrow">By consultant</p>
-              <h2>Completion progress</h2>
+              <h2 class="card-title">Completion progress</h2>
             </div>
             @if (loading()) {
-              <span class="pill">Loading</span>
+              <qa-badge tone="neutral">Loading…</qa-badge>
             }
-          </div>
+          </header>
 
           @if (error()) {
             <p class="error" role="alert" aria-live="assertive">{{ error() }}</p>
@@ -73,71 +71,95 @@ import {
             <div class="rows">
               @for (row of consultants(); track row.candidateProfileId) {
                 <article class="row">
-                  <div class="row-head">
+                  <div class="row__head">
                     <div>
                       <strong>{{ row.name }}</strong>
-                      <p>{{ row.email }}</p>
+                      <p class="muted">{{ row.email }}</p>
                     </div>
-                    <span class="status" [class]="statusClass(row.status)">{{ row.status }}</span>
+                    <qa-badge [tone]="badgeTone(row.status)">{{ row.status }}</qa-badge>
                   </div>
-
-                  <div class="bar" [attr.aria-label]="row.completionPercent + '% complete'">
-                    <div class="bar-fill" [style.width.%]="row.completionPercent"></div>
-                  </div>
-
-                  <div class="row-meta">
+                  <qa-progress [value]="row.completionPercent" [ariaLabel]="row.name + ' ' + row.completionPercent + '% complete'" />
+                  <div class="row__meta">
                     <span>{{ row.completionPercent }}%</span>
                     <span>{{ row.completed }} done · {{ row.inReview }} in review · {{ row.pending }} pending</span>
                   </div>
                 </article>
               } @empty {
-                <article class="empty-card">
+                <article class="empty">
                   <h3>No onboarding items yet</h3>
-                  <p>Assign checklist items to a consultant and their progress appears here.</p>
+                  <p class="muted">Assign checklist items to a consultant and their progress appears here.</p>
                 </article>
               }
             </div>
           }
-        </section>
+        </qa-card>
       }
     </main>
   `,
   styles: `
-    .page { width: min(1180px, 100%); margin: 0 auto; padding: 2rem 0 3rem; }
-    .hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 1.25rem; margin-bottom: 1.5rem; }
-    .hero-card, .gate-card, .stat-card, .board-card, .row, .empty-card {
-      padding: 1.6rem;
-      border-radius: 1.5rem;
-      background: var(--color-surface, #ffffff);
-      border: 1px solid var(--color-border, #d8dee9);
-      box-shadow: var(--shadow-md);
+    .page { width: min(1180px, 100%); margin: 0 auto; padding: 1.75rem 0 3rem; }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.1rem;
+      margin-bottom: 1.25rem;
     }
-    .eyebrow { margin: 0 0 0.7rem; color: var(--color-primary, #1a3a8f); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 800; }
-    h1 { margin: 0 0 0.8rem; font-size: clamp(2.1rem, 3.8vw, 4.2rem); line-height: 0.98; }
-    h2, h3 { margin: 0; }
-    p { color: var(--color-ink-muted, #4b5a72); line-height: 1.7; }
-    .label { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-primary, #1a3a8f); font-weight: 800; }
-    .hero-card strong { display: block; font-size: 2.4rem; line-height: 1; margin-bottom: 0.35rem; color: var(--color-primary, #1a3a8f); }
-    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.5rem; }
-    .stat-card { display: grid; gap: 0.3rem; text-align: center; }
-    .stat-num { font-size: 2.2rem; font-weight: 800; color: var(--color-primary, #1a3a8f); }
-    .stat-label { color: var(--color-ink-muted, #4b5a72); font-weight: 600; }
-    .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
-    .pill { padding: 0.35rem 0.7rem; border-radius: 999px; background: var(--color-surface-alt, #f0f3f9); color: var(--color-ink, #1a2942); font-size: 0.85rem; font-weight: 700; }
-    .rows { display: grid; gap: 0.9rem; }
-    .row-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 0.7rem; }
-    .row-head strong { font-size: 1.05rem; }
-    .status { padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
-    .status--complete { background: #dcfce7; color: #166534; }
-    .status--review { background: #dbeafe; color: #1e40af; }
-    .status--progress { background: var(--color-surface-alt, #f0f3f9); color: #475569; }
-    .bar { height: 10px; border-radius: 999px; background: var(--color-surface-alt, #eef2f9); overflow: hidden; }
-    .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #1e5fd0, #1733a6); transition: width 0.3s ease; }
-    .row-meta { display: flex; justify-content: space-between; gap: 1rem; margin-top: 0.55rem; color: var(--color-ink-muted, #4b5a72); font-weight: 600; font-size: 0.92rem; }
-    .primary { padding: 0.9rem 1rem; border-radius: 999px; font-weight: 700; cursor: pointer; border: 0; background: var(--color-primary, #1a3a8f); color: #ffffff; }
-    .error { color: #b91c1c; font-weight: 600; }
+    qa-card { display: block; margin-bottom: 1.1rem; }
+
+    .sec-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.85rem;
+    }
+    .eyebrow {
+      margin: 0 0 0.25rem;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-primary, #1a3a8f);
+    }
+    .card-title { margin: 0; font-size: 1.1rem; color: var(--color-ink-strong, #0d1b2a); }
+    .muted { margin: 0.15rem 0 0; color: var(--color-ink-muted, #4b5a72); font-size: 0.88rem; }
+
+    .rows { display: grid; gap: 0.7rem; }
+    .row {
+      padding: 0.95rem 1.1rem;
+      border: 1px solid var(--color-border, #d8dee9);
+      border-radius: 0.75rem;
+      background: var(--color-surface, #fff);
+    }
+    .row__head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.6rem;
+    }
+    .row__head strong { display: block; color: var(--color-ink-strong, #0d1b2a); }
+    .row__meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.55rem;
+      color: var(--color-ink-muted, #4b5a72);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .empty {
+      padding: 1.5rem;
+      border: 1px dashed var(--color-border, #d8dee9);
+      border-radius: 0.75rem;
+      text-align: center;
+    }
+    .error { color: var(--color-danger, #b02a37); font-weight: 600; }
+
     @media (max-width: 980px) {
-      .hero, .stat-row { grid-template-columns: 1fr; }
+      .stat-row { grid-template-columns: repeat(2, 1fr); }
     }
   `,
 })
@@ -162,10 +184,11 @@ export class OnboardingDashboardComponent {
     });
   }
 
-  protected statusClass(status: string): string {
-    if (status === 'Complete') return 'status--complete';
-    if (status === 'In review') return 'status--review';
-    return 'status--progress';
+  protected badgeTone(status: string): 'success' | 'info' | 'warning' | 'neutral' {
+    if (status === 'Complete') return 'success';
+    if (status === 'In review') return 'info';
+    if (status === 'In progress') return 'warning';
+    return 'neutral';
   }
 
   private load(): void {
