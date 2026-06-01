@@ -9,6 +9,7 @@ import { JobDetailComponent } from './job-detail.component';
 import { JobsListComponent } from './jobs-list.component';
 import { MarketingShellComponent } from './marketing-shell.component';
 import { NotFoundComponent } from './not-found.component';
+import { BgcDashboardComponent } from './bgc-dashboard.component';
 import { OnboardingConsultantComponent } from './onboarding-consultant.component';
 import { OnboardingDashboardComponent } from './onboarding-dashboard.component';
 import { RecruiterDashboardComponent } from './recruiter-dashboard.component';
@@ -92,6 +93,10 @@ export const routes: Routes = [
       {
         path: 'onboarding/me',
         component: OnboardingConsultantComponent,
+      },
+      {
+        path: 'screening',
+        component: BgcDashboardComponent,
       },
       {
         path: 'recruiter',
