@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -117,6 +118,10 @@ public static class AuthExtensions
                 .RequireAuthenticatedUser()
                 .Build();
         });
+
+        // Platform-owner email allowlist → PlatformAdmin role.
+        // Runs on every authenticated request; empty config is a no-op.
+        services.AddSingleton<IClaimsTransformation, PlatformOwnerClaimsTransformer>();
 
         return true;
     }
