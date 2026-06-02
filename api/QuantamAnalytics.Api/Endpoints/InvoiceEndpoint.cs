@@ -340,10 +340,27 @@ public static class InvoiceEndpoint
             return BadRequestProblem("An invoice must have at least one line item.");
         }
 
+        // Show the contractor the REAL number they'll get on save instead of
+        // a placeholder "DRAFT-YYYY". We peek the per-tenant per-year counter
+        // without minting — the sequence row stays untouched, so saving later
+        // still mints the same number.
         var customNumber = body.InvoiceNumber?.Trim();
-        var invoiceNumber = string.IsNullOrWhiteSpace(customNumber)
-            ? "DRAFT-" + body.IssueDateUtc.Year
-            : customNumber;
+        string invoiceNumber;
+        if (!string.IsNullOrWhiteSpace(customNumber))
+        {
+            invoiceNumber = customNumber;
+        }
+        else
+        {
+            var year = body.IssueDateUtc.Year;
+            var sequence = await db.InvoiceNumberSequences
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x => x.TenantId == currentTenant.TenantId.Value && x.Year == year,
+                    cancellationToken);
+            var nextValue = sequence?.NextValue ?? 1;
+            invoiceNumber = $"INV-{year}-{nextValue:D4}";
+        }
 
         Invoice invoice;
         try
