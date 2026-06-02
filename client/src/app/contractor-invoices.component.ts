@@ -1448,6 +1448,16 @@ export class ContractorInvoicesComponent {
   constructor() {
     this.startNewInvoice();
     this.refresh();
+    // Restore any in-progress draft from a previous session so a refresh,
+    // accidental tab close, or transient tenant-claim hiccup mid-flow
+    // doesn't make the contractor re-type everything (notes included).
+    this.restoreDraft();
+    // Autosave every 3 s + on beforeunload — covers refresh, navigation
+    // away, and silent reloads. Only saves while creating a new draft
+    // (selectedInvoiceId === null); editing an existing invoice doesn't
+    // touch the local store.
+    this.draftSaveTimer = setInterval(() => this.saveDraft(), 3000);
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
 
     // Pre-load the tenant's branding so the form can show a preview of
     // the letterhead that'll appear on the saved invoice / PDF. Backend
@@ -1886,6 +1896,97 @@ export class ContractorInvoicesComponent {
     });
     this.selectedInvoiceId.set(saved.id);
     this.formInvoiceNumber.set(saved.invoiceNumber);
+    // A successful save means the draft we were holding in localStorage is
+    // done — drop it so the next "+ New invoice" starts truly clean.
+    this.clearDraft();
+  }
+
+  // ── Draft autosave (localStorage) ───────────────────────────────────
+  /**
+   * Storage key for the in-progress draft. Versioned so a future shape
+   * change can ignore an incompatible snapshot without crashing.
+   */
+  private static readonly DRAFT_KEY = 'qa:contractor-invoice-draft-v1';
+
+  /** setInterval handle so the timer can be stopped if needed. */
+  private draftSaveTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Bound handler so we can both add and remove the same reference. */
+  private beforeUnloadHandler = (): void => this.saveDraft();
+
+  /**
+   * Serializes the current new-draft form to localStorage. No-op when
+   * editing an existing invoice (selectedInvoiceId !== null) — only
+   * unsaved drafts get persisted locally.
+   */
+  private saveDraft(): void {
+    if (this.selectedInvoiceId() !== null) return;
+    try {
+      const snapshot = {
+        formClientName: this.formClientName,
+        formVendorName: this.formVendorName,
+        formIssueDate: this.formIssueDate,
+        formDueDate: this.formDueDate,
+        formPeriodStart: this.formPeriodStart,
+        formPeriodEnd: this.formPeriodEnd,
+        formCurrency: this.formCurrency,
+        formTaxRate: this.formTaxRate,
+        formNotes: this.formNotes,
+        formInvoiceNumberInput: this.formInvoiceNumberInput,
+        formRemitBankName: this.formRemitBankName,
+        formRemitAccountNumber: this.formRemitAccountNumber,
+        formRemitRoutingNumber: this.formRemitRoutingNumber,
+        formRemitContactPhone: this.formRemitContactPhone,
+        formLineItems: this.formLineItems(),
+      };
+      localStorage.setItem(ContractorInvoicesComponent.DRAFT_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Storage full / private mode / SSR — best-effort, ignore.
+    }
+  }
+
+  /**
+   * Rehydrates the new-draft form from localStorage when the component
+   * mounts. Defensive: missing or malformed values fall back to whatever
+   * startNewInvoice() set up first.
+   */
+  private restoreDraft(): void {
+    try {
+      const raw = localStorage.getItem(ContractorInvoicesComponent.DRAFT_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw) as Record<string, unknown>;
+      if (!s || typeof s !== 'object') return;
+      if (typeof s['formClientName'] === 'string') this.formClientName = s['formClientName'];
+      if (typeof s['formVendorName'] === 'string') this.formVendorName = s['formVendorName'];
+      if (typeof s['formIssueDate'] === 'string' && s['formIssueDate']) this.formIssueDate = s['formIssueDate'];
+      if (typeof s['formDueDate'] === 'string' && s['formDueDate']) this.formDueDate = s['formDueDate'];
+      if (typeof s['formPeriodStart'] === 'string' && s['formPeriodStart']) this.formPeriodStart = s['formPeriodStart'];
+      if (typeof s['formPeriodEnd'] === 'string' && s['formPeriodEnd']) this.formPeriodEnd = s['formPeriodEnd'];
+      if (typeof s['formCurrency'] === 'string' && s['formCurrency']) this.formCurrency = s['formCurrency'];
+      if (typeof s['formTaxRate'] === 'string') this.formTaxRate = s['formTaxRate'];
+      if (typeof s['formNotes'] === 'string') this.formNotes = s['formNotes'];
+      if (typeof s['formInvoiceNumberInput'] === 'string') this.formInvoiceNumberInput = s['formInvoiceNumberInput'];
+      if (typeof s['formRemitBankName'] === 'string') this.formRemitBankName = s['formRemitBankName'];
+      if (typeof s['formRemitAccountNumber'] === 'string') this.formRemitAccountNumber = s['formRemitAccountNumber'];
+      if (typeof s['formRemitRoutingNumber'] === 'string') this.formRemitRoutingNumber = s['formRemitRoutingNumber'];
+      if (typeof s['formRemitContactPhone'] === 'string') this.formRemitContactPhone = s['formRemitContactPhone'];
+      const items = s['formLineItems'];
+      if (Array.isArray(items) && items.length > 0) {
+        this.formLineItems.set(items as DraftLineItem[]);
+      }
+    } catch {
+      // Corrupt snapshot from an older shape — silently fall back to the
+      // empty form already set up by startNewInvoice().
+    }
+  }
+
+  /** Wipes the local draft after a successful save / explicit cancel. */
+  private clearDraft(): void {
+    try {
+      localStorage.removeItem(ContractorInvoicesComponent.DRAFT_KEY);
+    } catch {
+      // Best-effort cleanup; nothing we can do if the API throws.
+    }
   }
 
   /**
@@ -2022,6 +2123,16 @@ function isoAddDays(iso: string, days: number): string {
 
 function toMessage(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
+    // 412 = tenant_id claim missing on the session. The user's draft is
+    // safe (autosave covers it) — they just need to re-sign-in or accept
+    // the bootstrap banner. Friendlier than the raw "tenant_id claim
+    // required in the authenticated session." ProblemDetails text.
+    if (error.status === 412) {
+      return 'Your session lost its tenant context. Sign in again or reload — your draft is preserved.';
+    }
+    if (error.status === 401) {
+      return 'Sign-in expired. Please sign in again — your draft is preserved.';
+    }
     const body = error.error as { detail?: string; title?: string } | null;
     return body?.detail ?? body?.title ?? error.message;
   }
