@@ -25,10 +25,12 @@ import {
 } from './core/contractor/contractor-timesheet.service';
 import {
   QaAlertComponent,
+  QaBadgeComponent,
   QaButtonComponent,
   QaEmptyStateComponent,
   QaInputComponent,
   QaLogoComponent,
+  QaPageHeadComponent,
 } from './core/ui';
 
 /**
@@ -59,28 +61,28 @@ import {
     FormsModule,
     RouterLink,
     QaAlertComponent,
+    QaBadgeComponent,
     QaButtonComponent,
     QaEmptyStateComponent,
     QaInputComponent,
     QaLogoComponent,
+    QaPageHeadComponent,
   ],
   template: `
     <main class="page">
-      <header class="page__head">
-        <div class="page__head-left">
-          <h1>Invoices</h1>
-          <p class="lede">Create, manage and track your invoices</p>
-        </div>
-        <div class="page__head-actions">
-          <qa-button
-            variant="ghost"
-            (click)="toggleInvoicesPanel()"
-          >{{ showInvoicesPanel() ? 'Hide invoices' : 'Your invoices' }}
-            ({{ invoices().length }})
-          </qa-button>
-          <qa-button variant="primary" (click)="startNewInvoice()">+ New invoice</qa-button>
-        </div>
-      </header>
+      <qa-page-head
+        eyebrow="Contractor"
+        title="Invoices"
+        lede="Create, manage, and track your invoices."
+      >
+        <qa-button
+          variant="ghost"
+          (click)="toggleInvoicesPanel()"
+        >{{ showInvoicesPanel() ? 'Hide invoices' : 'Your invoices' }}
+          ({{ invoices().length }})
+        </qa-button>
+        <qa-button variant="primary" (click)="startNewInvoice()">+ New invoice</qa-button>
+      </qa-page-head>
 
       @if (loadError()) {
         <qa-alert tone="danger" role="alert">{{ loadError() }}</qa-alert>
@@ -134,9 +136,7 @@ import {
                   >
                     <div class="row__head">
                       <span class="row__number">{{ inv.invoiceNumber || '—' }}</span>
-                      <span class="row__status row__status--{{ inv.status.toLowerCase() }}">
-                        {{ inv.status }}
-                      </span>
+                      <qa-badge [tone]="statusTone(inv.status)">{{ inv.status }}</qa-badge>
                     </div>
                     <div class="row__body">
                       <div class="row__client">{{ inv.clientName || 'Unspecified client' }}</div>
@@ -1883,6 +1883,17 @@ export class ContractorInvoicesComponent {
       case 'Rejected': return inv.reviewedAtUtc ? `Rejected ${inv.reviewedAtUtc.slice(0, 10)}` : 'Rejected';
       default: return `Updated ${inv.updatedAtUtc.slice(0, 10)}`;
     }
+  }
+
+  /** Status badge tone — keeps the contractor list pills aligned with every
+   *  other portal (success = Approved, warning = Submitted, info = Paid,
+   *  danger = Rejected, neutral = Draft). */
+  protected statusTone(status: InvoiceStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+    if (status === 'Approved') return 'success';
+    if (status === 'Submitted') return 'warning';
+    if (status === 'Rejected') return 'danger';
+    if (status === 'Paid') return 'info';
+    return 'neutral';
   }
 
   /** Replace the row in the list (or prepend it) and re-select it. */
